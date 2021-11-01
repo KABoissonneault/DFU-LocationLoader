@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace DaggerfallWorkshop.Loc
 {
+#if UNITY_EDITOR
     public class LocationPrefabEditor : LocationEditor
     {
         private enum EditMode { EditLocation, ObjectPicker };
@@ -360,4 +361,5 @@ namespace DaggerfallWorkshop.Loc
                 DestroyImmediate(parent.gameObject);
         }
     }
+#endif
 }

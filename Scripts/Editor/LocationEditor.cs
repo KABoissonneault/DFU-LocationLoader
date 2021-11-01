@@ -6,6 +6,7 @@ using UnityEngine;
 /// </summary>
 namespace DaggerfallWorkshop.Loc
 {
+#if UNITY_EDITOR
     public class LocationEditor : EditorWindow
     {
         protected GUIStyle emptyBG = new GUIStyle();
@@ -43,4 +44,5 @@ namespace DaggerfallWorkshop.Loc
             return colorTexture;
         }
     }
+#endif
 }

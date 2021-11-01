@@ -5,6 +5,7 @@ using System.IO;
 
 namespace DaggerfallWorkshop.Loc
 {
+#if UNITY_EDITOR
     public class LocationInstanceEditor : LocationEditor
     {
         List<LocationInstance> locationInstance;
@@ -174,4 +175,5 @@ namespace DaggerfallWorkshop.Loc
             }
         }
     }
+#endif
 }
