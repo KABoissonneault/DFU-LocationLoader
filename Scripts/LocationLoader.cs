@@ -42,11 +42,11 @@ namespace DaggerfallWorkshop.Loc
                     string modFolderPrefix = dummyFilePath.Substring(17);
                     modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
 
-                    string regionFolder = modFolderPrefix + "/locations/locationprefab/";
+                    string prefabFolder = modFolderPrefix + "/locations/locationprefab/";
 
                     foreach (string filename in mod.AssetBundle.GetAllAssetNames()
-                        .Where(file => file.StartsWith(regionFolder, System.StringComparison.InvariantCultureIgnoreCase) && file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase))
-                        .Select(file => Path.GetFileName(file)))
+                        .Where(file => file.StartsWith(prefabFolder, System.StringComparison.InvariantCultureIgnoreCase) && file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase))
+                        .Select(file => Path.GetFileName(file).ToLower()))
                     {
                         modLocationPrefabs[filename] = mod;
                     }
@@ -58,11 +58,11 @@ namespace DaggerfallWorkshop.Loc
                     string modFolderPrefix = dummyFilePath.Substring(17);
                     modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
 
-                    string regionFolder = modFolderPrefix + "/Locations/LocationPrefab/";
+                    string prefabFolder = modFolderPrefix + "/Locations/LocationPrefab/";
 
                     foreach (string filename in mod.ModInfo.Files
-                        .Where(file => file.StartsWith(regionFolder, System.StringComparison.InvariantCultureIgnoreCase) && file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase))
-                        .Select(file => Path.GetFileName(file)))
+                        .Where(file => file.StartsWith(prefabFolder, System.StringComparison.InvariantCultureIgnoreCase) && file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase))
+                        .Select(file => Path.GetFileName(file).ToLower()))
                     {
                         modLocationPrefabs[filename] = mod;
                     }
@@ -77,7 +77,7 @@ namespace DaggerfallWorkshop.Loc
             {
                 foreach(string filename in Directory.GetFiles(looseLocationFolder)
                     .Where(file => file.EndsWith(".txt"))
-                    .Select(file => Path.GetFileName(file)))
+                    .Select(file => Path.GetFileName(file).ToLower()))
                 {
                     modLocationPrefabs[filename] = null;
                 }
@@ -135,7 +135,7 @@ namespace DaggerfallWorkshop.Loc
 
                         foreach (string filename in mod.AssetBundle.GetAllAssetNames()
                             .Where(file => file.StartsWith(regionFolder, System.StringComparison.InvariantCultureIgnoreCase) && file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase))
-                            .Select(file => Path.GetFileName(file)))
+                            .Select(file => Path.GetFileName(file).ToLower()))
                         {
                             regionFiles[filename] = mod;
                         }
@@ -151,7 +151,7 @@ namespace DaggerfallWorkshop.Loc
 
                         foreach (string filename in mod.ModInfo.Files
                             .Where(file => file.StartsWith(regionFolder, System.StringComparison.InvariantCultureIgnoreCase) && file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase))
-                            .Select(file => Path.GetFileName(file)))
+                            .Select(file => Path.GetFileName(file).ToLower()))
                         {
                             regionFiles[filename] = mod;
                         }
@@ -165,7 +165,7 @@ namespace DaggerfallWorkshop.Loc
                 {
                     foreach(string filename in Directory.GetFiles(looseLocationFolder)
                         .Where(file => file.EndsWith(".txt"))
-                        .Select(file => Path.GetFileName(file)))
+                        .Select(file => Path.GetFileName(file).ToLower()))
                     {
                         regionFiles[filename] = null;
                     }
@@ -239,7 +239,8 @@ namespace DaggerfallWorkshop.Loc
                 //Now that we ensured that it is a valid location, then load the locationpreset
                 string assetName = loc.prefab + ".txt";
 
-                if(!modLocationPrefabs.TryGetValue(assetName, out Mod mod))
+                Mod mod;
+                if (!modLocationPrefabs.TryGetValue(assetName.ToLower(), out mod))
                 {
                     Debug.LogWarning("Can't find location Preset: " + loc.prefab);
                     continue;
