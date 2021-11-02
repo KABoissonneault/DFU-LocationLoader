@@ -46,7 +46,7 @@ namespace DaggerfallWorkshop.Loc
     /// </summary>
     public class LocationInstance
     {
-        public int locationID;
+        public ulong locationID;
         public string name = "";
         public int type;
         public string prefab = "";
@@ -72,8 +72,10 @@ namespace DaggerfallWorkshop.Loc
         }
 
         public void UpdateLocationID()
-        {
-            locationID = Random.Range(0, 99999999);                      
+        {            
+            uint first = (uint)Random.Range(int.MinValue, int.MaxValue);
+            uint second = (uint)Random.Range(int.MinValue, int.MaxValue);
+            locationID = ((ulong)first) << 32 | second;                      
         }
     }
 }

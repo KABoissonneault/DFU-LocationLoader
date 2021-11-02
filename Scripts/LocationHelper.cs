@@ -941,14 +941,22 @@ namespace DaggerfallWorkshop.Loc
                 }
 
                 LocationInstance tmpInst = new LocationInstance();
-                tmpInst.name = xmlDoc.GetElementsByTagName("name")[i].InnerXml;
-                int.TryParse(xmlDoc.GetElementsByTagName("locationID")[i].InnerXml, out tmpInst.locationID);
-                int.TryParse(xmlDoc.GetElementsByTagName("type")[i].InnerXml, out tmpInst.type);
-                tmpInst.prefab = xmlDoc.GetElementsByTagName("prefab")[i].InnerXml;
-                int.TryParse(xmlDoc.GetElementsByTagName("worldX")[i].InnerXml, out tmpInst.worldX);
-                int.TryParse(xmlDoc.GetElementsByTagName("worldY")[i].InnerXml, out tmpInst.worldY);
-                int.TryParse(xmlDoc.GetElementsByTagName("terrainX")[i].InnerXml, out tmpInst.terrainX);
-                int.TryParse(xmlDoc.GetElementsByTagName("terrainY")[i].InnerXml, out tmpInst.terrainY);
+                try
+                {
+                    tmpInst.name = xmlDoc.GetElementsByTagName("name")[i].InnerXml;
+                    tmpInst.locationID = ulong.Parse(xmlDoc.GetElementsByTagName("locationID")[i].InnerXml);
+                    tmpInst.type = int.Parse(xmlDoc.GetElementsByTagName("type")[i].InnerXml);
+                    tmpInst.prefab = xmlDoc.GetElementsByTagName("prefab")[i].InnerXml;
+                    tmpInst.worldX = int.Parse(xmlDoc.GetElementsByTagName("worldX")[i].InnerXml);
+                    tmpInst.worldY = int.Parse(xmlDoc.GetElementsByTagName("worldY")[i].InnerXml);
+                    tmpInst.terrainX = int.Parse(xmlDoc.GetElementsByTagName("terrainX")[i].InnerXml);
+                    tmpInst.terrainY = int.Parse(xmlDoc.GetElementsByTagName("terrainY")[i].InnerXml);
+                }
+                catch(Exception e)
+                {
+                    Debug.LogWarning($"Error while parsing location instance: {e.Message}");
+                    continue;
+                }
 
                 if (tmpInst.terrainX < 0 || tmpInst.terrainY < 0 || tmpInst.terrainX >= 128 || tmpInst.terrainY >= 128)
                 {
@@ -1029,30 +1037,48 @@ namespace DaggerfallWorkshop.Loc
 
             LocationPrefab locationPrefab = new LocationPrefab();
 
-            int.TryParse(xmlDoc.GetElementsByTagName("height")[0].InnerXml, out locationPrefab.height);
-            int.TryParse(xmlDoc.GetElementsByTagName("width")[0].InnerXml, out locationPrefab.width);
+            try
+            {
+                locationPrefab.height = int.Parse(xmlDoc.GetElementsByTagName("height")[0].InnerXml);
+                locationPrefab.width = int.Parse(xmlDoc.GetElementsByTagName("width")[0].InnerXml);
+            }
+            catch(Exception e)
+            {
+                Debug.LogWarning($"Error while parsing location prefab: {e.Message}");
+                return null;
+            }
 
             for (int i = 0; i < xmlDoc.GetElementsByTagName("object").Count; i++)
             {
-                locationPrefab.obj.Add(new LocationPrefab.LocationObject());
+                var obj = new LocationPrefab.LocationObject();
+                
+                try
+                {
+                    obj.type = int.Parse(xmlDoc.GetElementsByTagName("type")[i].InnerXml);
+                    obj.name = xmlDoc.GetElementsByTagName("name")[i].InnerXml;
+                    
+                    obj.objectID = int.Parse(xmlDoc.GetElementsByTagName("objectID")[i].InnerXml);
+                    
+                    obj.pos.x = float.Parse(xmlDoc.GetElementsByTagName("posX")[i].InnerXml);
+                    obj.pos.y = float.Parse(xmlDoc.GetElementsByTagName("posY")[i].InnerXml);
+                    obj.pos.z = float.Parse(xmlDoc.GetElementsByTagName("posZ")[i].InnerXml);
+                    
+                    obj.scale.x = float.Parse(xmlDoc.GetElementsByTagName("scaleX")[i].InnerXml);
+                    obj.scale.y = float.Parse(xmlDoc.GetElementsByTagName("scaleY")[i].InnerXml);
+                    obj.scale.z = float.Parse(xmlDoc.GetElementsByTagName("scaleZ")[i].InnerXml);
+                    
+                    obj.rot.w = float.Parse(xmlDoc.GetElementsByTagName("rotW")[i].InnerXml);
+                    obj.rot.x = float.Parse(xmlDoc.GetElementsByTagName("rotX")[i].InnerXml);
+                    obj.rot.y = float.Parse(xmlDoc.GetElementsByTagName("rotY")[i].InnerXml);
+                    obj.rot.z = float.Parse(xmlDoc.GetElementsByTagName("rotZ")[i].InnerXml);
+                }
+                catch(Exception e)
+                {
+                    Debug.LogWarning($"Error while parsing location prefab object: {e.Message}");
+                    continue;
+                }
 
-                int.TryParse(xmlDoc.GetElementsByTagName("type")[i].InnerXml, out locationPrefab.obj[i].type);
-                locationPrefab.obj[i].name = xmlDoc.GetElementsByTagName("name")[i].InnerXml;
-
-                int.TryParse(xmlDoc.GetElementsByTagName("objectID")[i].InnerXml, out locationPrefab.obj[i].objectID);
-
-                float.TryParse(xmlDoc.GetElementsByTagName("posX")[i].InnerXml, out locationPrefab.obj[i].pos.x);
-                float.TryParse(xmlDoc.GetElementsByTagName("posY")[i].InnerXml, out locationPrefab.obj[i].pos.y);
-                float.TryParse(xmlDoc.GetElementsByTagName("posZ")[i].InnerXml, out locationPrefab.obj[i].pos.z);
-
-                float.TryParse(xmlDoc.GetElementsByTagName("scaleX")[i].InnerXml, out locationPrefab.obj[i].scale.x);
-                float.TryParse(xmlDoc.GetElementsByTagName("scaleY")[i].InnerXml, out locationPrefab.obj[i].scale.y);
-                float.TryParse(xmlDoc.GetElementsByTagName("scaleZ")[i].InnerXml, out locationPrefab.obj[i].scale.z);
-
-                float.TryParse(xmlDoc.GetElementsByTagName("rotW")[i].InnerXml, out locationPrefab.obj[i].rot.w);
-                float.TryParse(xmlDoc.GetElementsByTagName("rotX")[i].InnerXml, out locationPrefab.obj[i].rot.x);
-                float.TryParse(xmlDoc.GetElementsByTagName("rotY")[i].InnerXml, out locationPrefab.obj[i].rot.y);
-                float.TryParse(xmlDoc.GetElementsByTagName("rotZ")[i].InnerXml, out locationPrefab.obj[i].rot.z);
+                locationPrefab.obj.Add(obj);
             }
             return locationPrefab;
         }
@@ -1156,8 +1182,10 @@ namespace DaggerfallWorkshop.Loc
 
             }
             else
+            {
+                Debug.LogWarning($"Invalid obj type found: {type}");
                 return false;
-
+            }
         }
 
         /// <summary>
@@ -1170,7 +1198,7 @@ namespace DaggerfallWorkshop.Loc
         /// <param name="rot"></param>
         /// <param name="scale"></param>
         /// <returns></returns>
-        public static GameObject LoadObject(int type, string name, Transform parent, Vector3 pos, Quaternion rot, Vector3 scale, int locationID, int objID)
+        public static GameObject LoadObject(int type, string name, Transform parent, Vector3 pos, Quaternion rot, Vector3 scale, ulong locationID, int objID)
         {
             GameObject go = null;
             //Model
@@ -1510,7 +1538,7 @@ namespace DaggerfallWorkshop.Loc
         /// <param name="objID"></param>
         /// <param name="textureArchive"></param>
         /// <param name="textureRecord"></param>
-        public static GameObject CreateLootContainer(int locationID, int objID, int textureArchive, int textureRecord, Transform parent)
+        public static GameObject CreateLootContainer(ulong locationID, int objID, int textureArchive, int textureRecord, Transform parent)
         {
             GameObject go = GameObject.Instantiate(DaggerfallUnity.Instance.Option_LootContainerPrefab.gameObject);
 
@@ -1518,7 +1546,7 @@ namespace DaggerfallWorkshop.Loc
             DaggerfallLoot loot = go.GetComponent<DaggerfallLoot>();
             if (loot)
             {
-                loot.LoadID = ((ulong)locationID * 10000) + (ulong)objID;
+                loot.LoadID = (locationID * 10000) + (ulong)objID;
                 loot.ContainerType = LootContainerTypes.RandomTreasure;
                 loot.ContainerImage = InventoryContainerImages.Chest;
                 loot.TextureArchive = textureArchive;
