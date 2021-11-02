@@ -198,13 +198,9 @@ namespace DaggerfallWorkshop.Loc
 
                 if (daggerTerrain.MapData.hasLocation)
                 {
-                    if (loc.type == 0)
+                    if (loc.type == 0 || loc.type == 2)
                     {
                         Debug.LogWarning("Location Already Present " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
-                        continue;
-                    }
-                    else if (loc.type == 2)
-                    {
                         continue;
                     }
                 }
@@ -215,26 +211,25 @@ namespace DaggerfallWorkshop.Loc
                     daggerTerrain.MapData.mapRegionIndex == 28 ||
                     daggerTerrain.MapData.mapRegionIndex == 30) && daggerTerrain.MapData.worldHeight <= 2)
                 {
-                    if (loc.type == 0)
+                    if (loc.type == 0 || loc.type == 2)
                     {
                         Debug.LogWarning("Location is in Ocean " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
                         continue;
                     }
-                    else if (loc.type == 2)
-                    {
+                }
+
+                if (loc.type == 0 || loc.type == 2)
+                {
+                    // Check if Basic Roads detects a road there
+                    byte pathsDataPoint = 0;
+                    Vector2Int coords = new Vector2Int(loc.worldX, loc.worldY);
+                    ModManager.Instance.SendModMessage("BasicRoads", "getPathsPoint", coords,
+                        (string message, object data) => { pathsDataPoint = (byte)data; }
+                        );
+
+                    if (pathsDataPoint != 0)
                         continue;
-                    }
-                }    
-
-                // Check if Basic Roads detects a road there
-                byte pathsDataPoint = 0;
-                Vector2Int coords = new Vector2Int(loc.worldX, loc.worldY);
-                ModManager.Instance.SendModMessage("BasicRoads", "getPathsPoint", coords,
-                    (string message, object data) => { pathsDataPoint = (byte)data; }
-                    );
-
-                if (pathsDataPoint != 0)
-                    continue;
+                }
 
                 //Now that we ensured that it is a valid location, then load the locationpreset
                 string assetName = loc.prefab + ".txt";
@@ -271,10 +266,6 @@ namespace DaggerfallWorkshop.Loc
                 //Smooth the terrain
                 if (loc.type == 0 || loc.type == 2)
                 {
-                    daggerTerrain.MapData.hasLocation = true;
-                    daggerTerrain.MapData.locationName = loc.name;
-                    daggerTerrain.MapData.locationRect = new Rect(loc.terrainX, loc.terrainY, locationPrefab.width, locationPrefab.height);
-
                     int count = 0;
                     float tmpAverageHeight = 0;
 
