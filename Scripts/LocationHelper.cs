@@ -900,7 +900,10 @@ namespace DaggerfallWorkshop.Loc
         public static List<LocationInstance> LoadLocationInstance(string path)
         {
             if (!File.Exists(path))
+            {
+                Debug.LogWarning($"Location instance file could not be found at '{path}'");
                 return null;
+            }
 
             XmlDocument xmlDoc = new XmlDocument();
             xmlDoc.Load(path);
@@ -912,7 +915,10 @@ namespace DaggerfallWorkshop.Loc
         {
             TextAsset asset = mod.GetAsset<TextAsset>(assetName);
             if (asset == null)
+            {
+                Debug.LogWarning($"Asset '{assetName}' could not be found in mod '{mod.Title}'");
                 return null;
+            }
 
             TextReader reader = new StringReader(asset.text);
 
