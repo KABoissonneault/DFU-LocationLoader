@@ -16,7 +16,7 @@ namespace DaggerfallWorkshop.Loc
         Vector2 scrollPosition;
         string[] locationTypes = { "Smooth Terrain", "No Smoothing" };
 
-        [MenuItem("Daggerfall Tools/Location Intance Editor")]
+        [MenuItem("Daggerfall Tools/Location Instance Editor")]
         static void Init()
         {
             LocationInstanceEditor window = (LocationInstanceEditor)GetWindow(typeof(LocationInstanceEditor));
