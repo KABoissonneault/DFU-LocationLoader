@@ -54,6 +54,7 @@ namespace DaggerfallWorkshop.Loc
         public int worldY = 0;
         public int terrainX = 0;
         public int terrainY = 0;
+        public Quaternion rot = Quaternion.identity;
         
         public LocationInstance()
         {

@@ -936,9 +936,11 @@ namespace DaggerfallWorkshop.Loc
                 yield return null;
             }
 
-            for (int i = 0; i < xmlDoc.GetElementsByTagName("locationInstance").Count; i++)
+            XmlNodeList instanceNodes = xmlDoc.GetElementsByTagName("locationInstance");
+            for (int i = 0; i < instanceNodes.Count; i++)
             {
-                if (xmlDoc.GetElementsByTagName("prefab")[i].InnerXml == "")
+                XmlNode node = instanceNodes[i];
+                if (node["prefab"].InnerXml == "")
                 {
                     Debug.LogWarning("Locationinstance must have a assigned prefab to be valid");
                     continue;
@@ -947,14 +949,32 @@ namespace DaggerfallWorkshop.Loc
                 LocationInstance tmpInst = new LocationInstance();
                 try
                 {
-                    tmpInst.name = xmlDoc.GetElementsByTagName("name")[i].InnerXml;
-                    tmpInst.locationID = ulong.Parse(xmlDoc.GetElementsByTagName("locationID")[i].InnerXml);
-                    tmpInst.type = int.Parse(xmlDoc.GetElementsByTagName("type")[i].InnerXml);
-                    tmpInst.prefab = xmlDoc.GetElementsByTagName("prefab")[i].InnerXml;
-                    tmpInst.worldX = int.Parse(xmlDoc.GetElementsByTagName("worldX")[i].InnerXml);
-                    tmpInst.worldY = int.Parse(xmlDoc.GetElementsByTagName("worldY")[i].InnerXml);
-                    tmpInst.terrainX = int.Parse(xmlDoc.GetElementsByTagName("terrainX")[i].InnerXml);
-                    tmpInst.terrainY = int.Parse(xmlDoc.GetElementsByTagName("terrainY")[i].InnerXml);
+                    tmpInst.name = node["name"].InnerXml;
+                    tmpInst.locationID = ulong.Parse(node["locationID"].InnerXml);
+                    tmpInst.type = int.Parse(node["type"].InnerXml);
+                    tmpInst.prefab = node["prefab"].InnerXml;
+                    tmpInst.worldX = int.Parse(node["worldX"].InnerXml);
+                    tmpInst.worldY = int.Parse(node["worldY"].InnerXml);
+                    tmpInst.terrainX = int.Parse(node["terrainX"].InnerXml);
+                    tmpInst.terrainY = int.Parse(node["terrainY"].InnerXml);
+
+                    XmlNode child = node["rotW"];
+                    if(child != null)
+                    {
+                        tmpInst.rot.w = float.Parse(child.InnerXml);
+                        tmpInst.rot.x = float.Parse(node["rotX"].InnerXml);
+                        tmpInst.rot.y = float.Parse(node["rotY"].InnerXml);
+                        tmpInst.rot.z = float.Parse(node["rotZ"].InnerXml);
+                    }
+                    else
+                    {
+                        child = node["rotYAxis"];
+                        if(child != null)
+                        {
+                            float yRot = float.Parse(child.InnerXml);
+                            tmpInst.rot.eulerAngles = new Vector3(0, yRot, 0);
+                        }
+                    }
                 }
                 catch(Exception e)
                 {
@@ -993,6 +1013,13 @@ namespace DaggerfallWorkshop.Loc
                 writer.WriteLine("\t\t<worldY>" + inst.worldY + "</worldY>");
                 writer.WriteLine("\t\t<terrainX>" + inst.terrainX + "</terrainX>");
                 writer.WriteLine("\t\t<terrainY>" + inst.terrainY + "</terrainY>");
+                if(inst.rot != Quaternion.identity)
+                {
+                    writer.WriteLine($"\t\t<rotW>{inst.rot.w}</rotW");
+                    writer.WriteLine($"\t\t<rotX>{inst.rot.x}</rotW");
+                    writer.WriteLine($"\t\t<rotY>{inst.rot.y}</rotW");
+                    writer.WriteLine($"\t\t<rotZ>{inst.rot.z}</rotW");
+                }
                 writer.WriteLine("\t</locationInstance>");
             }
 

@@ -225,6 +225,7 @@ namespace DaggerfallWorkshop.Loc
 
             GameObject instance = Instantiate(prefabObject, new Vector3(), Quaternion.identity, daggerTerrain.gameObject.transform);
             instance.transform.localPosition = terrainOffset;
+            instance.transform.localRotation = loc.rot;
             instance.name = prefabName;
             instance.SetActive(true);
         }
