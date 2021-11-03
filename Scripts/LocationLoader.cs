@@ -5,6 +5,9 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
 using DaggerfallWorkshop.Game;
+using DaggerfallWorkshop.Utility;
+using DaggerfallWorkshop.Utility.AssetInjection;
+using DaggerfallConnect;
 
 namespace DaggerfallWorkshop.Loc
 {
@@ -14,7 +17,9 @@ namespace DaggerfallWorkshop.Loc
         Dictionary<Vector2Int, List<LocationInstance>> worldPixelInstances = new Dictionary<Vector2Int, List<LocationInstance>>();
         Dictionary<int, Dictionary<string, Mod>> modRegionFiles = new Dictionary<int, Dictionary<string, Mod>>();
 
-        Dictionary<string, Mod> modLocationPrefabs = new Dictionary<string, Mod>();
+        Dictionary<string, Mod> modLocationPrefabs = null;
+        Dictionary<string, LocationPrefab> prefabInfos = new Dictionary<string, LocationPrefab>();
+        Dictionary<string, GameObject> prefabTemplates = new Dictionary<string, GameObject>();
 
         const float TERRAIN_SIZE = 128;
         const float TERRAINPIXELSIZE = 819.2f;
@@ -27,11 +32,15 @@ namespace DaggerfallWorkshop.Loc
 
         private void Start()
         {
-            CacheLocationPrefabs();
         }
 
         void CacheLocationPrefabs()
         {
+            if (modLocationPrefabs != null)
+                return;
+
+            modLocationPrefabs = new Dictionary<string, Mod>();
+
             foreach (Mod mod in ModManager.Instance.Mods)
             {
                 if (!mod.Enabled)
@@ -83,6 +92,141 @@ namespace DaggerfallWorkshop.Loc
                     modLocationPrefabs[filename] = null;
                 }
             }
+        }
+
+        LocationPrefab GetPrefabInfo(string prefabName)
+        {
+            CacheLocationPrefabs();
+
+            string assetName = prefabName + ".txt";
+
+            LocationPrefab prefabInfo;
+            if (!prefabInfos.TryGetValue(assetName, out prefabInfo))
+            {
+                Mod mod;
+                if (!modLocationPrefabs.TryGetValue(assetName.ToLower(), out mod))
+                {
+                    Debug.LogWarning($"Can't find location prefab '{prefabName}'");
+                    return null;
+                }
+
+                prefabInfo = mod != null
+                    ? LocationHelper.LoadLocationPrefab(mod, assetName)
+                    : LocationHelper.LoadLocationPrefab(Application.dataPath + LocationHelper.locationPrefabFolder + assetName);
+
+                if (prefabInfo == null)
+                {
+                    Debug.LogWarning($"Location prefab '{prefabName}' could not be parsed");
+                    return null;
+                }
+
+                prefabInfos.Add(assetName, prefabInfo);
+            }
+
+            return prefabInfo;
+        }
+
+        void InstantiatePrefab(string prefabName, LocationPrefab locationPrefab, LocationInstance loc, DaggerfallTerrain daggerTerrain)
+        {
+            float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * GameManager.Instance.StreamingWorld.TerrainScale;
+
+            Vector3 terrainOffset = new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax, loc.terrainY * TERRAIN_SIZE_MULTI);
+
+            GameObject prefabObject;
+            if (!prefabTemplates.TryGetValue(prefabName, out prefabObject))
+            {
+                prefabObject = new GameObject($"{prefabName}_Template");
+                prefabObject.SetActive(false);
+                Transform templateTransform = prefabObject.GetComponent<Transform>();
+                templateTransform.parent = transform; // Put them under this mod for Hierarchy organization
+
+                ModelCombiner combiner = new ModelCombiner();
+
+                foreach (LocationPrefab.LocationObject obj in locationPrefab.obj)
+                {
+                    if (!LocationHelper.ValidateValue(obj.type, obj.name))
+                        continue;
+
+                    GameObject go = null;
+                    //Model
+                    if (obj.type == 0)
+                    {
+                        Quaternion rot = obj.rot;
+                        if (rot.x == 0 && rot.y == 0 && rot.z == 0 && rot.w == 0)
+                        {
+                            Debug.LogWarning($"Object {obj.name} inside prefab {prefabName} has invalid rotation: {obj.rot}");
+                            rot = Quaternion.identity;
+                        }
+
+                        Matrix4x4 mat = Matrix4x4.TRS(obj.pos, rot, obj.scale);
+
+                        uint modelId = uint.Parse(obj.name);
+                        go = MeshReplacement.ImportCustomGameobject(modelId, templateTransform, mat);
+
+                        if (go == null) //if no mesh replacement exist
+                        {
+                            ModelData modelData;
+                            DaggerfallUnity.Instance.MeshReader.GetModelData(modelId, out modelData);
+
+                            combiner.Add(ref modelData, mat);
+                        }
+                    }
+                    //Flat
+                    else if (obj.type == 1)
+                    {
+                        string[] arg = obj.name.Split('.');
+
+                        go = MeshReplacement.ImportCustomFlatGameobject(int.Parse(arg[0]), int.Parse(arg[1]), obj.pos, templateTransform);
+
+                        if (go == null)
+                        {
+                            //Loot cointainers
+                            if (arg[0] == "216" && Game.GameManager.Instance.PlayerEntity != null)
+                            {
+                                go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, int.Parse(arg[0]), int.Parse(arg[1]), templateTransform);
+                            }
+
+                            else
+                                go = GameObjectHelper.CreateDaggerfallBillboardGameObject(int.Parse(arg[0]), int.Parse(arg[1]), templateTransform);
+
+                            if (go != null)
+                            {
+                                if (arg[0] == "210")
+                                    LocationHelper.AddLight(int.Parse(arg[1]), go.transform);
+
+                                if (arg[0] == "201")
+                                    LocationHelper.AddAnimalAudioSource(int.Parse(arg[1]), go);
+                            }
+                        }
+                    }
+
+                    if (go != null)
+                    {
+                        if (go.GetComponent<DaggerfallBillboard>())
+                        {
+                            float tempY = go.transform.position.y;
+                            go.GetComponent<DaggerfallBillboard>().AlignToBase();
+                            go.transform.position = new Vector3(go.transform.position.x, tempY + ((go.transform.position.y - tempY) * go.transform.localScale.y), go.transform.position.z);
+                        }
+
+                        if (!go.GetComponent<DaggerfallLoot>())
+                            go.isStatic = true;
+                    }
+                }
+
+                if (combiner.VertexCount > 0)
+                {
+                    combiner.Apply();
+                    GameObjectHelper.CreateCombinedMeshGameObject(combiner, $"{prefabName}_CombinedModels", templateTransform, makeStatic: true);
+                }
+
+                prefabTemplates.Add(prefabName, prefabObject);
+            }
+
+            GameObject instance = Instantiate(prefabObject, new Vector3(), Quaternion.identity, daggerTerrain.gameObject.transform);
+            instance.transform.localPosition = terrainOffset;
+            instance.name = prefabName;
+            instance.SetActive(true);
         }
 
         void CacheRegionInstances(int regionIndex)
@@ -257,25 +401,9 @@ namespace DaggerfallWorkshop.Loc
                         continue;
                 }
 
-                //Now that we ensured that it is a valid location, then load the locationpreset
-                string assetName = loc.prefab + ".txt";
-
-                Mod mod;
-                if (!modLocationPrefabs.TryGetValue(assetName.ToLower(), out mod))
-                {
-                    Debug.LogWarning("Can't find location Preset: " + loc.prefab);
-                    continue;
-                }
-
-                LocationPrefab locationPrefab = mod != null
-                    ? LocationHelper.LoadLocationPrefab(mod, assetName)
-                    : LocationHelper.LoadLocationPrefab(Application.dataPath + LocationHelper.locationPrefabFolder + assetName);
-
+                LocationPrefab locationPrefab = GetPrefabInfo(loc.prefab);
                 if (locationPrefab == null)
-                {
-                    Debug.LogWarning($"Location Preset '{loc.prefab}' could not be parsed");
                     continue;
-                }
 
                 if ((loc.terrainX + locationPrefab.height > 128 || loc.terrainY + locationPrefab.width > 128))
                 {
@@ -313,29 +441,7 @@ namespace DaggerfallWorkshop.Loc
                     terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples);
                 }
 
-                foreach (LocationPrefab.LocationObject obj in locationPrefab.obj)
-                {
-                    if (!LocationHelper.ValidateValue(obj.type, obj.name))
-                        continue;
-
-                    float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * Game.GameManager.Instance.StreamingWorld.TerrainScale;
-
-                    GameObject go = LocationHelper.LoadObject(obj.type, obj.name, daggerTerrain.gameObject.transform,
-                    new Vector3((loc.terrainX * TERRAIN_SIZE_MULTI) + obj.pos.x, (daggerTerrain.MapData.averageHeight * terrainHeightMax) + obj.pos.y, (loc.terrainY * TERRAIN_SIZE_MULTI) + obj.pos.z),
-                                 obj.rot,
-                                 new Vector3(obj.scale.x, obj.scale.y, obj.scale.z), loc.locationID, obj.objectID
-                        );
-
-                    if (go.GetComponent<DaggerfallBillboard>())
-                    {
-                        float tempY = go.transform.position.y;
-                        go.GetComponent<DaggerfallBillboard>().AlignToBase();
-                        go.transform.position = new Vector3(go.transform.position.x, tempY + ((go.transform.position.y - tempY) * go.transform.localScale.y), go.transform.position.z);
-                    }
-
-                    if (!go.GetComponent<DaggerfallLoot>())
-                        go.isStatic = true;
-                }
+                InstantiatePrefab(loc.prefab, locationPrefab, loc, daggerTerrain);
             }
         }
 
