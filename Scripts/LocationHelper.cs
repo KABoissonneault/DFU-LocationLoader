@@ -897,7 +897,7 @@ namespace DaggerfallWorkshop.Loc
         /// </summary>
         /// <param name="path"></param>
         /// <returns></returns>
-        public static List<LocationInstance> LoadLocationInstance(string path)
+        public static IEnumerable<LocationInstance> LoadLocationInstance(string path)
         {
             if (!File.Exists(path))
             {
@@ -911,7 +911,7 @@ namespace DaggerfallWorkshop.Loc
             return LoadLocationInstance(xmlDoc, $"file={path}");
         }
 
-        public static List<LocationInstance> LoadLocationInstance(Mod mod, string assetName)
+        public static IEnumerable<LocationInstance> LoadLocationInstance(Mod mod, string assetName)
         {
             TextAsset asset = mod.GetAsset<TextAsset>(assetName);
             if (asset == null)
@@ -928,15 +928,13 @@ namespace DaggerfallWorkshop.Loc
             return LoadLocationInstance(xmlDoc, $"mod={mod.Title}, asset={assetName}");
         }
 
-        public static List<LocationInstance> LoadLocationInstance(XmlDocument xmlDoc, string contextString)
+        public static IEnumerable<LocationInstance> LoadLocationInstance(XmlDocument xmlDoc, string contextString)
         {
             if (xmlDoc.SelectSingleNode("//locations") == null)
             {
                 Debug.LogWarning("Wrong file format");
-                return null;
+                yield return null;
             }
-
-            List<LocationInstance> locationInstance = new List<LocationInstance>();
 
             for (int i = 0; i < xmlDoc.GetElementsByTagName("locationInstance").Count; i++)
             {
@@ -970,9 +968,8 @@ namespace DaggerfallWorkshop.Loc
                     continue;
                 }
 
-                locationInstance.Add(tmpInst);
+                yield return tmpInst;
             }
-            return locationInstance;
         }
 
         /// <summary>

@@ -10,7 +10,8 @@ namespace DaggerfallWorkshop.Loc
 {
     public class LocationLoader : MonoBehaviour
     {
-        Dictionary<int, List<LocationInstance>> regionLocationInstances = new Dictionary<int, List<LocationInstance>>();
+        HashSet<int> visitedRegions = new HashSet<int>();
+        Dictionary<Vector2Int, List<LocationInstance>> worldPixelInstances = new Dictionary<Vector2Int, List<LocationInstance>>();
         Dictionary<int, Dictionary<string, Mod>> modRegionFiles = new Dictionary<int, Dictionary<string, Mod>>();
 
         Dictionary<string, Mod> modLocationPrefabs = new Dictionary<string, Mod>();
@@ -88,11 +89,8 @@ namespace DaggerfallWorkshop.Loc
         {
             CacheRegionFileNames(regionIndex);
 
-            if (regionLocationInstances.ContainsKey(regionIndex))
+            if (visitedRegions.Contains(regionIndex))
                 return;
-
-            var locationInstance = new List<LocationInstance>();
-            regionLocationInstances.Add(regionIndex, locationInstance);
 
             Dictionary<string, Mod> regionFiles = modRegionFiles[regionIndex];
             foreach(var kvp in regionFiles)
@@ -104,13 +102,38 @@ namespace DaggerfallWorkshop.Loc
                 {
                     string looseLocationRegionFolder = Path.Combine(Application.dataPath, LocationHelper.locationInstanceFolder, regionIndex.ToString());
                     string looseFileLocation = Path.Combine(looseLocationRegionFolder, filename);
-                    locationInstance.AddRange(LocationHelper.LoadLocationInstance(looseFileLocation));
+
+                    foreach(LocationInstance instance in LocationHelper.LoadLocationInstance(looseFileLocation))
+                    {
+                        Vector2Int location = new Vector2Int(instance.worldX, instance.worldY);
+                        List<LocationInstance> instances;
+                        if(!worldPixelInstances.TryGetValue(location, out instances))
+                        {
+                            instances = new List<LocationInstance>();
+                            worldPixelInstances.Add(location, instances);
+                        }
+
+                        instances.Add(instance);
+                    }
                 }
                 else
                 {
-                    locationInstance.AddRange(LocationHelper.LoadLocationInstance(mod, filename));
+                    foreach (LocationInstance instance in LocationHelper.LoadLocationInstance(mod, filename))
+                    {
+                        Vector2Int location = new Vector2Int(instance.worldX, instance.worldY);
+                        List<LocationInstance> instances;
+                        if (!worldPixelInstances.TryGetValue(location, out instances))
+                        {
+                            instances = new List<LocationInstance>();
+                            worldPixelInstances.Add(location, instances);
+                        }
+
+                        instances.Add(instance);
+                    }
                 }
             }
+
+            visitedRegions.Add(regionIndex);
         }
 
         void CacheRegionFileNames(int regionIndex)
@@ -190,17 +213,19 @@ namespace DaggerfallWorkshop.Loc
                     Destroy(child.gameObject);
             }
 
-            var locationInstance = regionLocationInstances[regionIndex];
-            foreach (LocationInstance loc in locationInstance)
-            {
-                if (daggerTerrain.MapPixelX != loc.worldX || daggerTerrain.MapPixelY != loc.worldY)
-                    continue;
+            Vector2Int worldLocation = new Vector2Int(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
+            List<LocationInstance> locationInstances;
+            if (!worldPixelInstances.TryGetValue(worldLocation, out locationInstances))
+                return;
 
+            foreach (LocationInstance loc in locationInstances)
+            {
                 if (daggerTerrain.MapData.hasLocation)
                 {
                     if (loc.type == 0 || loc.type == 2)
                     {
-                        Debug.LogWarning("Location Already Present " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
+                        if(loc.type == 0)
+                            Debug.LogWarning("Location Already Present " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
                         continue;
                     }
                 }
@@ -213,7 +238,8 @@ namespace DaggerfallWorkshop.Loc
                 {
                     if (loc.type == 0 || loc.type == 2)
                     {
-                        Debug.LogWarning("Location is in Ocean " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
+                        if(loc.type == 0)
+                            Debug.LogWarning("Location is in Ocean " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
                         continue;
                     }
                 }

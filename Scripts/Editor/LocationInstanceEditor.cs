@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using System.IO;
+using System.Linq;
 
 namespace DaggerfallWorkshop.Loc
 {
@@ -53,7 +54,7 @@ namespace DaggerfallWorkshop.Loc
                 if (path.Length == 0)
                     return;
 
-                locationInstance = LocationHelper.LoadLocationInstance(path);
+                locationInstance = LocationHelper.LoadLocationInstance(path).ToList();
 
                 if (locationInstance == null)
                     return;
