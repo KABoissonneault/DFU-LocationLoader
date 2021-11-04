@@ -1059,7 +1059,8 @@ namespace DaggerfallWorkshop.Loc
 
         public static LocationPrefab LoadLocationPrefab(XmlDocument xmlDoc)
         {
-            if (xmlDoc.SelectSingleNode("//locationPrefab") == null)
+            XmlNode prefabNode = xmlDoc.SelectSingleNode("//locationPrefab");
+            if (prefabNode == null)
             {
                 Debug.LogWarning("Wrong file format");
                 return null;
@@ -1069,8 +1070,8 @@ namespace DaggerfallWorkshop.Loc
 
             try
             {
-                locationPrefab.height = int.Parse(xmlDoc.GetElementsByTagName("height")[0].InnerXml);
-                locationPrefab.width = int.Parse(xmlDoc.GetElementsByTagName("width")[0].InnerXml);
+                locationPrefab.height = int.Parse(prefabNode["height"].InnerXml);
+                locationPrefab.width = int.Parse(prefabNode["width"].InnerXml);
             }
             catch(Exception e)
             {
@@ -1078,29 +1079,32 @@ namespace DaggerfallWorkshop.Loc
                 return null;
             }
 
-            for (int i = 0; i < xmlDoc.GetElementsByTagName("object").Count; i++)
+            var objects = xmlDoc.GetElementsByTagName("object");
+            for (int i = 0; i < objects.Count; i++)
             {
+                XmlNode objectNode = objects[i];
+
                 var obj = new LocationPrefab.LocationObject();
                 
                 try
                 {
-                    obj.type = int.Parse(xmlDoc.GetElementsByTagName("type")[i].InnerXml);
-                    obj.name = xmlDoc.GetElementsByTagName("name")[i].InnerXml;
+                    obj.type = int.Parse(objectNode["type"].InnerXml);
+                    obj.name = objectNode["name"].InnerXml;
                     
-                    obj.objectID = int.Parse(xmlDoc.GetElementsByTagName("objectID")[i].InnerXml);
+                    obj.objectID = int.Parse(objectNode["objectID"].InnerXml);
                     
-                    obj.pos.x = float.Parse(xmlDoc.GetElementsByTagName("posX")[i].InnerXml);
-                    obj.pos.y = float.Parse(xmlDoc.GetElementsByTagName("posY")[i].InnerXml);
-                    obj.pos.z = float.Parse(xmlDoc.GetElementsByTagName("posZ")[i].InnerXml);
+                    obj.pos.x = float.Parse(objectNode["posX"].InnerXml);
+                    obj.pos.y = float.Parse(objectNode["posY"].InnerXml);
+                    obj.pos.z = float.Parse(objectNode["posZ"].InnerXml);
                     
-                    obj.scale.x = float.Parse(xmlDoc.GetElementsByTagName("scaleX")[i].InnerXml);
-                    obj.scale.y = float.Parse(xmlDoc.GetElementsByTagName("scaleY")[i].InnerXml);
-                    obj.scale.z = float.Parse(xmlDoc.GetElementsByTagName("scaleZ")[i].InnerXml);
+                    obj.scale.x = float.Parse(objectNode["scaleX"].InnerXml);
+                    obj.scale.y = float.Parse(objectNode["scaleY"].InnerXml);
+                    obj.scale.z = float.Parse(objectNode["scaleZ"].InnerXml);
                     
-                    obj.rot.w = float.Parse(xmlDoc.GetElementsByTagName("rotW")[i].InnerXml);
-                    obj.rot.x = float.Parse(xmlDoc.GetElementsByTagName("rotX")[i].InnerXml);
-                    obj.rot.y = float.Parse(xmlDoc.GetElementsByTagName("rotY")[i].InnerXml);
-                    obj.rot.z = float.Parse(xmlDoc.GetElementsByTagName("rotZ")[i].InnerXml);
+                    obj.rot.w = float.Parse(objectNode["rotW"].InnerXml);
+                    obj.rot.x = float.Parse(objectNode["rotX"].InnerXml);
+                    obj.rot.y = float.Parse(objectNode["rotY"].InnerXml);
+                    obj.rot.z = float.Parse(objectNode["rotZ"].InnerXml);
                 }
                 catch(Exception e)
                 {
