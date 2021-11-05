@@ -419,7 +419,7 @@ namespace DaggerfallWorkshop.Loc
                 }
 
                 //Smooth the terrain
-                if (loc.type == 0)
+                if (loc.type == 0 || loc.type == 2)
                 {
                     daggerTerrain.MapData.locationRect = new Rect(loc.terrainX, loc.terrainY, locationPrefab.width, locationPrefab.height);
 
