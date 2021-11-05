@@ -147,58 +147,17 @@ namespace DaggerfallWorkshop.Loc
                     if (!LocationHelper.ValidateValue(obj.type, obj.name))
                         continue;
 
-                    GameObject go = null;
-                    //Model
-                    if (obj.type == 0)
-                    {
-                        Quaternion rot = obj.rot;
-                        if (rot.x == 0 && rot.y == 0 && rot.z == 0 && rot.w == 0)
-                        {
-                            Debug.LogWarning($"Object {obj.name} inside prefab {prefabName} has invalid rotation: {obj.rot}");
-                            rot = Quaternion.identity;
-                        }
-
-                        Matrix4x4 mat = Matrix4x4.TRS(obj.pos, rot, obj.scale);
-
-                        uint modelId = uint.Parse(obj.name);
-                        go = MeshReplacement.ImportCustomGameobject(modelId, templateTransform, mat);
-
-                        if (go == null) //if no mesh replacement exist
-                        {
-                            ModelData modelData;
-                            DaggerfallUnity.Instance.MeshReader.GetModelData(modelId, out modelData);
-
-                            combiner.Add(ref modelData, mat);
-                        }
-                    }
-                    //Flat
-                    else if (obj.type == 1)
-                    {
-                        string[] arg = obj.name.Split('.');
-
-                        go = MeshReplacement.ImportCustomFlatGameobject(int.Parse(arg[0]), int.Parse(arg[1]), obj.pos, templateTransform);
-
-                        if (go == null)
-                        {
-                            //Loot cointainers
-                            if (arg[0] == "216" && Game.GameManager.Instance.PlayerEntity != null)
-                            {
-                                go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, int.Parse(arg[0]), int.Parse(arg[1]), templateTransform);
-                            }
-
-                            else
-                                go = GameObjectHelper.CreateDaggerfallBillboardGameObject(int.Parse(arg[0]), int.Parse(arg[1]), templateTransform);
-
-                            if (go != null)
-                            {
-                                if (arg[0] == "210")
-                                    LocationHelper.AddLight(int.Parse(arg[1]), go.transform);
-
-                                if (arg[0] == "201")
-                                    LocationHelper.AddAnimalAudioSource(int.Parse(arg[1]), go);
-                            }
-                        }
-                    }
+                    GameObject go = LocationHelper.LoadObject(
+                        obj.type,
+                        obj.name,
+                        templateTransform,
+                        obj.pos,
+                        obj.rot,
+                        obj.scale,
+                        loc.locationID,
+                        obj.objectID,
+                        combiner
+                        );
 
                     if (go != null)
                     {

@@ -5,6 +5,7 @@ using System.Xml;
 using UnityEngine;
 using System.Collections;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
+using DaggerfallWorkshop.Utility;
 
 namespace DaggerfallWorkshop.Loc
 {
@@ -1232,16 +1233,38 @@ namespace DaggerfallWorkshop.Loc
         /// <param name="rot"></param>
         /// <param name="scale"></param>
         /// <returns></returns>
-        public static GameObject LoadObject(int type, string name, Transform parent, Vector3 pos, Quaternion rot, Vector3 scale, ulong locationID, int objID)
+        public static GameObject LoadObject(int type, string name, Transform parent, Vector3 pos, Quaternion rot, Vector3 scale, ulong locationID, int objID, ModelCombiner modelCombiner = null)
         {
             GameObject go = null;
             //Model
             if (type == 0)
             {
-                go = Utility.AssetInjection.MeshReplacement.ImportCustomGameobject(uint.Parse(name), parent, Matrix4x4.zero);
+                if (rot.x == 0 && rot.y == 0 && rot.z == 0 && rot.w == 0)
+                {
+                    Debug.LogWarning($"Object {name} inside prefab has invalid rotation: {rot}");
+                    rot = Quaternion.identity;
+                }
+
+                Matrix4x4 mat = Matrix4x4.TRS(pos, rot, scale);
+
+                uint modelId = uint.Parse(name);
+
+                go = Utility.AssetInjection.MeshReplacement.ImportCustomGameobject(modelId, parent, mat);
 
                 if (go == null) //if no mesh replacment exist
-                    go = Utility.GameObjectHelper.CreateDaggerfallMeshGameObject(uint.Parse(name), parent);
+                {
+                    if (modelCombiner != null)
+                    {
+                        ModelData modelData;
+                        DaggerfallUnity.Instance.MeshReader.GetModelData(modelId, out modelData);
+
+                        modelCombiner.Add(ref modelData, mat);
+                    }
+                    else
+                    {
+                        go = GameObjectHelper.CreateDaggerfallMeshGameObject(uint.Parse(name), parent);
+                    }
+                }
             }
 
             //Flat
@@ -1249,17 +1272,7 @@ namespace DaggerfallWorkshop.Loc
             {
                 string[] arg = name.Split('.');
 
-                //Climate Swap
-                //Doesn't return a correct archive value? 
-                /*
-                if(Game.GameManager.Instance.PlayerEntity != null) //Simple way to check if we are in the game
-                {
-                    ClimateBases climateBase = Utility.ClimateSwaps.FromAPIClimateBase(Game.GameManager.Instance.PlayerGPS.ClimateSettings.ClimateType);
-                    ClimateSeason season = (DaggerfallUnity.Instance.WorldTime.Now.SeasonValue == Utility.DaggerfallDateTime.Seasons.Winter) ? ClimateSeason.Winter : ClimateSeason.Summer;
-                    arg[0] = Utility.ClimateSwaps.ApplyClimate(int.Parse(arg[0]), int.Parse(arg[1]), climateBase, season).ToString();
-                }
-                */
-                go = Utility.AssetInjection.MeshReplacement.ImportCustomFlatGameobject(int.Parse(arg[0]), int.Parse(arg[1]), Vector3.zero, parent);
+                go = Utility.AssetInjection.MeshReplacement.ImportCustomFlatGameobject(int.Parse(arg[0]), int.Parse(arg[1]), pos, parent);
 
                 if (go == null)
                 {
@@ -1272,10 +1285,12 @@ namespace DaggerfallWorkshop.Loc
                     }
 
                     else
-                        go = Utility.GameObjectHelper.CreateDaggerfallBillboardGameObject(int.Parse(arg[0]), int.Parse(arg[1]), parent);
+                        go = GameObjectHelper.CreateDaggerfallBillboardGameObject(int.Parse(arg[0]), int.Parse(arg[1]), parent);
 
                     if (go != null)
                     {
+                        go.transform.localPosition = pos;
+
                         if (arg[0] == "210")
                             AddLight(int.Parse(arg[1]), go.transform);
 
@@ -1283,13 +1298,11 @@ namespace DaggerfallWorkshop.Loc
                             AddAnimalAudioSource(int.Parse(arg[1]), go);
                     }
                 }
-            }
 
-            if (go != null)
-            {
-                go.transform.localPosition = pos;
-                go.transform.rotation = rot;
-                go.transform.localScale = new Vector3(go.transform.localScale.x * scale.x, go.transform.localScale.y * scale.y, go.transform.localScale.z * scale.z);
+                if(go != null)
+                {
+                    go.transform.localScale = new Vector3(go.transform.localScale.x * scale.x, go.transform.localScale.y * scale.y, go.transform.localScale.z * scale.z);
+                }
             }
 
             return go;
