@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml;
+using System.Linq;
 using UnityEngine;
-using System.Collections;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
 using DaggerfallWorkshop.Utility;
 
@@ -906,10 +906,20 @@ namespace DaggerfallWorkshop.Loc
                 return null;
             }
 
-            XmlDocument xmlDoc = new XmlDocument();
-            xmlDoc.Load(path);
+            
+            if (path.EndsWith(".csv"))
+            {
+                TextReader reader = File.OpenText(path);
 
-            return LoadLocationInstance(xmlDoc, $"file={path}");
+                return LoadLocationInstanceCsv(reader, $"file={path}");
+            }
+            else
+            {
+                XmlDocument xmlDoc = new XmlDocument();
+                xmlDoc.Load(path);
+
+                return LoadLocationInstance(xmlDoc, $"file={path}");
+            }
         }
 
         public static IEnumerable<LocationInstance> LoadLocationInstance(Mod mod, string assetName)
@@ -918,15 +928,21 @@ namespace DaggerfallWorkshop.Loc
             if (asset == null)
             {
                 Debug.LogWarning($"Asset '{assetName}' could not be found in mod '{mod.Title}'");
-                return null;
+                return Enumerable.Empty<LocationInstance>();
             }
 
             TextReader reader = new StringReader(asset.text);
+            if (assetName.EndsWith(".csv"))
+            {
+                return LoadLocationInstanceCsv(reader, $"mod={mod.Title}, asset={assetName}");
+            }
+            else
+            {
+                XmlDocument xmlDoc = new XmlDocument();
+                xmlDoc.Load(reader);
 
-            XmlDocument xmlDoc = new XmlDocument();
-            xmlDoc.Load(reader);
-
-            return LoadLocationInstance(xmlDoc, $"mod={mod.Title}, asset={assetName}");
+                return LoadLocationInstance(xmlDoc, $"mod={mod.Title}, asset={assetName}");
+            }
         }
 
         public static IEnumerable<LocationInstance> LoadLocationInstance(XmlDocument xmlDoc, string contextString)
@@ -990,6 +1006,85 @@ namespace DaggerfallWorkshop.Loc
                 }
 
                 yield return tmpInst;
+            }
+        }
+
+        public static IEnumerable<LocationInstance> LoadLocationInstanceCsv(TextReader csvStream, string contextString)
+        {
+            string header = csvStream.ReadLine();
+            string[] fields = header.Split(';', ',');
+
+            bool GetIndex(string fieldName, out int index)
+            {
+                index = Array.IndexOf(fields, fieldName);
+                if(index == -1)
+                {
+                    Debug.LogError($"Location instance file failed ({contextString}): could not find field '{fieldName}' in header");
+                    return false;
+                }
+                return true;
+            }
+
+            int? GetIndexOpt(string fieldName)
+            {
+                int index = Array.IndexOf(fields, fieldName);
+                if (index == -1)
+                {
+                    return null;
+                }
+                return index;
+            }
+
+            if (!GetIndex("name", out int nameIndex)) yield break;
+            if (!GetIndex("type", out int typeIndex)) yield break;
+            if (!GetIndex("prefab", out int prefabIndex)) yield break;
+            if (!GetIndex("worldX", out int worldXIndex)) yield break;
+            if (!GetIndex("worldY", out int worldYIndex)) yield break;
+            if (!GetIndex("terrainX", out int terrainXIndex)) yield break;
+            if (!GetIndex("terrainY", out int terrainYIndex)) yield break;
+            if (!GetIndex("locationID", out int locationIDIndex)) yield break;
+            int? rotWIndex = GetIndexOpt("rotW");
+            int? rotXIndex = GetIndexOpt("rotX");
+            int? rotYIndex = GetIndexOpt("rotY");
+            int? rotZIndex = GetIndexOpt("rotZ");
+            int? rotXAxisIndex = GetIndexOpt("rotXAxis");
+            int? rotYAxisIndex = GetIndexOpt("rotYAxis");
+            int? rotZAxisIndex = GetIndexOpt("rotZAxis");
+
+            while (csvStream.Peek() >= 0)
+            {
+                string line = csvStream.ReadLine();
+                string[] tokens = line.Split(';', ',');
+
+                LocationInstance tmpInst = new LocationInstance();
+
+                try
+                {                    
+                    tmpInst.name = tokens[nameIndex];
+                    tmpInst.type = int.Parse(tokens[typeIndex]);
+                    tmpInst.prefab = tokens[prefabIndex];
+                    tmpInst.worldX = int.Parse(tokens[worldXIndex]);
+                    tmpInst.worldY = int.Parse(tokens[worldYIndex]);
+                    tmpInst.terrainX = int.Parse(tokens[terrainXIndex]);
+                    tmpInst.terrainY = int.Parse(tokens[terrainYIndex]);
+                    tmpInst.locationID = ulong.Parse(tokens[locationIDIndex]);
+
+                    if (rotWIndex.HasValue) tmpInst.rot.w = float.Parse(tokens[rotWIndex.Value]);
+                    if (rotXIndex.HasValue) tmpInst.rot.x = float.Parse(tokens[rotXIndex.Value]);
+                    if (rotYIndex.HasValue) tmpInst.rot.y = float.Parse(tokens[rotYIndex.Value]);
+                    if (rotZIndex.HasValue) tmpInst.rot.z = float.Parse(tokens[rotZIndex.Value]);
+                    if (rotXAxisIndex.HasValue) tmpInst.rot.eulerAngles.Set(float.Parse(tokens[rotXAxisIndex.Value]), tmpInst.rot.eulerAngles.y, tmpInst.rot.eulerAngles.z);
+                    if (rotYAxisIndex.HasValue) tmpInst.rot.eulerAngles.Set(tmpInst.rot.eulerAngles.x, float.Parse(tokens[rotYAxisIndex.Value]), tmpInst.rot.eulerAngles.z);
+                    if (rotZAxisIndex.HasValue) tmpInst.rot.eulerAngles.Set(tmpInst.rot.eulerAngles.x, tmpInst.rot.eulerAngles.y, float.Parse(tokens[rotZAxisIndex.Value]));
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"Failed to parse a location instance ({contextString}): {e.Message}");
+                    continue;
+                }
+
+                yield return tmpInst;
+                
             }
         }
 

@@ -55,7 +55,8 @@ namespace DaggerfallWorkshop.Loc
                     string prefabFolder = modFolderPrefix + "/locations/locationprefab/";
 
                     foreach (string filename in mod.AssetBundle.GetAllAssetNames()
-                        .Where(file => file.StartsWith(prefabFolder, System.StringComparison.InvariantCultureIgnoreCase) && file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase))
+                        .Where(file => file.StartsWith(prefabFolder, System.StringComparison.InvariantCultureIgnoreCase)
+                        && (file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase)))
                         .Select(file => Path.GetFileName(file).ToLower()))
                     {
                         modLocationPrefabs[filename] = mod;
@@ -71,7 +72,8 @@ namespace DaggerfallWorkshop.Loc
                     string prefabFolder = modFolderPrefix + "/Locations/LocationPrefab/";
 
                     foreach (string filename in mod.ModInfo.Files
-                        .Where(file => file.StartsWith(prefabFolder, System.StringComparison.InvariantCultureIgnoreCase) && file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase))
+                        .Where(file => file.StartsWith(prefabFolder, System.StringComparison.InvariantCultureIgnoreCase)
+                        && (file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase)))
                         .Select(file => Path.GetFileName(file).ToLower()))
                     {
                         modLocationPrefabs[filename] = mod;
@@ -86,7 +88,7 @@ namespace DaggerfallWorkshop.Loc
             if(hasLooseFiles)
             {
                 foreach(string filename in Directory.GetFiles(looseLocationFolder)
-                    .Where(file => file.EndsWith(".txt"))
+                    .Where(file => file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase))
                     .Select(file => Path.GetFileName(file).ToLower()))
                 {
                     modLocationPrefabs[filename] = null;
@@ -247,6 +249,8 @@ namespace DaggerfallWorkshop.Loc
                 Dictionary<string, Mod> regionFiles = new Dictionary<string, Mod>();
                 modRegionFiles.Add(regionIndex, regionFiles);
 
+                string regionName = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetRegionName(regionIndex);
+
                 foreach (Mod mod in ModManager.Instance.Mods)
                 {
                     if (!mod.Enabled)
@@ -258,10 +262,13 @@ namespace DaggerfallWorkshop.Loc
                         string modFolderPrefix = dummyFilePath.Substring(17);
                         modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
 
-                        string regionFolder = modFolderPrefix + "/locations/" + regionIndex.ToString();
+                        string regionIndexFolder = modFolderPrefix + "/locations/" + regionIndex.ToString();                        
+                        string regionNameFolder = modFolderPrefix + "/locations/" + regionName;
+
 
                         foreach (string filename in mod.AssetBundle.GetAllAssetNames()
-                            .Where(file => file.StartsWith(regionFolder, System.StringComparison.InvariantCultureIgnoreCase) && file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase))
+                            .Where(file => (file.StartsWith(regionIndexFolder, System.StringComparison.InvariantCultureIgnoreCase) || file.StartsWith(regionNameFolder, System.StringComparison.InvariantCultureIgnoreCase))
+                                && (file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase)))
                             .Select(file => Path.GetFileName(file).ToLower()))
                         {
                             regionFiles[filename] = mod;
@@ -274,10 +281,12 @@ namespace DaggerfallWorkshop.Loc
                         string modFolderPrefix = dummyFilePath.Substring(17);
                         modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
 
-                        string regionFolder = modFolderPrefix + "/Locations/" + regionIndex.ToString();
+                        string regionIndexFolder = modFolderPrefix + "/Locations/" + regionIndex.ToString();
+                        string regionNameFolder = modFolderPrefix + "/Locations/" + regionName;
 
                         foreach (string filename in mod.ModInfo.Files
-                            .Where(file => file.StartsWith(regionFolder, System.StringComparison.InvariantCultureIgnoreCase) && file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase))
+                            .Where(file => (file.StartsWith(regionIndexFolder, System.StringComparison.InvariantCultureIgnoreCase) || file.StartsWith(regionNameFolder, System.StringComparison.InvariantCultureIgnoreCase))
+                                && (file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase)))
                             .Select(file => Path.GetFileName(file).ToLower()))
                         {
                             regionFiles[filename] = mod;
@@ -287,14 +296,28 @@ namespace DaggerfallWorkshop.Loc
                 }
 
                 string looseLocationFolder = Path.Combine(Application.dataPath, LocationHelper.locationInstanceFolder);
-                string looseLocationRegionFolder = Path.Combine(looseLocationFolder, regionIndex.ToString());
-                if(Directory.Exists(looseLocationFolder) && Directory.Exists(looseLocationRegionFolder))
+                string looseLocationRegionIndexFolder = Path.Combine(looseLocationFolder, regionIndex.ToString());
+                string looseLocationRegionNameFolder = Path.Combine(looseLocationFolder, regionName);
+                if(Directory.Exists(looseLocationFolder) )
                 {
-                    foreach(string filename in Directory.GetFiles(looseLocationFolder)
-                        .Where(file => file.EndsWith(".txt"))
-                        .Select(file => Path.GetFileName(file).ToLower()))
+                    if (Directory.Exists(looseLocationRegionIndexFolder))
                     {
-                        regionFiles[filename] = null;
+                        foreach (string filename in Directory.GetFiles(looseLocationRegionIndexFolder)
+                            .Where(file => file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
+                            .Select(file => Path.GetFileName(file).ToLower()))
+                        {
+                            regionFiles[filename] = null;
+                        }
+                    }
+
+                    if (Directory.Exists(looseLocationRegionNameFolder))
+                    {
+                        foreach (string filename in Directory.GetFiles(looseLocationRegionNameFolder)
+                            .Where(file => file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
+                            .Select(file => Path.GetFileName(file).ToLower()))
+                        {
+                            regionFiles[filename] = null;
+                        }
                     }
                 }
             }
