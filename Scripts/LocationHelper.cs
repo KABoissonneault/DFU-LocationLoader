@@ -1201,6 +1201,9 @@ namespace DaggerfallWorkshop.Loc
                     obj.rot.x = float.Parse(objectNode["rotX"].InnerXml);
                     obj.rot.y = float.Parse(objectNode["rotY"].InnerXml);
                     obj.rot.z = float.Parse(objectNode["rotZ"].InnerXml);
+
+                    if (!ValidateValue(obj.type, obj.name))
+                        continue;
                 }
                 catch(Exception e)
                 {
@@ -1372,15 +1375,15 @@ namespace DaggerfallWorkshop.Loc
                 if (go == null)
                 {
                     //Loot cointainers
-                    if (arg[0] == "216" && Game.GameManager.Instance.PlayerEntity != null)
+                    var Player = Game.GameManager.Instance.PlayerEntity;
+                    if (arg[0] == "216" && Player != null)
                     {
-                        
-                            go = CreateLootContainer(locationID, objID, int.Parse(arg[0]), int.Parse(arg[1]), parent);
-                            //AddLootSpawn(go);
+                        go = CreateLootContainer(locationID, objID, int.Parse(arg[0]), int.Parse(arg[1]), parent);
                     }
-
                     else
+                    {
                         go = GameObjectHelper.CreateDaggerfallBillboardGameObject(int.Parse(arg[0]), int.Parse(arg[1]), parent);
+                    }
 
                     if (go != null)
                     {

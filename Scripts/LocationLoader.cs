@@ -134,6 +134,7 @@ namespace DaggerfallWorkshop.Loc
 
             Vector3 terrainOffset = new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax, loc.terrainY * TERRAIN_SIZE_MULTI);
 
+            // If it's the first time loading this prefab, load the non-dynamic objects into a template
             GameObject prefabObject;
             if (!prefabTemplates.TryGetValue(prefabName, out prefabObject))
             {
@@ -146,7 +147,7 @@ namespace DaggerfallWorkshop.Loc
 
                 foreach (LocationPrefab.LocationObject obj in locationPrefab.obj)
                 {
-                    if (!LocationHelper.ValidateValue(obj.type, obj.name))
+                    if (IsDynamicObject(obj))
                         continue;
 
                     GameObject go = LocationHelper.LoadObject(
@@ -188,6 +189,35 @@ namespace DaggerfallWorkshop.Loc
             instance.transform.localPosition = terrainOffset;
             instance.transform.localRotation = loc.rot;
             instance.name = prefabName;
+
+            // Add the dynamic objects
+            foreach(LocationPrefab.LocationObject obj in locationPrefab.obj)
+            {
+                if (!IsDynamicObject(obj))
+                    continue;
+
+                GameObject go = LocationHelper.LoadObject(
+                    obj.type,
+                    obj.name,
+                    instance.transform,
+                    obj.pos,
+                    obj.rot,
+                    obj.scale,
+                    loc.locationID,
+                    obj.objectID
+                    );
+
+                if (go != null)
+                {
+                    if (go.GetComponent<DaggerfallBillboard>())
+                    {
+                        float tempY = go.transform.position.y;
+                        go.GetComponent<DaggerfallBillboard>().AlignToBase();
+                        go.transform.position = new Vector3(go.transform.position.x, tempY + ((go.transform.position.y - tempY) * go.transform.localScale.y), go.transform.position.z);
+                    }
+                }
+            }
+
             instance.SetActive(true);
         }
 
@@ -462,6 +492,23 @@ namespace DaggerfallWorkshop.Loc
             }
 
             return region;
+        }
+
+        bool IsDynamicObject(LocationPrefab.LocationObject obj)
+        {
+            if(obj.type == 1)
+            {
+                string[] args = obj.name.Split('.');
+                int archive = int.Parse(args[0]);
+
+                switch(archive)
+                {
+                    case 216:
+                        return true;
+                }
+            }
+
+            return false;
         }
     }
 }
