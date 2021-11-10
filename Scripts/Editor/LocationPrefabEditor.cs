@@ -35,10 +35,10 @@ namespace DaggerfallWorkshop.Loc
             window.titleContent = new GUIContent("Location Prefab Editor");
         }
 
-        private void Awake()
+        private void OnEnable()
         {
             CreateGUIStyles();
-            UpdateObjList(); 
+            UpdateObjList();
         }
 
         void OnInspectorUpdate()
