@@ -37,7 +37,7 @@ namespace DaggerfallWorkshop.Loc
 
         private void Awake()
         {
-            CreataGUIStyles();
+            CreateGUIStyles();
             UpdateObjList(); 
         }
 
@@ -50,15 +50,15 @@ namespace DaggerfallWorkshop.Loc
         {
             if (editMode == EditMode.EditLocation)
             {
-                if (parent != null && !parent.gameObject.activeSelf)
-                    parent.gameObject.SetActive(true);
+                if (parent != null && !parent.activeSelf)
+                    parent.SetActive(true);
 
                 EditLocationWindow();
             }
             else if (editMode == EditMode.ObjectPicker)
             {
-                if (parent != null && parent.gameObject.activeSelf)
-                    parent.gameObject.SetActive(false);
+                if (parent != null && parent.activeSelf)
+                    parent.SetActive(false);
 
                 ObjectPickerWindow();
             }
@@ -91,7 +91,6 @@ namespace DaggerfallWorkshop.Loc
                 if (path.Length == 0)
                     return;
 
-                locationPrefab = new LocationPrefab();
                 objScene = new List<GameObject>();
                 locationPrefab = LocationHelper.LoadLocationPrefab(path);
 
@@ -110,7 +109,7 @@ namespace DaggerfallWorkshop.Loc
                 }
             }
 
-            if (parent != null)
+            if (parent != null && locationPrefab != null)
             {
                 GUI.Box(new Rect(4, 32, 516, 56), "", lightGrayBG);
 
@@ -129,7 +128,7 @@ namespace DaggerfallWorkshop.Loc
                         availableIDs[locationPrefab.obj[i].objectID] = false;
                         objScene.RemoveAt(i);
                         locationPrefab.obj.RemoveAt(i);
-                        return;
+                        break;
                     }
 
                     locationPrefab.obj[i].pos = new Vector3(objScene[i].transform.localPosition.x, objScene[i].transform.localPosition.y, objScene[i].transform.localPosition.z);
@@ -178,7 +177,6 @@ namespace DaggerfallWorkshop.Loc
                         DestroyImmediate(objScene[i]);
                         objScene.RemoveAt(i);
                         locationPrefab.obj.RemoveAt(i);
-                        return;
                     }
                     GUI.color = Color.white;
 
@@ -276,15 +274,51 @@ namespace DaggerfallWorkshop.Loc
                 objScene.Add(newObject);
 
                 if (locationObject.type == 0)
-                    newObject.name = LocationHelper.models[locationObject.name];
+                {
+                    if(LocationHelper.models.TryGetValue(locationObject.name, out string modelName))
+                    {
+                        newObject.name = modelName;
+                    }
+                    else
+                    {
+                        newObject.name = $"Unknown model ({locationObject.name})";
+                    }
+                }
                 else if (locationObject.type == 1)
                 {
-                    if(sublistMode == 0)
-                        newObject.name = LocationHelper.billboards[locationObject.name];
+                    if (sublistMode == 0)
+                    {
+                        if (LocationHelper.billboards.TryGetValue(locationObject.name, out string billboardName))
+                        {
+                            newObject.name = billboardName;
+                        }
+                        else
+                        {
+                            newObject.name = $"Unknown billboard ({locationObject.name})";
+                        }
+                    }
                     else if (sublistMode == 1)
-                        newObject.name = LocationHelper.billboardslights[locationObject.name];
+                    {
+                        if (LocationHelper.billboardslights.TryGetValue(locationObject.name, out string billboardName))
+                        {
+                            newObject.name = billboardName;
+                        }
+                        else
+                        {
+                            newObject.name = $"Unknown light billboard ({locationObject.name})";
+                        }
+                    }
                     else if (sublistMode == 2)
-                        newObject.name = LocationHelper.billboardsTreasure[locationObject.name];
+                    {
+                        if (LocationHelper.billboardsTreasure.TryGetValue(locationObject.name, out string billboardName))
+                        {
+                            newObject.name = billboardName;
+                        }
+                        else
+                        {
+                            newObject.name = $"Unknown treasure billboard ({locationObject.name})";
+                        }
+                    }
                 }
                     
                 if (newObject.GetComponent<DaggerfallBillboard>())
@@ -358,7 +392,7 @@ namespace DaggerfallWorkshop.Loc
         private void OnDestroy()
         {
             if (parent != null)
-                DestroyImmediate(parent.gameObject);
+                DestroyImmediate(parent);
         }
     }
 #endif

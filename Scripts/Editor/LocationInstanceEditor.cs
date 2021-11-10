@@ -26,7 +26,7 @@ namespace DaggerfallWorkshop.Loc
 
         private void Awake()
         {
-            CreataGUIStyles();
+            CreateGUIStyles();
         }
 
         void OnGUI()

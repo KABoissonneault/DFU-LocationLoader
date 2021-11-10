@@ -18,10 +18,10 @@ namespace DaggerfallWorkshop.Loc
         protected static Rect Rect_SaveFile { get { return new Rect(96+48, 8, 96, 16); } }
         protected static Rect Rect_LoadFile { get { return new Rect(96+96+80, 8, 96, 16); } }
 
-        protected void CreataGUIStyles()
+        protected void CreateGUIStyles()
         {
-            lightGrayBG.normal.background = CreateColorTexture(1, 1, new Color(0.9f, 0.9f, 0.9f, 1.0f));
-            lightGreenBG.normal.background = CreateColorTexture(1, 1, new Color(0.5f, 0.9f, 0.5f, 1.0f));
+            lightGrayBG.normal.background = CreateColorTexture(1, 1, new Color(0.4f, 0.4f, 0.4f, 1.0f));
+            lightGreenBG.normal.background = CreateColorTexture(1, 1, new Color(0.35f, 0.5f, 0.35f, 1.0f));
             blackBG.normal.background = CreateColorTexture(1, 1, new Color(0.0f, 0.0f, 0.0f, 0.95f));
         }
 

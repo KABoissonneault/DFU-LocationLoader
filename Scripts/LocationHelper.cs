@@ -1361,6 +1361,12 @@ namespace DaggerfallWorkshop.Loc
                     else
                     {
                         go = GameObjectHelper.CreateDaggerfallMeshGameObject(uint.Parse(name), parent);
+                        if(go != null)
+                        {
+                            go.transform.localPosition = pos;
+                            go.transform.localRotation = rot;
+                            go.transform.localScale = scale;
+                        }
                     }
                 }
             }
