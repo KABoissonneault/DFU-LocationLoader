@@ -4,8 +4,9 @@ using System.Linq;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using DaggerfallWorkshop;
 
-namespace DaggerfallWorkshop.Loc
+namespace LocationLoader
 {
 #if UNITY_EDITOR
     public class LocationPrefabEditor : LocationEditor

@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Base location editor
 /// </summary>
-namespace DaggerfallWorkshop.Loc
+namespace LocationLoader
 {
 #if UNITY_EDITOR
     public class LocationEditor : EditorWindow

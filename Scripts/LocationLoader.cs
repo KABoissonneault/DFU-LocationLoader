@@ -2,15 +2,13 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
 using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Utility;
-using DaggerfallWorkshop.Utility.AssetInjection;
-using DaggerfallConnect;
 using System;
+using DaggerfallWorkshop;
 
-namespace DaggerfallWorkshop.Loc
+namespace LocationLoader
 {
     public class LocationLoader : MonoBehaviour
     {
@@ -190,6 +188,9 @@ namespace DaggerfallWorkshop.Loc
             instance.transform.localPosition = terrainOffset;
             instance.transform.localRotation = loc.rot;
             instance.name = prefabName;
+            LocationData data = instance.AddComponent<LocationData>();
+            data.Location = loc;
+            data.Prefab = locationPrefab;
 
             // Add the dynamic objects
             foreach (LocationPrefab.LocationObject obj in locationPrefab.obj)

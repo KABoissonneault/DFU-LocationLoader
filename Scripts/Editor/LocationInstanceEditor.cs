@@ -4,7 +4,7 @@ using UnityEngine;
 using System.IO;
 using System.Linq;
 
-namespace DaggerfallWorkshop.Loc
+namespace LocationLoader
 {
 #if UNITY_EDITOR
     public class LocationInstanceEditor : LocationEditor

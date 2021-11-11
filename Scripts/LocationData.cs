@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace DaggerfallWorkshop.Loc
+namespace LocationLoader
 {
     /// <summary>
     /// Holds data locationPrefab
@@ -78,6 +78,56 @@ namespace DaggerfallWorkshop.Loc
             uint first = (uint)Random.Range(int.MinValue, int.MaxValue);
             uint second = (uint)Random.Range(int.MinValue, int.MaxValue);
             locationID = ((ulong)first) << 32 | second;                      
+        }
+    }
+
+    public enum EditorMarkerTypes
+    {
+        Enter = 8,
+        Start = 10,
+        Quest = 11,
+        RandomMonster = 15,
+        Monster = 16,
+        QuestItem = 18,
+        RandomTreasure = 19,
+        LadderBottom = 21,
+        LadderTop = 22,
+    }
+
+    public class LocationData : MonoBehaviour
+    {
+        public LocationInstance Location;
+        public LocationPrefab Prefab;
+
+        public bool FindClosestMarker(EditorMarkerTypes type, Vector3 sourcePos, out Vector3 closestMarkerOut)
+        {
+            bool foundOne = false;
+            float minDistance = float.MaxValue;
+            closestMarkerOut = Vector3.zero;
+            foreach (var obj in Prefab.obj)
+            {
+                string markerName = $"199.{(int)type}";
+                // Exclude markers of incorrect type
+                if (obj.type != 2 || obj.name != markerName)
+                    continue;
+
+                // Refine to closest marker
+                Vector3 markerPos = transform.position + obj.pos;
+                float distance = Vector3.Distance(sourcePos, markerPos);
+                if (distance < minDistance || !foundOne)
+                {
+                    closestMarkerOut = markerPos;
+                    minDistance = distance;
+                    foundOne = true;
+                }
+            }
+
+            if (!foundOne)
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }

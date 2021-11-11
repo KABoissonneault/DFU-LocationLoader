@@ -4,10 +4,14 @@ using System.IO;
 using System.Xml;
 using System.Linq;
 using UnityEngine;
+using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
 using DaggerfallWorkshop.Utility;
+using DaggerfallWorkshop.Game;
+using DaggerfallWorkshop.Utility.AssetInjection;
+using DaggerfallWorkshop.Game.Items;
 
-namespace DaggerfallWorkshop.Loc
+namespace LocationLoader
 {
     public static class LocationHelper
     {
@@ -1407,11 +1411,11 @@ namespace DaggerfallWorkshop.Loc
 
                 uint modelId = uint.Parse(name);
 
-                go = Utility.AssetInjection.MeshReplacement.ImportCustomGameobject(modelId, parent, mat);
+                go = MeshReplacement.ImportCustomGameobject(modelId, parent, mat);
 
                 if (go == null) //if no mesh replacment exist
                 {
-                    if (modelCombiner != null)
+                    if (modelCombiner != null && !PlayerActivate.HasCustomActivation(modelId))
                     {
                         ModelData modelData;
                         DaggerfallUnity.Instance.MeshReader.GetModelData(modelId, out modelData);
@@ -1436,7 +1440,7 @@ namespace DaggerfallWorkshop.Loc
             {
                 string[] arg = name.Split('.');
 
-                go = Utility.AssetInjection.MeshReplacement.ImportCustomFlatGameobject(int.Parse(arg[0]), int.Parse(arg[1]), pos, parent);
+                go = MeshReplacement.ImportCustomFlatGameobject(int.Parse(arg[0]), int.Parse(arg[1]), pos, parent);
 
                 if (go == null)
                 {   
@@ -1472,7 +1476,7 @@ namespace DaggerfallWorkshop.Loc
         {
             Debug.Log("Add Light");
 
-            GameObject go = Utility.GameObjectHelper.InstantiatePrefab(DaggerfallUnity.Instance.Option_InteriorLightPrefab.gameObject, string.Empty, parent, parent.position);
+            GameObject go = GameObjectHelper.InstantiatePrefab(DaggerfallUnity.Instance.Option_InteriorLightPrefab.gameObject, string.Empty, parent, parent.position);
             Vector2 size = DaggerfallUnity.Instance.MeshReader.GetScaledBillboardSize(210, textureRecord) * MeshReader.GlobalScale;
             Light light = go.GetComponent<Light>();
             switch (textureRecord)
@@ -1755,7 +1759,7 @@ namespace DaggerfallWorkshop.Loc
                 loot.TextureRecord = textureRecord;
             }
 
-            if (!Game.Items.LootTables.GenerateLoot(loot, 2))
+            if (!LootTables.GenerateLoot(loot, 2))
                 DaggerfallUnity.LogMessage(string.Format("DaggerfallInterior: Location type {0} is out of range or unknown.", 0, true));
 
             if(go.GetComponent<DaggerfallBillboard>() != null)
