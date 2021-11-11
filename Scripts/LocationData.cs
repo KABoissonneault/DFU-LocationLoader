@@ -19,9 +19,10 @@ namespace DaggerfallWorkshop.Loc
         //Location objects
         public class LocationObject
         {
-            public int type = 0; //0 == Mesh, 1 == Billbord
+            public int type = 0; //0 == Mesh, 1 == Billboard, 2 == Editor
             public string name = ""; 
             public int objectID = 0;
+            public ulong dataID = 0; // Data specific to a given object type and name
             public Vector3 pos = Vector3.zero;
             public Quaternion rot = Quaternion.Euler(0, 0, 0);
             public Vector3 scale = new Vector3(1,1,1);

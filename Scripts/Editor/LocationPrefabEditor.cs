@@ -1,4 +1,6 @@
 using DaggerfallWorkshop.Utility;
+using System;
+using System.Linq;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -26,9 +28,12 @@ namespace DaggerfallWorkshop.Loc
         int objectPicker;
         int listMode;
         int sublistMode;
-        Vector2 scrollPosition = Vector2.zero, scrollPosition2 = Vector2.zero;
+        Vector2 scrollPosition = Vector2.zero, scrollPosition2 = Vector2.zero, scrollPosition3 = Vector2.zero;
         string[] listModeName = { "3D Model", "Billboard", "Editor" };
         string[] billboardLists = { "All", "Lights", "Treasure"};
+
+        ulong dataID = 0;
+        List<string> dataIDFields = new List<string>();
 
         LocationPrefab locationPrefab;
 
@@ -232,9 +237,37 @@ namespace DaggerfallWorkshop.Loc
                 UpdateObjList();
 
             scrollPosition2 = GUI.BeginScrollView(new Rect(4, 96, 256, 472), scrollPosition2, new Rect(0, 0, 236, 20 + (searchListNames.Count * 24)));
-            objectPicker = GUI.SelectionGrid(new Rect(10, 10, 216, searchListNames.Count * 24), objectPicker, searchListNames.ToArray(), 1);
+
+            int previousObjectPicker = objectPicker;
+            objectPicker = GUI.SelectionGrid(new Rect(10, 10, 216, searchListNames.Count * 24), previousObjectPicker, searchListNames.ToArray(), 1);
 
             GUI.EndScrollView();
+
+            if(listMode == 2)
+            {
+                if(searchListID[objectPicker] == "199.16")
+                {
+                    var mobileIds = Enum.GetValues(typeof(MobileTypes)).Cast<MobileTypes>().ToArray();
+
+                    if (previousObjectPicker != objectPicker)
+                    {
+                        dataIDFields.Clear();
+                        var mobileNames = mobileIds
+                            .Where(id => id != MobileTypes.Horse_Invalid && id != MobileTypes.Dragonling_Alternate && id != MobileTypes.Knight_CityWatch)
+                            .Select(id => string.Concat(id.ToString().Select(x => char.IsUpper(x) ? " " + x : x.ToString())));
+                        dataIDFields.AddRange(mobileNames);
+                    }
+
+                    scrollPosition3 = GUI.BeginScrollView(new Rect(264, 96, 256, 472), scrollPosition3, new Rect(0, 0, 236, 20 + dataIDFields.Count * 24));
+
+                    int previousSelectedIndex = Array.IndexOf(mobileIds, (MobileTypes)dataID);
+                    int newSelectedIndex = GUI.SelectionGrid(new Rect(10, 10, 216, dataIDFields.Count * 24), previousSelectedIndex, dataIDFields.ToArray(), 1);
+
+                    dataID = (ulong)mobileIds[newSelectedIndex];
+
+                    GUI.EndScrollView();
+                }
+            }
 
             if (GUI.Button(new Rect(16, 582, 96, 20), "OK"))
             {
@@ -249,10 +282,12 @@ namespace DaggerfallWorkshop.Loc
 
                 usedIds.Add(newID);
 
-                locationPrefab.obj.Add(new LocationPrefab.LocationObject(listMode, searchListID[objectPicker], Vector3.zero, new Quaternion(), new Vector3(1, 1, 1)));
+                var obj = new LocationPrefab.LocationObject(listMode, searchListID[objectPicker], Vector3.zero, new Quaternion(), new Vector3(1, 1, 1));
+                locationPrefab.obj.Add(obj);
 
-                locationPrefab.obj[locationPrefab.obj.Count - 1].objectID = newID;
-                CreateObject(locationPrefab.obj[locationPrefab.obj.Count - 1], true);
+                obj.objectID = newID;
+                obj.dataID = dataID;
+                CreateObject(obj, true);
                 //locationPrefab.obj.Sort((a, b) => a.objectID.CompareTo(b.objectID));
                 editMode = EditMode.EditLocation;
             }

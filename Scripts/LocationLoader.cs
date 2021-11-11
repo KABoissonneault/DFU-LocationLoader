@@ -8,6 +8,7 @@ using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Utility;
 using DaggerfallWorkshop.Utility.AssetInjection;
 using DaggerfallConnect;
+using System;
 
 namespace DaggerfallWorkshop.Loc
 {
@@ -191,7 +192,7 @@ namespace DaggerfallWorkshop.Loc
             instance.name = prefabName;
 
             // Add the dynamic objects
-            foreach(LocationPrefab.LocationObject obj in locationPrefab.obj)
+            foreach (LocationPrefab.LocationObject obj in locationPrefab.obj)
             {
                 if (!IsDynamicObject(obj))
                     continue;
@@ -204,11 +205,25 @@ namespace DaggerfallWorkshop.Loc
 
                     if (arg[0] == "199")
                     {
-                        if (arg[1] == "19")
+                        switch(arg[1])
                         {
-                            int record = Random.Range(0, 48);
-                            go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, 216, record, instance.transform);
-                            go.transform.localPosition = obj.pos;
+                            case "16":
+                                if (!Enum.IsDefined(typeof(MobileTypes), (int)obj.dataID))
+                                {
+                                    Debug.LogError($"Could not spawn enemy, unknown mobile type '{obj.dataID}'");
+                                    break;
+                                }
+                                MobileTypes mobileType = (MobileTypes)obj.dataID;
+                                go = GameObjectHelper.CreateEnemy(TextManager.Instance.GetLocalizedEnemyName((int)mobileType), mobileType, obj.pos, MobileGender.Unspecified, instance.transform);
+                                break;
+
+                            case "19":
+                            {
+                                int record = UnityEngine.Random.Range(0, 48);
+                                go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, 216, record, instance.transform);
+                                go.transform.localPosition = obj.pos;
+                                break;
+                            }
                         }
                     }
                 }

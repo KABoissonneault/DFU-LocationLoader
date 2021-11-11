@@ -1219,6 +1219,12 @@ namespace DaggerfallWorkshop.Loc
                         obj.rot.z = float.Parse(objectNode["rotZ"].InnerXml);
                     }
 
+                    var dataIDNode = objectNode["dataID"];
+                    if (dataIDNode != null)
+                    {
+                        obj.dataID = ulong.Parse(dataIDNode.InnerXml);
+                    }
+
                     if (!ValidateValue(obj.type, obj.name))
                         continue;
                 }
@@ -1261,6 +1267,8 @@ namespace DaggerfallWorkshop.Loc
                 writer.WriteLine("\t\t<scaleX>" + obj.scale.x + "</scaleX>");
                 writer.WriteLine("\t\t<scaleY>" + obj.scale.y + "</scaleY>");
                 writer.WriteLine("\t\t<scaleZ>" + obj.scale.z + "</scaleZ>");
+
+                writer.WriteLine("\t\t<dataID>" + obj.dataID + "</dataID>");
 
                 if (obj.type == 0)
                 {
