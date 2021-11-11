@@ -8,28 +8,29 @@ namespace DaggerfallWorkshop.Loc
 #if UNITY_EDITOR
     public class LocationPrefabEditor : LocationEditor
     {
-        private enum EditMode { EditLocation, ObjectPicker };
+        enum EditMode { EditLocation, ObjectPicker };
 
-        private float magicNumberSca = 0.64f;
-        private float magicNumberLoc = -3.2f;
+        float magicNumberSca = 0.64f;
+        float magicNumberLoc = -3.2f;
 
-        private GameObject parent, ground;
-        private List<GameObject> objScene = new List<GameObject>();
+        GameObject parent, ground;
+        List<GameObject> objScene = new List<GameObject>();
 
-        private string searchField = "";
-        private List<string> searchListNames = new List<string>();
-        private List<string> searchListID = new List<string>();
-        private bool[] availableIDs = new bool[1000];
+        string searchField = "";
+        List<string> searchListNames = new List<string>();
+        List<string> searchListID = new List<string>();
 
-        private EditMode editMode;
-        private int objectPicker;
-        private int listMode;
-        private int sublistMode;
-        private Vector2 scrollPosition = Vector2.zero, scrollPosition2 = Vector2.zero;
-        private string[] listModeName = { "3D Model", "Billboard", "Editor" };
-        private string[] billboardLists = { "All", "Lights", "Treasure"};
+        HashSet<int> usedIds = new HashSet<int>();
 
-        private LocationPrefab locationPrefab;
+        EditMode editMode;
+        int objectPicker;
+        int listMode;
+        int sublistMode;
+        Vector2 scrollPosition = Vector2.zero, scrollPosition2 = Vector2.zero;
+        string[] listModeName = { "3D Model", "Billboard", "Editor" };
+        string[] billboardLists = { "All", "Lights", "Treasure"};
+
+        LocationPrefab locationPrefab;
 
         [MenuItem("Daggerfall Tools/Location Prefab Editor")]
         static void Init()
@@ -107,7 +108,7 @@ namespace DaggerfallWorkshop.Loc
                 foreach (LocationPrefab.LocationObject obj in locationPrefab.obj)
                 {
                     CreateObject(obj);
-                    availableIDs[obj.objectID] = true;
+                    usedIds.Add(obj.objectID);
                 }
             }
 
@@ -130,18 +131,19 @@ namespace DaggerfallWorkshop.Loc
 
                 for (int i = 0; i < objScene.Count; i++)
                 {
+                    LocationPrefab.LocationObject obj = locationPrefab.obj[i];
                     if (objScene[i] == null)
-                    {
-                        availableIDs[locationPrefab.obj[i].objectID] = false;
+                    {                        
+                        usedIds.Remove(obj.objectID);
                         objScene.RemoveAt(i);
                         locationPrefab.obj.RemoveAt(i);
                         break;
                     }
 
-                    locationPrefab.obj[i].pos = new Vector3(objScene[i].transform.localPosition.x, objScene[i].transform.localPosition.y, objScene[i].transform.localPosition.z);
-                    if(locationPrefab.obj[i].type == 0)
-                        locationPrefab.obj[i].rot = objScene[i].transform.rotation;
-                    locationPrefab.obj[i].scale = objScene[i].transform.localScale;
+                    obj.pos = new Vector3(objScene[i].transform.localPosition.x, objScene[i].transform.localPosition.y, objScene[i].transform.localPosition.z);
+                    if(obj.type == 0)
+                        obj.rot = objScene[i].transform.rotation;
+                    obj.scale = objScene[i].transform.localScale;
 
                     if (Selection.Contains(objScene[i]))
                     {
@@ -151,29 +153,28 @@ namespace DaggerfallWorkshop.Loc
                         GUI.BeginGroup(new Rect(6, 10 + (i * 60), 496, 52), lightGrayBG);
 
                     GUI.Label(new Rect(2, 4, 128, 16), "" + objScene[i].name);
-                    GUI.Label(new Rect(2, 20, 128, 16), "Name: " + locationPrefab.obj[i].name);
-                    GUI.Label(new Rect(2, 36, 128, 16), "ID: " + locationPrefab.obj[i].objectID);
+                    GUI.Label(new Rect(2, 20, 128, 16), "Name: " + obj.name);
+                    GUI.Label(new Rect(2, 36, 128, 16), "ID: " + obj.objectID);
 
-                    GUI.Label(new Rect(136, 4, 256, 16), "Position : " + locationPrefab.obj[i].pos);
-                    if(locationPrefab.obj[i].type == 0)
-                        GUI.Label(new Rect(136, 20, 256, 16), "Rotation : " + locationPrefab.obj[i].rot.eulerAngles);
-                    GUI.Label(new Rect(136, 36, 256, 16), "Scale    : " + locationPrefab.obj[i].scale);
+                    GUI.Label(new Rect(136, 4, 256, 16), "Position : " + obj.pos);
+                    if(obj.type == 0)
+                        GUI.Label(new Rect(136, 20, 256, 16), "Rotation : " + obj.rot.eulerAngles);
+                    GUI.Label(new Rect(136, 36, 256, 16), "Scale    : " + obj.scale);
 
                     if (GUI.Button(new Rect(392, 20, 64, 16), "Duplicate"))
                     {
                         int newID = 0;
 
-                        for(int j = 0; j < availableIDs.Length; j++)
+                        while(true)
                         {
-                            if(availableIDs[j] == false)
-                            {
-                                newID = j;
-                                availableIDs[j] = true;
+                            if (!usedIds.Contains(newID))
                                 break;
-                            }
+                            ++newID;
                         }
 
-                        locationPrefab.obj.Add(new LocationPrefab.LocationObject(locationPrefab.obj[i].type, locationPrefab.obj[i].name, locationPrefab.obj[i].pos, locationPrefab.obj[i].rot, locationPrefab.obj[i].scale));
+                        usedIds.Add(newID);
+
+                        locationPrefab.obj.Add(new LocationPrefab.LocationObject(obj.type, obj.name, obj.pos, obj.rot, obj.scale));
                         CreateObject(locationPrefab.obj[locationPrefab.obj.Count - 1], true);
                         locationPrefab.obj[locationPrefab.obj.Count - 1].objectID = newID;
                         //locationPrefab.obj.Sort((a, b) => a.objectID.CompareTo(b.objectID));
@@ -182,7 +183,7 @@ namespace DaggerfallWorkshop.Loc
                     GUI.color = new Color(0.9f, 0.5f, 0.5f);
                     if (GUI.Button(new Rect(476, 0, 20, 20), "X") || (Event.current.Equals(Event.KeyboardEvent("Delete")) && Selection.Contains(objScene[i])))
                     {
-                        availableIDs[locationPrefab.obj[i].objectID] = false;
+                        usedIds.Remove(obj.objectID);
                         DestroyImmediate(objScene[i]);
                         objScene.RemoveAt(i);
                         locationPrefab.obj.RemoveAt(i);
@@ -239,15 +240,14 @@ namespace DaggerfallWorkshop.Loc
             {
                 int newID = 0;
 
-                for (int j = 0; j < availableIDs.Length; j++)
+                while (true)
                 {
-                    if (availableIDs[j] == false)
-                    {
-                        newID = j;
-                        availableIDs[j] = true;
+                    if (!usedIds.Contains(newID))
                         break;
-                    }
+                    ++newID;
                 }
+
+                usedIds.Add(newID);
 
                 locationPrefab.obj.Add(new LocationPrefab.LocationObject(listMode, searchListID[objectPicker], Vector3.zero, new Quaternion(), new Vector3(1, 1, 1)));
 
