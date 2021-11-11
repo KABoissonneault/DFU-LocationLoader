@@ -1,3 +1,4 @@
+using DaggerfallWorkshop.Utility;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -21,9 +22,11 @@ namespace DaggerfallWorkshop.Loc
         private bool[] availableIDs = new bool[1000];
 
         private EditMode editMode;
-        private int objectPicker, listMode, sublistMode;
+        private int objectPicker;
+        private int listMode;
+        private int sublistMode;
         private Vector2 scrollPosition = Vector2.zero, scrollPosition2 = Vector2.zero;
-        private string[] listModeName = { "3D Model", "Billboard"};
+        private string[] listModeName = { "3D Model", "Billboard", "Editor" };
         private string[] billboardLists = { "All", "Lights", "Treasure"};
 
         private LocationPrefab locationPrefab;
@@ -37,7 +40,6 @@ namespace DaggerfallWorkshop.Loc
 
         private void OnEnable()
         {
-            CreateGUIStyles();
             UpdateObjList();
         }
 
@@ -111,6 +113,11 @@ namespace DaggerfallWorkshop.Loc
 
             if (parent != null && locationPrefab != null)
             {
+                if(lightGrayBG.normal.background == null)
+                {
+                    CreateGUIStyles();
+                }
+
                 GUI.Box(new Rect(4, 32, 516, 56), "", lightGrayBG);
 
                 GUI.Label(new Rect(16, 40, 64, 16), "Area Y:");
@@ -132,7 +139,8 @@ namespace DaggerfallWorkshop.Loc
                     }
 
                     locationPrefab.obj[i].pos = new Vector3(objScene[i].transform.localPosition.x, objScene[i].transform.localPosition.y, objScene[i].transform.localPosition.z);
-                    locationPrefab.obj[i].rot = objScene[i].transform.rotation;
+                    if(locationPrefab.obj[i].type == 0)
+                        locationPrefab.obj[i].rot = objScene[i].transform.rotation;
                     locationPrefab.obj[i].scale = objScene[i].transform.localScale;
 
                     if (Selection.Contains(objScene[i]))
@@ -147,7 +155,8 @@ namespace DaggerfallWorkshop.Loc
                     GUI.Label(new Rect(2, 36, 128, 16), "ID: " + locationPrefab.obj[i].objectID);
 
                     GUI.Label(new Rect(136, 4, 256, 16), "Position : " + locationPrefab.obj[i].pos);
-                    GUI.Label(new Rect(136, 20, 256, 16), "Rotation : " + locationPrefab.obj[i].rot.eulerAngles);
+                    if(locationPrefab.obj[i].type == 0)
+                        GUI.Label(new Rect(136, 20, 256, 16), "Rotation : " + locationPrefab.obj[i].rot.eulerAngles);
                     GUI.Label(new Rect(136, 36, 256, 16), "Scale    : " + locationPrefab.obj[i].scale);
 
                     if (GUI.Button(new Rect(392, 20, 64, 16), "Duplicate"))
@@ -240,11 +249,7 @@ namespace DaggerfallWorkshop.Loc
                     }
                 }
 
-                if (listMode == 0)
-                    locationPrefab.obj.Add(new LocationPrefab.LocationObject(0, searchListID[objectPicker], Vector3.zero, new Quaternion(), new Vector3(1, 1, 1)));
-
-                else if (listMode == 1)
-                    locationPrefab.obj.Add(new LocationPrefab.LocationObject(1, searchListID[objectPicker], Vector3.zero, new Quaternion(), new Vector3(1, 1, 1)));
+                locationPrefab.obj.Add(new LocationPrefab.LocationObject(listMode, searchListID[objectPicker], Vector3.zero, new Quaternion(), new Vector3(1, 1, 1)));
 
                 locationPrefab.obj[locationPrefab.obj.Count - 1].objectID = newID;
                 CreateObject(locationPrefab.obj[locationPrefab.obj.Count - 1], true);
@@ -263,14 +268,26 @@ namespace DaggerfallWorkshop.Loc
             if (!LocationHelper.ValidateValue(locationObject.type, locationObject.name))
                 return;
 
-            GameObject newObject = LocationHelper.LoadObject(locationObject.type, locationObject.name, parent.transform,
+            GameObject newObject;
+            if (locationObject.type == 2)
+            {
+                string[] arg = locationObject.name.Split('.');
+
+                newObject = GameObjectHelper.CreateDaggerfallBillboardGameObject(199, int.Parse(arg[1]), parent.transform);
+                newObject.transform.localPosition = locationObject.pos;
+            }
+            else
+            {
+                newObject = LocationHelper.LoadStaticObject(locationObject.type, locationObject.name, parent.transform,
                                      new Vector3(locationObject.pos.x, locationObject.pos.y, locationObject.pos.z),
                                      locationObject.rot,
                                      locationObject.scale, 0, 0
                 );
-
+            }
+            
             if (newObject != null)
             {
+
                 objScene.Add(newObject);
 
                 if (locationObject.type == 0)
@@ -320,10 +337,16 @@ namespace DaggerfallWorkshop.Loc
                         }
                     }
                 }
-                    
-                if (newObject.GetComponent<DaggerfallBillboard>())
+                else if(listMode == 2)
                 {
-                    DestroyImmediate(newObject.GetComponent<DaggerfallBillboard>());
+                    if(LocationHelper.editor.TryGetValue(locationObject.name, out string editorName))
+                    {
+                        newObject.name = editorName;
+                    }
+                    else
+                    {
+                        newObject.name = $"Unknown editor marker ({locationObject.name})";
+                    }
                 }
 
                 if (selectNew)
@@ -384,6 +407,17 @@ namespace DaggerfallWorkshop.Loc
                             searchListNames.Add(pair.Value);
                             searchListID.Add(pair.Key);
                         }
+                    }
+                }
+            }
+            else if(listMode == 2)
+            {
+                foreach (KeyValuePair<string, string> pair in LocationHelper.editor)
+                {
+                    if (pair.Value.ToLower().Contains(searchField.ToLower()))
+                    {
+                        searchListNames.Add(pair.Value);
+                        searchListID.Add(pair.Key);
                     }
                 }
             }

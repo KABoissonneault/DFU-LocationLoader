@@ -150,7 +150,7 @@ namespace DaggerfallWorkshop.Loc
                     if (IsDynamicObject(obj))
                         continue;
 
-                    GameObject go = LocationHelper.LoadObject(
+                    GameObject go = LocationHelper.LoadStaticObject(
                         obj.type,
                         obj.name,
                         templateTransform,
@@ -196,16 +196,22 @@ namespace DaggerfallWorkshop.Loc
                 if (!IsDynamicObject(obj))
                     continue;
 
-                GameObject go = LocationHelper.LoadObject(
-                    obj.type,
-                    obj.name,
-                    instance.transform,
-                    obj.pos,
-                    obj.rot,
-                    obj.scale,
-                    loc.locationID,
-                    obj.objectID
-                    );
+                GameObject go = null;
+
+                if (obj.type == 2)
+                {
+                    string[] arg = obj.name.Split('.');
+
+                    if (arg[0] == "199")
+                    {
+                        if (arg[1] == "19")
+                        {
+                            int record = Random.Range(0, 48);
+                            go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, 216, record, instance.transform);
+                            go.transform.localPosition = obj.pos;
+                        }
+                    }
+                }
 
                 if (go != null)
                 {
@@ -496,19 +502,7 @@ namespace DaggerfallWorkshop.Loc
 
         bool IsDynamicObject(LocationPrefab.LocationObject obj)
         {
-            if(obj.type == 1)
-            {
-                string[] args = obj.name.Split('.');
-                int archive = int.Parse(args[0]);
-
-                switch(archive)
-                {
-                    case 216:
-                        return true;
-                }
-            }
-
-            return false;
+            return obj.type == 2;
         }
     }
 }

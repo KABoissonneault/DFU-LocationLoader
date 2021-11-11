@@ -893,6 +893,20 @@ namespace DaggerfallWorkshop.Loc
                 {"216.47", "Treasure 36"},
         };
 
+        public static Dictionary<string, string> editor = new Dictionary<string, string>()
+        {
+            { "199.4", "Rest Marker" },
+            { "199.8", "Enter Marker" },
+            { "199.10", "Start Marker" },
+            { "199.11", "Quest Marker" },
+            { "199.15", "Random Monster" },
+            { "199.16", "Monster" },
+            { "199.18", "Quest Item" },
+            { "199.19", "Random Treasure" },
+            { "199.21", "Ladder Bottom" },
+            { "199.22", "Ladder Top" },
+        };
+
         /// <summary>
         /// Returns list of locations based on file path. Return null if not found or wrong file
         /// </summary>
@@ -1196,11 +1210,14 @@ namespace DaggerfallWorkshop.Loc
                     obj.scale.x = float.Parse(objectNode["scaleX"].InnerXml);
                     obj.scale.y = float.Parse(objectNode["scaleY"].InnerXml);
                     obj.scale.z = float.Parse(objectNode["scaleZ"].InnerXml);
-                    
-                    obj.rot.w = float.Parse(objectNode["rotW"].InnerXml);
-                    obj.rot.x = float.Parse(objectNode["rotX"].InnerXml);
-                    obj.rot.y = float.Parse(objectNode["rotY"].InnerXml);
-                    obj.rot.z = float.Parse(objectNode["rotZ"].InnerXml);
+
+                    if (obj.type == 0)
+                    {
+                        obj.rot.w = float.Parse(objectNode["rotW"].InnerXml);
+                        obj.rot.x = float.Parse(objectNode["rotX"].InnerXml);
+                        obj.rot.y = float.Parse(objectNode["rotY"].InnerXml);
+                        obj.rot.z = float.Parse(objectNode["rotZ"].InnerXml);
+                    }
 
                     if (!ValidateValue(obj.type, obj.name))
                         continue;
@@ -1245,10 +1262,13 @@ namespace DaggerfallWorkshop.Loc
                 writer.WriteLine("\t\t<scaleY>" + obj.scale.y + "</scaleY>");
                 writer.WriteLine("\t\t<scaleZ>" + obj.scale.z + "</scaleZ>");
 
-                writer.WriteLine("\t\t<rotW>" + obj.rot.w + "</rotW>");
-                writer.WriteLine("\t\t<rotX>" + obj.rot.x + "</rotX>");
-                writer.WriteLine("\t\t<rotY>" + obj.rot.y + "</rotY>");
-                writer.WriteLine("\t\t<rotZ>" + obj.rot.z + "</rotZ>");
+                if (obj.type == 0)
+                {
+                    writer.WriteLine("\t\t<rotW>" + obj.rot.w + "</rotW>");
+                    writer.WriteLine("\t\t<rotX>" + obj.rot.x + "</rotX>");
+                    writer.WriteLine("\t\t<rotY>" + obj.rot.y + "</rotY>");
+                    writer.WriteLine("\t\t<rotZ>" + obj.rot.z + "</rotZ>");
+                }
 
                 writer.WriteLine("\t</object>");
             }
@@ -1314,6 +1334,38 @@ namespace DaggerfallWorkshop.Loc
                 return false;
 
             }
+            else if(type == 2)
+            {
+                string[] arg = name.Split('.');
+
+                if (arg.Length == 2)
+                {
+                    try
+                    {
+                        if(int.Parse(arg[0]) != 199)
+                        {
+                            Debug.LogWarning("Editor marker name format is invalid, use 199.RECORDID");
+                            return false;
+                        }
+                        int.Parse(arg[1]);
+                    }
+                    catch (FormatException)
+                    {
+                        Debug.LogWarning("Editor marker name format is invalid, use 199.RECORDID");
+                        return false;
+                    }
+                    catch (OverflowException)
+                    {
+                        Debug.LogWarning("Editor marker name format is invalid, use 199.RECORDID");
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                Debug.LogWarning("Editor marker name format is invalid, use 199.RECORDID");
+                return false;
+            }
             else
             {
                 Debug.LogWarning($"Invalid obj type found: {type}");
@@ -1331,7 +1383,7 @@ namespace DaggerfallWorkshop.Loc
         /// <param name="rot"></param>
         /// <param name="scale"></param>
         /// <returns></returns>
-        public static GameObject LoadObject(int type, string name, Transform parent, Vector3 pos, Quaternion rot, Vector3 scale, ulong locationID, int objID, ModelCombiner modelCombiner = null)
+        public static GameObject LoadStaticObject(int type, string name, Transform parent, Vector3 pos, Quaternion rot, Vector3 scale, ulong locationID, int objID, ModelCombiner modelCombiner = null)
         {
             GameObject go = null;
             //Model
@@ -1360,7 +1412,7 @@ namespace DaggerfallWorkshop.Loc
                     }
                     else
                     {
-                        go = GameObjectHelper.CreateDaggerfallMeshGameObject(uint.Parse(name), parent);
+                        go = GameObjectHelper.CreateDaggerfallMeshGameObject(modelId, parent);
                         if(go != null)
                         {
                             go.transform.localPosition = pos;
@@ -1379,17 +1431,8 @@ namespace DaggerfallWorkshop.Loc
                 go = Utility.AssetInjection.MeshReplacement.ImportCustomFlatGameobject(int.Parse(arg[0]), int.Parse(arg[1]), pos, parent);
 
                 if (go == null)
-                {
-                    //Loot cointainers
-                    var Player = Game.GameManager.Instance.PlayerEntity;
-                    if (arg[0] == "216" && Player != null)
-                    {
-                        go = CreateLootContainer(locationID, objID, int.Parse(arg[0]), int.Parse(arg[1]), parent);
-                    }
-                    else
-                    {
-                        go = GameObjectHelper.CreateDaggerfallBillboardGameObject(int.Parse(arg[0]), int.Parse(arg[1]), parent);
-                    }
+                {   
+                    go = GameObjectHelper.CreateDaggerfallBillboardGameObject(int.Parse(arg[0]), int.Parse(arg[1]), parent);
 
                     if (go != null)
                     {
