@@ -163,9 +163,11 @@ namespace LocationLoader
 
             if (GUI.Button(new Rect(32, 562, 96, 20), "Add Location"))
             {
-                locationInstance.Add(new LocationInstance("new Location", 0, "", 0, 0, 0, 0));
-                locationInstance[locationInstance.Count - 1].UpdateLocationID();
-                locationInstaneNames.Add("new location");
+                var loc = new LocationInstance();
+                loc.name = "New Location";
+                locationInstance.Add(loc);
+                loc.UpdateLocationID();
+                locationInstaneNames.Add("New Location");
                 locationPrefab.Add(new LocationPrefab());
             }
 

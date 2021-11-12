@@ -144,7 +144,7 @@ namespace LocationLoader
 
                 ModelCombiner combiner = new ModelCombiner();
 
-                foreach (LocationPrefab.LocationObject obj in locationPrefab.obj)
+                foreach (LocationObject obj in locationPrefab.obj)
                 {
                     if (IsDynamicObject(obj))
                         continue;
@@ -193,7 +193,7 @@ namespace LocationLoader
             data.Prefab = locationPrefab;
 
             // Add the dynamic objects
-            foreach (LocationPrefab.LocationObject obj in locationPrefab.obj)
+            foreach (LocationObject obj in locationPrefab.obj)
             {
                 if (!IsDynamicObject(obj))
                     continue;
@@ -209,12 +209,18 @@ namespace LocationLoader
                         switch(arg[1])
                         {
                             case "16":
-                                if (!Enum.IsDefined(typeof(MobileTypes), (int)obj.dataID))
+                                if(!int.TryParse(obj.extraData, out int enemyID))
                                 {
-                                    Debug.LogError($"Could not spawn enemy, unknown mobile type '{obj.dataID}'");
+                                    Debug.LogError($"Could not spawn enemy, invalid extra data '{obj.extraData}'");
                                     break;
                                 }
-                                MobileTypes mobileType = (MobileTypes)obj.dataID;
+
+                                if (!Enum.IsDefined(typeof(MobileTypes), enemyID))
+                                {
+                                    Debug.LogError($"Could not spawn enemy, unknown mobile type '{obj.extraData}'");
+                                    break;
+                                }
+                                MobileTypes mobileType = (MobileTypes)enemyID;
                                 go = GameObjectHelper.CreateEnemy(TextManager.Instance.GetLocalizedEnemyName((int)mobileType), mobileType, obj.pos, MobileGender.Unspecified, instance.transform);
                                 break;
 
@@ -516,7 +522,7 @@ namespace LocationLoader
             return region;
         }
 
-        bool IsDynamicObject(LocationPrefab.LocationObject obj)
+        bool IsDynamicObject(LocationObject obj)
         {
             return obj.type == 2;
         }

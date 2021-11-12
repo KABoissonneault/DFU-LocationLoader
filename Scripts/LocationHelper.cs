@@ -1198,7 +1198,7 @@ namespace LocationLoader
             {
                 XmlNode objectNode = objects[i];
 
-                var obj = new LocationPrefab.LocationObject();
+                var obj = new LocationObject();
                 
                 try
                 {
@@ -1223,10 +1223,10 @@ namespace LocationLoader
                         obj.rot.z = float.Parse(objectNode["rotZ"].InnerXml);
                     }
 
-                    var dataIDNode = objectNode["dataID"];
-                    if (dataIDNode != null)
+                    var extraDataNode = objectNode["extraData"];
+                    if (extraDataNode != null)
                     {
-                        obj.dataID = ulong.Parse(dataIDNode.InnerXml);
+                        obj.extraData = extraDataNode.InnerXml;
                     }
 
                     if (!ValidateValue(obj.type, obj.name))
@@ -1257,7 +1257,7 @@ namespace LocationLoader
             writer.WriteLine("\t<height>" + locationPrefab.height + "</height>");
             writer.WriteLine("\t<width>" + locationPrefab.width + "</width>");
 
-            foreach (LocationPrefab.LocationObject obj in locationPrefab.obj)
+            foreach (LocationObject obj in locationPrefab.obj)
             {
                 writer.WriteLine("\t<object>");
                 writer.WriteLine("\t\t<type>" + obj.type + "</type>");
@@ -1272,7 +1272,10 @@ namespace LocationLoader
                 writer.WriteLine("\t\t<scaleY>" + obj.scale.y + "</scaleY>");
                 writer.WriteLine("\t\t<scaleZ>" + obj.scale.z + "</scaleZ>");
 
-                writer.WriteLine("\t\t<dataID>" + obj.dataID + "</dataID>");
+                if (!string.IsNullOrEmpty(obj.extraData))
+                {
+                    writer.WriteLine("\t\t<extraData>" + obj.extraData + "</extraData>");
+                }
 
                 if (obj.type == 0)
                 {

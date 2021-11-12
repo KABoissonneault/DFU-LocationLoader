@@ -33,7 +33,7 @@ namespace LocationLoader
         string[] listModeName = { "3D Model", "Billboard", "Editor" };
         string[] billboardLists = { "All", "Lights", "Treasure"};
 
-        ulong dataID = 0;
+        string extraData = "";
         List<string> dataIDFields = new List<string>();
 
         LocationPrefab locationPrefab;
@@ -111,7 +111,7 @@ namespace LocationLoader
 
                 parent = new GameObject("Location Prefab");
 
-                foreach (LocationPrefab.LocationObject obj in locationPrefab.obj)
+                foreach (LocationObject obj in locationPrefab.obj)
                 {
                     CreateObject(obj);
                     usedIds.Add(obj.objectID);
@@ -137,7 +137,7 @@ namespace LocationLoader
 
                 for (int i = 0; i < objScene.Count; i++)
                 {
-                    LocationPrefab.LocationObject obj = locationPrefab.obj[i];
+                    LocationObject obj = locationPrefab.obj[i];
                     if (objScene[i] == null)
                     {                        
                         usedIds.Remove(obj.objectID);
@@ -180,9 +180,16 @@ namespace LocationLoader
 
                         usedIds.Add(newID);
 
-                        locationPrefab.obj.Add(new LocationPrefab.LocationObject(obj.type, obj.name, obj.pos, obj.rot, obj.scale));
-                        CreateObject(locationPrefab.obj[locationPrefab.obj.Count - 1], true);
-                        locationPrefab.obj[locationPrefab.obj.Count - 1].objectID = newID;
+                        var duplicatedObj = new LocationObject();
+                        duplicatedObj.type = obj.type;
+                        duplicatedObj.name = obj.name;
+                        duplicatedObj.objectID = newID;
+                        duplicatedObj.extraData = obj.extraData;
+                        duplicatedObj.pos = obj.pos;
+                        duplicatedObj.rot = obj.rot;
+                        duplicatedObj.scale = obj.scale;
+                        locationPrefab.obj.Add(duplicatedObj);
+                        CreateObject(duplicatedObj, true);
                         //locationPrefab.obj.Sort((a, b) => a.objectID.CompareTo(b.objectID));
                     }
 
@@ -259,12 +266,17 @@ namespace LocationLoader
                         dataIDFields.AddRange(mobileNames);
                     }
 
+                    if(string.IsNullOrEmpty(extraData))
+                    {
+                        extraData = "0";
+                    }
+
                     scrollPosition3 = GUI.BeginScrollView(new Rect(264, 96, 256, 472), scrollPosition3, new Rect(0, 0, 236, 20 + dataIDFields.Count * 24));
 
-                    int previousSelectedIndex = Array.IndexOf(mobileIds, (MobileTypes)dataID);
+                    int previousSelectedIndex = Array.IndexOf(mobileIds, (MobileTypes)int.Parse(extraData));
                     int newSelectedIndex = GUI.SelectionGrid(new Rect(10, 10, 216, dataIDFields.Count * 24), previousSelectedIndex, dataIDFields.ToArray(), 1);
 
-                    dataID = (ulong)mobileIds[newSelectedIndex];
+                    extraData = ((int)mobileIds[newSelectedIndex]).ToString();
 
                     GUI.EndScrollView();
                 }
@@ -283,11 +295,13 @@ namespace LocationLoader
 
                 usedIds.Add(newID);
 
-                var obj = new LocationPrefab.LocationObject(listMode, searchListID[objectPicker], Vector3.zero, new Quaternion(), new Vector3(1, 1, 1));
+                var obj = new LocationObject();
+                obj.type = listMode;
+                obj.name = searchListID[objectPicker];
                 locationPrefab.obj.Add(obj);
 
                 obj.objectID = newID;
-                obj.dataID = dataID;
+                obj.extraData = extraData;
                 CreateObject(obj, true);
                 //locationPrefab.obj.Sort((a, b) => a.objectID.CompareTo(b.objectID));
                 editMode = EditMode.EditLocation;
@@ -299,7 +313,7 @@ namespace LocationLoader
             }
         }
 
-        private void CreateObject(LocationPrefab.LocationObject locationObject, bool selectNew = false)
+        private void CreateObject(LocationObject locationObject, bool selectNew = false)
         {
             if (!LocationHelper.ValidateValue(locationObject.type, locationObject.name))
                 return;

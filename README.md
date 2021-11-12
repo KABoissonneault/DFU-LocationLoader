@@ -42,7 +42,7 @@ LocationObject
   int type
   string name
   int objectID
-  int dataID
+  string extraData
   Vector3 pos
   Quaternion rot
   Vector3 scale
@@ -56,8 +56,8 @@ LocationObject
   - For editor markers, this is the record of the marker in the archive 199, with the format `199.RECORD`. For example, a quest marker is "199.11".
 - objectID: int
   - Unique id, within the prefab.
-- dataID: int
-  - Extra integer data for certain object types. For example, a Monster marker uses this for the enemy ID.
+- extraData: string
+  - Extra data for certain object types. For example, a Monster marker uses this for the enemy ID.
 - pos: Vector3
   - Relative 3d position of the object within the prefab
 - rot: Quaternion
@@ -85,17 +85,17 @@ To know which archives and records are available to use, refer to Daggerfall Ima
 
 Editor markers are special objects used by Location Loader to take special actions when instantiating the prefab, as well as handling certain actions while the instance is running. These markers are normally used in interiors and dungeons in Daggerfall, but Location Loader allows them to be used inside location instances too. The markers Location Loader considers relevant are:
 
-| Name            | ID  | Works? | Description                                                                       |
-| --------------- | --- | ------ | --------------------------------------------------------------------------------- |
-| Enter           | 8   |   N    | Used by dungeons/interiors to determine where the entrance/exit is                |
-| Start           | 10  |   N    | Where the player will start if they start a new playthrough in this dungeon       |
-| Quest           | 11  |   N    | Where NPCs will appear if spawned in a dungeon or interior from a quest           |
-| Random Monster  | 15  |   N    | Random monster chosen from dungeon spawn tables will appear                       |
-| Monster         | 16  |   Y    | Monster of the enemyID specified in dataID will appear                            |
-| Quest Item      | 18  |   N    | Where the quest item will appear if spawned in a dungeon or interior from a quest |
-| Random Treasure | 19  |   Y    | A random lootpile will appear there                                               |
-| Ladder Bottom   | 21  |   Y    | When a nearby ladder is activated from the top, the player will appear there      |
-| Ladder Top      | 22  |   Y    | When a nearby ladder is activated from the bottom, the player will appear there   |
+| Name            | ID  | Works? | Description                                                                       | Extra Data         |
+| --------------- | --- | ------ | --------------------------------------------------------------------------------- | ------------------ |
+| Enter           | 8   |   N    | Used by dungeons/interiors to determine where the entrance/exit is                |                    |
+| Start           | 10  |   N    | Where the player will start if they start a new playthrough in this dungeon       |                    |
+| Quest           | 11  |   N    | Where NPCs will appear if spawned in a dungeon or interior from a quest           |                    |
+| Random Monster  | 15  |   N    | Random monster chosen from dungeon spawn tables will appear                       |                    |
+| Monster         | 16  |   Y    | Monster of the enemyID specified in dataID will appear                            | Enemy ID (integer) |
+| Quest Item      | 18  |   N    | Where the quest item will appear if spawned in a dungeon or interior from a quest |                    |
+| Random Treasure | 19  |   Y    | A random lootpile will appear there                                               |                    |
+| Ladder Bottom   | 21  |   Y    | When a nearby ladder is activated from the top, the player will appear there      |                    |
+| Ladder Top      | 22  |   Y    | When a nearby ladder is activated from the bottom, the player will appear there   |                    |
 
 Markers with "Y" under "Works?" can be used in location prefabs and be useful.
 
