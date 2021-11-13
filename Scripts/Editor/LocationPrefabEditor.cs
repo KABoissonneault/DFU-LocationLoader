@@ -488,6 +488,15 @@ namespace LocationLoader
             }
         }
 
+        private void OnDisable()
+        {
+            if(parent != null)
+            {
+                DestroyImmediate(parent);
+                parent = null;
+            }
+        }
+
         private void OnDestroy()
         {
             if (parent != null)
