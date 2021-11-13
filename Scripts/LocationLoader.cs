@@ -458,30 +458,31 @@ namespace LocationLoader
                 }
 
                 //Smooth the terrain
-                if (loc.type == 0 || loc.type == 2)
+                
+                daggerTerrain.MapData.locationRect = new Rect(loc.terrainX, loc.terrainY, locationPrefab.width, locationPrefab.height);
+
+                int count = 0;
+                float tmpAverageHeight = 0;
+
+                for (int x = loc.terrainX; x <= loc.terrainX + locationPrefab.width; x++)
                 {
-                    daggerTerrain.MapData.locationRect = new Rect(loc.terrainX, loc.terrainY, locationPrefab.width, locationPrefab.height);
-
-                    int count = 0;
-                    float tmpAverageHeight = 0;
-
-                    for (int x = loc.terrainX; x <= loc.terrainX + locationPrefab.width; x++)
+                    for (int y = loc.terrainY; y <= loc.terrainY + locationPrefab.height; y++)
                     {
-                        for (int y = loc.terrainY; y <= loc.terrainY + locationPrefab.height; y++)
-                        {
-                            tmpAverageHeight += daggerTerrain.MapData.heightmapSamples[y, x];
-                            count++;
-                        }
+                        tmpAverageHeight += daggerTerrain.MapData.heightmapSamples[y, x];
+                        count++;
                     }
+                }
 
-                    daggerTerrain.MapData.averageHeight = tmpAverageHeight /= count;
-                    
+                daggerTerrain.MapData.averageHeight = tmpAverageHeight /= count;
+
+                if (loc.type == 0)
+                {
                     for (int x = 1; x < 127; x++)
                         for (int y = 1; y < 127; y++)
                             daggerTerrain.MapData.heightmapSamples[y, x] = Mathf.Lerp(daggerTerrain.MapData.heightmapSamples[y, x], daggerTerrain.MapData.averageHeight, 1 / (GetDistanceFromRect(daggerTerrain.MapData.locationRect, new Vector2(x, y)) + 1));
-                    
-                    terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples);
                 }
+
+                terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples);
 
                 InstantiatePrefab(loc.prefab, locationPrefab, loc, daggerTerrain);
             }
