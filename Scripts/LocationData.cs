@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace LocationLoader
 {
+    [System.Serializable]
     public class LocationObject
     {
         public int type = 0; //0 == Mesh, 1 == Billboard, 2 == Editor
@@ -17,6 +18,7 @@ namespace LocationLoader
     /// <summary>
     /// Holds data locationPrefab
     /// </summary>
+    [System.Serializable]
     public class LocationPrefab
     {
         public int height = 8;
@@ -26,6 +28,7 @@ namespace LocationLoader
     /// <summary>
     /// Holds data for locationInstances
     /// </summary>
+    [System.Serializable]
     public class LocationInstance
     {
         public ulong locationID;
@@ -61,7 +64,10 @@ namespace LocationLoader
 
     public class LocationData : MonoBehaviour
     {
+        [SerializeField]
         public LocationInstance Location;
+
+        [SerializeField]
         public LocationPrefab Prefab;
 
         public bool FindClosestMarker(EditorMarkerTypes type, Vector3 sourcePos, out Vector3 closestMarkerOut)
