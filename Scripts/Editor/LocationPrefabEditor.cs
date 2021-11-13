@@ -20,6 +20,7 @@ namespace LocationLoader
         List<GameObject> objScene = new List<GameObject>();
 
         string searchField = "";
+        string currentPrefabName;
         List<string> searchListNames = new List<string>();
         List<string> searchListID = new List<string>();
 
@@ -82,12 +83,23 @@ namespace LocationLoader
 
                 locationPrefab = new LocationPrefab();
                 parent = new GameObject("Location Prefab");
+                Selection.activeGameObject = parent;
+                currentPrefabName = "";
             }
 
             if (GUI.Button(Rect_SaveFile, "Save Prefab"))
             {
-                string path = EditorUtility.SaveFilePanel("Save as", LocationHelper.locationPrefabFolder, "new location", "txt");
-                if (path.Length != 0)
+                string path;
+                if (!string.IsNullOrEmpty(currentPrefabName))
+                {
+                    path = EditorUtility.SaveFilePanel("Save as", LocationHelper.locationPrefabFolder, Path.GetFileNameWithoutExtension(currentPrefabName), Path.GetExtension(currentPrefabName).Replace(".", ""));
+                }
+                else
+                {
+                    path = EditorUtility.SaveFilePanel("Save as", LocationHelper.locationPrefabFolder, "NewLocation", "txt");
+                }
+
+                if (!string.IsNullOrEmpty(path))
                 {
                     LocationHelper.SaveLocationPrefab(locationPrefab, path);
                 }
@@ -97,7 +109,7 @@ namespace LocationLoader
             {
                 string path = EditorUtility.OpenFilePanel("Open", LocationHelper.locationPrefabFolder, "txt");
 
-                if (path.Length == 0)
+                if (string.IsNullOrEmpty(path))
                     return;
 
                 objScene = new List<GameObject>();
@@ -116,6 +128,9 @@ namespace LocationLoader
                     CreateObject(obj);
                     usedIds.Add(obj.objectID);
                 }
+
+                Selection.activeGameObject = parent;
+                currentPrefabName = Path.GetFileName(path);
             }
 
             if (parent != null && locationPrefab != null)
