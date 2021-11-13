@@ -403,6 +403,18 @@ namespace LocationLoader
             if (!worldPixelInstances.TryGetValue(worldLocation, out locationInstances))
                 return;
 
+            // Check if Basic Roads detects a road there
+            Mod basicRoads = ModManager.Instance.GetMod("BasicRoads");
+            bool roadsEnabled = basicRoads != null && basicRoads.Enabled;
+            byte pathsDataPoint = 0;
+            if (roadsEnabled)
+            {
+                Vector2Int coords = new Vector2Int(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
+                ModManager.Instance.SendModMessage("BasicRoads", "getPathsPoint", coords,
+                    (string message, object data) => { pathsDataPoint = (byte)data; }
+                    );
+            }
+
             foreach (LocationInstance loc in locationInstances)
             {
                 if (daggerTerrain.MapData.hasLocation)
@@ -429,19 +441,6 @@ namespace LocationLoader
                     }
                 }
 
-                if (loc.type == 0 || loc.type == 2)
-                {
-                    // Check if Basic Roads detects a road there
-                    byte pathsDataPoint = 0;
-                    Vector2Int coords = new Vector2Int(loc.worldX, loc.worldY);
-                    ModManager.Instance.SendModMessage("BasicRoads", "getPathsPoint", coords,
-                        (string message, object data) => { pathsDataPoint = (byte)data; }
-                        );
-
-                    if (pathsDataPoint != 0)
-                        continue;
-                }
-
                 LocationPrefab locationPrefab = GetPrefabInfo(loc.prefab);
                 if (locationPrefab == null)
                     continue;
@@ -452,10 +451,10 @@ namespace LocationLoader
                     continue;
                 }
 
-                if ((loc.terrainX + locationPrefab.height > 127 || loc.terrainY + locationPrefab.width > 127))
+                if (roadsEnabled && (loc.type == 0 || loc.type == 2))
                 {
-                    Debug.LogWarning("Invalid Location at " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY + " : The locationpreset must be 1 pixel away (both X and Y) from the terrainBorder");
-                    continue;
+                    if (OverlapsRoad(loc, locationPrefab, pathsDataPoint))
+                        continue;
                 }
 
                 //Smooth the terrain
@@ -525,6 +524,140 @@ namespace LocationLoader
         bool IsDynamicObject(LocationObject obj)
         {
             return obj.type == 2;
+        }
+
+        const byte Road_N = 128;//0b_1000_0000;
+        const byte Road_NE = 64; //0b_0100_0000;
+        const byte Road_E = 32; //0b_0010_0000;
+        const byte Road_SE = 16; //0b_0001_0000;
+        const byte Road_S = 8;  //0b_0000_1000;
+        const byte Road_SW = 4;  //0b_0000_0100;
+        const byte Road_W = 2;  //0b_0000_0010;
+        const byte Road_NW = 1;  //0b_0000_0001;
+
+        const float RoadWidth = 4; // Actually 2, but let's leave a bit of a gap
+
+        bool OverlapsRoad(LocationInstance loc, LocationPrefab locationPrefab, byte pathsDataPoint)
+        {
+            Rect locationRect = new Rect(loc.terrainX, loc.terrainY, locationPrefab.width, locationPrefab.height);
+            Vector2 locationTopLeft = new Vector2(loc.terrainX, loc.terrainY + locationPrefab.height);
+            Vector2 locationTopRight = new Vector2(loc.terrainX + locationPrefab.width, loc.terrainY + locationPrefab.height);
+            Vector2 locationBottomLeft = new Vector2(loc.terrainX, loc.terrainY);
+            Vector2 locationBottomRight = new Vector2(loc.terrainX + locationPrefab.width, loc.terrainY);
+
+            if ((pathsDataPoint & Road_N) != 0)
+            {
+                if (locationRect.Overlaps(new Rect(TERRAIN_SIZE / 2 - RoadWidth / 2, TERRAIN_SIZE / 2, RoadWidth, TERRAIN_SIZE / 2)))
+                    return true;
+            }
+
+            if ((pathsDataPoint & Road_E) != 0)
+            {
+                if (locationRect.Overlaps(new Rect(TERRAIN_SIZE / 2, TERRAIN_SIZE / 2 - RoadWidth / 2, TERRAIN_SIZE / 2, RoadWidth)))
+                    return true;
+            }
+
+            if ((pathsDataPoint & Road_S) != 0)
+            {
+                if (locationRect.Overlaps(new Rect(TERRAIN_SIZE / 2 - RoadWidth / 2, 0, RoadWidth, TERRAIN_SIZE / 2)))
+                    return true;
+            }
+
+            if ((pathsDataPoint & Road_W) != 0)
+            {
+                if (locationRect.Overlaps(new Rect(0, TERRAIN_SIZE / 2 - RoadWidth / 2, TERRAIN_SIZE / 2, RoadWidth)))
+                    return true;
+            }
+
+            if((pathsDataPoint & Road_NE) != 0)
+            {
+                // Location can only overlap if anywhere in the top-right quadrant
+                if (locationTopRight.x >= TERRAIN_SIZE / 2 && locationTopRight.y >= TERRAIN_SIZE / 2)
+                {
+                    float topLeftDiff = locationTopLeft.x - locationTopLeft.y;
+                    float bottomRightDiff = locationBottomRight.x - locationBottomRight.y;
+
+                    // Corner overlaps the path
+                    if(Mathf.Abs(topLeftDiff) <= RoadWidth / 2 || Mathf.Abs(bottomRightDiff) <= RoadWidth / 2)
+                    {
+                        return true;
+                    }
+
+                    // If corners are on different sides of the path, we have an overlap
+                    if(Mathf.Sign(topLeftDiff) != Mathf.Sign(bottomRightDiff))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            if ((pathsDataPoint & Road_SE) != 0)
+            {
+                // Location can only overlap if anywhere in the bottom-right quadrant
+                if (locationBottomRight.x >= TERRAIN_SIZE / 2 && locationBottomRight.y <= TERRAIN_SIZE / 2)
+                {
+                    float bottomLeftDiff = locationBottomLeft.x + locationBottomLeft.y - TERRAIN_SIZE;
+                    float topRightDiff = locationTopRight.x + locationTopRight.y - TERRAIN_SIZE;
+
+                    // Corner overlaps the path
+                    if (Mathf.Abs(bottomLeftDiff) <= RoadWidth / 2 || Mathf.Abs(topRightDiff) <= RoadWidth / 2)
+                    {
+                        return true;
+                    }
+
+                    // If corners are on different sides of the path, we have an overlap
+                    if (Mathf.Sign(bottomLeftDiff) != Mathf.Sign(topRightDiff))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            if ((pathsDataPoint & Road_SW) != 0)
+            {
+                // Location can only overlap if anywhere in the bottom-left quadrant
+                if (locationBottomLeft.x <= TERRAIN_SIZE / 2 && locationBottomLeft.y <= TERRAIN_SIZE / 2)
+                {
+                    float topLeftDiff = locationTopLeft.x - locationTopLeft.y;
+                    float bottomRightDiff = locationBottomRight.x - locationBottomRight.y;
+
+                    // Corner overlaps the path
+                    if (Mathf.Abs(topLeftDiff) <= RoadWidth / 2 || Mathf.Abs(bottomRightDiff) <= RoadWidth / 2)
+                    {
+                        return true;
+                    }
+
+                    // If corners are on different sides of the path, we have an overlap
+                    if (Mathf.Sign(topLeftDiff) != Mathf.Sign(bottomRightDiff))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            if ((pathsDataPoint & Road_NW) != 0)
+            {
+                // Location can only overlap if anywhere in the bottom-right quadrant
+                if (locationTopLeft.x <= TERRAIN_SIZE / 2 && locationTopLeft.y >= TERRAIN_SIZE / 2)
+                {
+                    float bottomLeftDiff = locationBottomLeft.x + locationBottomLeft.y - TERRAIN_SIZE;
+                    float topRightDiff = locationTopRight.x + locationTopRight.y - TERRAIN_SIZE;
+
+                    // Corner overlaps the path
+                    if (Mathf.Abs(bottomLeftDiff) <= RoadWidth / 2 || Mathf.Abs(topRightDiff) <= RoadWidth / 2)
+                    {
+                        return true;
+                    }
+
+                    // If corners are on different sides of the path, we have an overlap
+                    if (Mathf.Sign(bottomLeftDiff) != Mathf.Sign(topRightDiff))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
     }
 }
