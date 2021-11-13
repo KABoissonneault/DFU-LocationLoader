@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using DaggerfallWorkshop;
+using System.IO;
 
 namespace LocationLoader
 {
@@ -13,10 +14,10 @@ namespace LocationLoader
     {
         enum EditMode { EditLocation, ObjectPicker };
 
-        float magicNumberSca = 0.64f;
-        float magicNumberLoc = -3.2f;
+        const float mapPixelSize = 800f;
+        const float terrainTileSize = mapPixelSize / 128f;
 
-        GameObject parent, ground;
+        GameObject parent, ground, areaReference;
         List<GameObject> objScene = new List<GameObject>();
 
         string searchField = "";
@@ -141,12 +142,21 @@ namespace LocationLoader
                 }
 
                 GUI.Box(new Rect(4, 32, 516, 56), "", lightGrayBG);
+                                
+                GUI.Label(new Rect(16, 40, 64, 16), "Area X:");
+                int previousWidth = locationPrefab.width;
+                locationPrefab.width = EditorGUI.IntSlider(new Rect(90, 40, 400, 16), previousWidth, 1, 126);
 
-                GUI.Label(new Rect(16, 40, 64, 16), "Area Y:");
-                locationPrefab.height = EditorGUI.IntSlider(new Rect(90, 40, 400, 16), locationPrefab.height, 1, 126);
+                GUI.Label(new Rect(16, 64, 64, 16), "Area Y:");
+                int previousHeight = locationPrefab.height;
+                locationPrefab.height = EditorGUI.IntSlider(new Rect(90, 64, 400, 16), previousHeight, 1, 126);
 
-                GUI.Label(new Rect(16, 64, 64, 16), "Area X:");
-                locationPrefab.width = EditorGUI.IntSlider(new Rect(90, 64, 400, 16), locationPrefab.width, 1, 126);
+                if(areaReference != null && (previousWidth != locationPrefab.width || previousHeight != locationPrefab.height))
+                {
+                    BoxCollider box = areaReference.GetComponent<BoxCollider>();
+                    box.size = new Vector3(locationPrefab.width * terrainTileSize, 50f, locationPrefab.height * terrainTileSize);
+                    areaReference.transform.localPosition = new Vector3(box.size.x / 2f, 25f, box.size.z / 2f);
+                }
 
                 scrollPosition = GUI.BeginScrollView(new Rect(2, 128, 532, 512), scrollPosition, new Rect(0, 0, 512, 20 + ((objScene.Count+1) * 60)),false, true);
 
@@ -233,16 +243,33 @@ namespace LocationLoader
 
                 GUI.EndScrollView();
 
-                //Make sure we always have a ground
+                // Make sure we always have a ground
                 if (ground == null)
+                {
                     ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
 
-                //Always make sure that the ground is set correctly
-                ground.transform.SetParent(parent.transform);
-                ground.name = "Surface";
-                ground.transform.localScale = new Vector3(locationPrefab.width* magicNumberSca, 0, locationPrefab.height * magicNumberSca);
-                ground.transform.localRotation = new Quaternion();
-                ground.transform.localPosition = new Vector3(-(((locationPrefab.width-1)* magicNumberLoc) + magicNumberLoc), 0, -(((locationPrefab.height - 1) * magicNumberLoc) + magicNumberLoc));
+                    //Always make sure that the ground is set correctly
+                    ground.transform.SetParent(parent.transform);
+                    ground.name = "Surface";
+                    ground.transform.localPosition = new Vector3(mapPixelSize / 2.0f, 0.0f, mapPixelSize / 2.0f);
+                    ground.transform.localScale = new Vector3(mapPixelSize / 10.0f, 0, mapPixelSize / 10.0f);
+                    var meshRenderer = ground.GetComponent<MeshRenderer>();
+                    string terrainGridPath = AssetDatabase.GUIDToAssetPath(AssetDatabase.FindAssets("TerrainGrid t:material")[0]);
+                    meshRenderer.sharedMaterial = AssetDatabase.LoadMainAssetAtPath(terrainGridPath) as Material;
+                }
+
+                // Make sure we always have our area reference too
+                if(areaReference == null)
+                {
+                    areaReference = new GameObject();
+                    areaReference.name = "Area Reference";
+                    areaReference.transform.parent = parent.transform;
+
+                    BoxCollider box = areaReference.AddComponent<BoxCollider>();
+                    box.size = new Vector3(locationPrefab.width * terrainTileSize, 50f, locationPrefab.height * terrainTileSize);
+
+                    areaReference.transform.localPosition = new Vector3(box.size.x / 2f, 25f, box.size.z / 2f);
+                }
             }
         }
 
