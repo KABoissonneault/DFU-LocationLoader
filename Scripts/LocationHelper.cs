@@ -1034,7 +1034,15 @@ namespace LocationLoader
 
             bool GetIndex(string fieldName, out int index)
             {
-                index = Array.IndexOf(fields, fieldName);
+                index = -1;
+                for(int i = 0; i < fields.Length; ++i)
+                {
+                    if (fields[i].Equals(fieldName, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        index = i;
+                        break;
+                    }
+                }
                 if(index == -1)
                 {
                     Debug.LogError($"Location instance file failed ({contextString}): could not find field '{fieldName}' in header");
@@ -1045,7 +1053,15 @@ namespace LocationLoader
 
             int? GetIndexOpt(string fieldName)
             {
-                int index = Array.IndexOf(fields, fieldName);
+                int index = -1;
+                for (int i = 0; i < fields.Length; ++i)
+                {
+                    if (fields[i].Equals(fieldName, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        index = i;
+                        break;
+                    }
+                }
                 if (index == -1)
                 {
                     return null;
@@ -1069,8 +1085,10 @@ namespace LocationLoader
             int? rotYAxisIndex = GetIndexOpt("rotYAxis");
             int? rotZAxisIndex = GetIndexOpt("rotZAxis");
 
+            int lineNumber = 0;
             while (csvStream.Peek() >= 0)
             {
+                ++lineNumber;
                 string line = csvStream.ReadLine();
                 string[] tokens = line.Split(';', ',');
 
@@ -1097,7 +1115,7 @@ namespace LocationLoader
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError($"Failed to parse a location instance ({contextString}): {e.Message}");
+                    Debug.LogError($"Failed to parse a location instance ({contextString}, line {lineNumber}): {e.Message}");
                     continue;
                 }
 
