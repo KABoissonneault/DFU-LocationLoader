@@ -10,6 +10,7 @@ using DaggerfallWorkshop.Utility;
 using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Utility.AssetInjection;
 using DaggerfallWorkshop.Game.Items;
+using System.Globalization;
 
 namespace LocationLoader
 {
@@ -971,6 +972,8 @@ namespace LocationLoader
                 yield return null;
             }
 
+            CultureInfo cultureInfo = new CultureInfo("en-US");
+
             XmlNodeList instanceNodes = xmlDoc.GetElementsByTagName("locationInstance");
             for (int i = 0; i < instanceNodes.Count; i++)
             {
@@ -996,19 +999,25 @@ namespace LocationLoader
                     XmlNode child = node["rotW"];
                     if(child != null)
                     {
-                        tmpInst.rot.w = float.Parse(child.InnerXml);
-                        tmpInst.rot.x = float.Parse(node["rotX"].InnerXml);
-                        tmpInst.rot.y = float.Parse(node["rotY"].InnerXml);
-                        tmpInst.rot.z = float.Parse(node["rotZ"].InnerXml);
+                        tmpInst.rot.w = float.Parse(child.InnerXml, cultureInfo);
+                        tmpInst.rot.x = float.Parse(node["rotX"].InnerXml, cultureInfo);
+                        tmpInst.rot.y = float.Parse(node["rotY"].InnerXml, cultureInfo);
+                        tmpInst.rot.z = float.Parse(node["rotZ"].InnerXml, cultureInfo);
                     }
                     else
                     {
                         child = node["rotYAxis"];
                         if(child != null)
                         {
-                            float yRot = float.Parse(child.InnerXml);
+                            float yRot = float.Parse(child.InnerXml, cultureInfo);
                             tmpInst.rot.eulerAngles = new Vector3(0, yRot, 0);
                         }
+                    }
+
+                    child = node["heightOffset"];
+                    if(child != null)
+                    {
+                        tmpInst.heightOffset = float.Parse(child.InnerXml, cultureInfo);
                     }
                 }
                 catch(Exception e)
@@ -1084,7 +1093,9 @@ namespace LocationLoader
             int? rotXAxisIndex = GetIndexOpt("rotXAxis");
             int? rotYAxisIndex = GetIndexOpt("rotYAxis");
             int? rotZAxisIndex = GetIndexOpt("rotZAxis");
+            int? heightOffsetIndex = GetIndexOpt("heightOffset");
 
+            CultureInfo cultureInfo = new CultureInfo("en-US");
             int lineNumber = 0;
             while (csvStream.Peek() >= 0)
             {
@@ -1105,13 +1116,14 @@ namespace LocationLoader
                     tmpInst.terrainY = int.Parse(tokens[terrainYIndex]);
                     tmpInst.locationID = ulong.Parse(tokens[locationIDIndex]);
 
-                    if (rotWIndex.HasValue) tmpInst.rot.w = float.Parse(tokens[rotWIndex.Value]);
-                    if (rotXIndex.HasValue) tmpInst.rot.x = float.Parse(tokens[rotXIndex.Value]);
-                    if (rotYIndex.HasValue) tmpInst.rot.y = float.Parse(tokens[rotYIndex.Value]);
-                    if (rotZIndex.HasValue) tmpInst.rot.z = float.Parse(tokens[rotZIndex.Value]);
-                    if (rotXAxisIndex.HasValue) tmpInst.rot.eulerAngles.Set(float.Parse(tokens[rotXAxisIndex.Value]), tmpInst.rot.eulerAngles.y, tmpInst.rot.eulerAngles.z);
-                    if (rotYAxisIndex.HasValue) tmpInst.rot.eulerAngles.Set(tmpInst.rot.eulerAngles.x, float.Parse(tokens[rotYAxisIndex.Value]), tmpInst.rot.eulerAngles.z);
-                    if (rotZAxisIndex.HasValue) tmpInst.rot.eulerAngles.Set(tmpInst.rot.eulerAngles.x, tmpInst.rot.eulerAngles.y, float.Parse(tokens[rotZAxisIndex.Value]));
+                    if (rotWIndex.HasValue) tmpInst.rot.w = float.Parse(tokens[rotWIndex.Value], cultureInfo);
+                    if (rotXIndex.HasValue) tmpInst.rot.x = float.Parse(tokens[rotXIndex.Value], cultureInfo);
+                    if (rotYIndex.HasValue) tmpInst.rot.y = float.Parse(tokens[rotYIndex.Value], cultureInfo);
+                    if (rotZIndex.HasValue) tmpInst.rot.z = float.Parse(tokens[rotZIndex.Value], cultureInfo);
+                    if (rotXAxisIndex.HasValue) tmpInst.rot.eulerAngles.Set(float.Parse(tokens[rotXAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.y, tmpInst.rot.eulerAngles.z);
+                    if (rotYAxisIndex.HasValue) tmpInst.rot.eulerAngles.Set(tmpInst.rot.eulerAngles.x, float.Parse(tokens[rotYAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.z);
+                    if (rotZAxisIndex.HasValue) tmpInst.rot.eulerAngles.Set(tmpInst.rot.eulerAngles.x, tmpInst.rot.eulerAngles.y, float.Parse(tokens[rotZAxisIndex.Value], cultureInfo));
+                    if (heightOffsetIndex.HasValue) tmpInst.heightOffset = float.Parse(tokens[heightOffsetIndex.Value], cultureInfo);
                 }
                 catch (Exception e)
                 {
@@ -1151,6 +1163,10 @@ namespace LocationLoader
                     writer.WriteLine($"\t\t<rotX>{inst.rot.x}</rotW");
                     writer.WriteLine($"\t\t<rotY>{inst.rot.y}</rotW");
                     writer.WriteLine($"\t\t<rotZ>{inst.rot.z}</rotW");
+                }
+                if(inst.heightOffset != 0f)
+                {
+                    writer.WriteLine($"\t\t<heightOffset>{inst.heightOffset}</heightOffset>");
                 }
                 writer.WriteLine("\t</locationInstance>");
             }
@@ -1789,6 +1805,150 @@ namespace LocationLoader
             go.transform.parent = parent;
 
             return go;
+        }
+
+        const byte Road_N = 128;//0b_1000_0000;
+        const byte Road_NE = 64; //0b_0100_0000;
+        const byte Road_E = 32; //0b_0010_0000;
+        const byte Road_SE = 16; //0b_0001_0000;
+        const byte Road_S = 8;  //0b_0000_1000;
+        const byte Road_SW = 4;  //0b_0000_0100;
+        const byte Road_W = 2;  //0b_0000_0010;
+        const byte Road_NW = 1;  //0b_0000_0001;
+
+        /// <summary>
+        /// Checks if a location overlaps with a BasicRoad road.
+        /// </summary>
+        /// <param name="loc"></param>
+        /// <param name="locationPrefab"></param>
+        /// <param name="pathsDataPoint">Bytefield representing which cardinal directions have roads on the terrain</param>
+        /// <returns></returns>
+        public static bool OverlapsRoad(LocationInstance loc, LocationPrefab locationPrefab, byte pathsDataPoint)
+        {
+            Rect locationRect = new Rect(loc.terrainX, loc.terrainY, locationPrefab.width, locationPrefab.height);
+            Vector2 locationTopLeft = new Vector2(loc.terrainX, loc.terrainY + locationPrefab.height);
+            Vector2 locationTopRight = new Vector2(loc.terrainX + locationPrefab.width, loc.terrainY + locationPrefab.height);
+            Vector2 locationBottomLeft = new Vector2(loc.terrainX, loc.terrainY);
+            Vector2 locationBottomRight = new Vector2(loc.terrainX + locationPrefab.width, loc.terrainY);
+
+            const float TERRAIN_SIZE = LocationLoader.TERRAIN_SIZE;
+            const float HALF_TERRAIN_SIZE = LocationLoader.TERRAIN_SIZE / 2;
+            const float ROAD_WIDTH = LocationLoader.ROAD_WIDTH;
+            const float HALF_ROAD_WIDTH = LocationLoader.ROAD_WIDTH / 2;
+
+            if ((pathsDataPoint & Road_N) != 0)
+            {
+                if (locationRect.Overlaps(new Rect(HALF_TERRAIN_SIZE - HALF_ROAD_WIDTH, HALF_TERRAIN_SIZE, ROAD_WIDTH, HALF_TERRAIN_SIZE)))
+                    return true;
+            }
+
+            if ((pathsDataPoint & Road_E) != 0)
+            {
+                if (locationRect.Overlaps(new Rect(HALF_TERRAIN_SIZE, HALF_TERRAIN_SIZE - HALF_ROAD_WIDTH, HALF_TERRAIN_SIZE, ROAD_WIDTH)))
+                    return true;
+            }
+
+            if ((pathsDataPoint & Road_S) != 0)
+            {
+                if (locationRect.Overlaps(new Rect(HALF_TERRAIN_SIZE - HALF_ROAD_WIDTH, 0, ROAD_WIDTH, HALF_TERRAIN_SIZE)))
+                    return true;
+            }
+
+            if ((pathsDataPoint & Road_W) != 0)
+            {
+                if (locationRect.Overlaps(new Rect(0, HALF_TERRAIN_SIZE - HALF_ROAD_WIDTH, HALF_TERRAIN_SIZE, ROAD_WIDTH)))
+                    return true;
+            }
+
+            if ((pathsDataPoint & Road_NE) != 0)
+            {
+                // Location can only overlap if anywhere in the top-right quadrant
+                if (locationTopRight.x >= HALF_TERRAIN_SIZE && locationTopRight.y >= HALF_TERRAIN_SIZE)
+                {
+                    float topLeftDiff = locationTopLeft.x - locationTopLeft.y;
+                    float bottomRightDiff = locationBottomRight.x - locationBottomRight.y;
+
+                    // Corner overlaps the path
+                    if (Mathf.Abs(topLeftDiff) <= HALF_ROAD_WIDTH || Mathf.Abs(bottomRightDiff) <= HALF_ROAD_WIDTH)
+                    {
+                        return true;
+                    }
+
+                    // If corners are on different sides of the path, we have an overlap
+                    if (Mathf.Sign(topLeftDiff) != Mathf.Sign(bottomRightDiff))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            if ((pathsDataPoint & Road_SE) != 0)
+            {
+                // Location can only overlap if anywhere in the bottom-right quadrant
+                if (locationBottomRight.x >= HALF_TERRAIN_SIZE && locationBottomRight.y <= HALF_TERRAIN_SIZE)
+                {
+                    float bottomLeftDiff = locationBottomLeft.x + locationBottomLeft.y - TERRAIN_SIZE;
+                    float topRightDiff = locationTopRight.x + locationTopRight.y - TERRAIN_SIZE;
+
+                    // Corner overlaps the path
+                    if (Mathf.Abs(bottomLeftDiff) <= HALF_ROAD_WIDTH || Mathf.Abs(topRightDiff) <= HALF_ROAD_WIDTH)
+                    {
+                        return true;
+                    }
+
+                    // If corners are on different sides of the path, we have an overlap
+                    if (Mathf.Sign(bottomLeftDiff) != Mathf.Sign(topRightDiff))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            if ((pathsDataPoint & Road_SW) != 0)
+            {
+                // Location can only overlap if anywhere in the bottom-left quadrant
+                if (locationBottomLeft.x <= HALF_TERRAIN_SIZE && locationBottomLeft.y <= HALF_TERRAIN_SIZE)
+                {
+                    float topLeftDiff = locationTopLeft.x - locationTopLeft.y;
+                    float bottomRightDiff = locationBottomRight.x - locationBottomRight.y;
+
+                    // Corner overlaps the path
+                    if (Mathf.Abs(topLeftDiff) <= HALF_ROAD_WIDTH || Mathf.Abs(bottomRightDiff) <= HALF_ROAD_WIDTH)
+                    {
+                        return true;
+                    }
+
+                    // If corners are on different sides of the path, we have an overlap
+                    if (Mathf.Sign(topLeftDiff) != Mathf.Sign(bottomRightDiff))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            if ((pathsDataPoint & Road_NW) != 0)
+            {
+                // Location can only overlap if anywhere in the bottom-right quadrant
+                if (locationTopLeft.x <= HALF_TERRAIN_SIZE && locationTopLeft.y >= HALF_TERRAIN_SIZE)
+                {
+                    float bottomLeftDiff = locationBottomLeft.x + locationBottomLeft.y - TERRAIN_SIZE;
+                    float topRightDiff = locationTopRight.x + locationTopRight.y - TERRAIN_SIZE;
+
+                    // Corner overlaps the path
+                    if (Mathf.Abs(bottomLeftDiff) <= HALF_ROAD_WIDTH || Mathf.Abs(topRightDiff) <= HALF_ROAD_WIDTH)
+                    {
+                        return true;
+                    }
+
+                    // If corners are on different sides of the path, we have an overlap
+                    if (Mathf.Sign(bottomLeftDiff) != Mathf.Sign(topRightDiff))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
     }
 }

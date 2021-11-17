@@ -40,6 +40,7 @@ namespace LocationLoader
         public int terrainX = 0;
         public int terrainY = 0;
         public Quaternion rot = Quaternion.identity;
+        public float heightOffset = 0f;
 
         public void UpdateLocationID()
         {            

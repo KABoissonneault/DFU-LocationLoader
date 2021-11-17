@@ -20,9 +20,10 @@ namespace LocationLoader
         Dictionary<string, LocationPrefab> prefabInfos = new Dictionary<string, LocationPrefab>();
         Dictionary<string, GameObject> prefabTemplates = new Dictionary<string, GameObject>();
 
-        const float TERRAIN_SIZE = 128;
-        const float TERRAINPIXELSIZE = 819.2f;
-        const float TERRAIN_SIZE_MULTI = TERRAINPIXELSIZE / TERRAIN_SIZE;
+        public const float TERRAIN_SIZE = 128;
+        public const float TERRAINPIXELSIZE = 819.2f;
+        public const float TERRAIN_SIZE_MULTI = TERRAINPIXELSIZE / TERRAIN_SIZE;
+        public const float ROAD_WIDTH = 4; // Actually 2, but let's leave a bit of a gap   
 
         void Awake()
         {
@@ -54,8 +55,8 @@ namespace LocationLoader
                     string prefabFolder = modFolderPrefix + "/locations/locationprefab/";
 
                     foreach (string filename in mod.AssetBundle.GetAllAssetNames()
-                        .Where(file => file.StartsWith(prefabFolder, System.StringComparison.InvariantCultureIgnoreCase)
-                        && (file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase)))
+                        .Where(file => file.StartsWith(prefabFolder, StringComparison.InvariantCultureIgnoreCase)
+                        && (file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase)))
                         .Select(file => Path.GetFileName(file).ToLower()))
                     {
                         modLocationPrefabs[filename] = mod;
@@ -71,8 +72,8 @@ namespace LocationLoader
                     string prefabFolder = modFolderPrefix + "/Locations/LocationPrefab/";
 
                     foreach (string filename in mod.ModInfo.Files
-                        .Where(file => file.StartsWith(prefabFolder, System.StringComparison.InvariantCultureIgnoreCase)
-                        && (file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase)))
+                        .Where(file => file.StartsWith(prefabFolder, StringComparison.InvariantCultureIgnoreCase)
+                        && (file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase)))
                         .Select(file => Path.GetFileName(file).ToLower()))
                     {
                         modLocationPrefabs[filename] = mod;
@@ -87,7 +88,7 @@ namespace LocationLoader
             if(hasLooseFiles)
             {
                 foreach(string filename in Directory.GetFiles(looseLocationFolder)
-                    .Where(file => file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase))
+                    .Where(file => file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase))
                     .Select(file => Path.GetFileName(file).ToLower()))
                 {
                     modLocationPrefabs[filename] = null;
@@ -131,7 +132,7 @@ namespace LocationLoader
         {
             float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * GameManager.Instance.StreamingWorld.TerrainScale;
 
-            Vector3 terrainOffset = new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax, loc.terrainY * TERRAIN_SIZE_MULTI);
+            Vector3 terrainOffset = new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax + loc.heightOffset, loc.terrainY * TERRAIN_SIZE_MULTI);
 
             // If it's the first time loading this prefab, load the non-dynamic objects into a template
             GameObject prefabObject;
@@ -325,8 +326,8 @@ namespace LocationLoader
 
 
                         foreach (string filename in mod.AssetBundle.GetAllAssetNames()
-                            .Where(file => (file.StartsWith(regionIndexFolder, System.StringComparison.InvariantCultureIgnoreCase) || file.StartsWith(regionNameFolder, System.StringComparison.InvariantCultureIgnoreCase))
-                                && (file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase)))
+                            .Where(file => (file.StartsWith(regionIndexFolder, StringComparison.InvariantCultureIgnoreCase) || file.StartsWith(regionNameFolder, StringComparison.InvariantCultureIgnoreCase))
+                                && (file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase)))
                             .Select(file => Path.GetFileName(file).ToLower()))
                         {
                             regionFiles[filename] = mod;
@@ -445,16 +446,19 @@ namespace LocationLoader
                 if (locationPrefab == null)
                     continue;
 
-                if ((loc.terrainX + locationPrefab.height > 128 || loc.terrainY + locationPrefab.width > 128))
+                if (loc.type == 0 || loc.type == 2)
                 {
-                    Debug.LogWarning("Invalid Location at " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY + " : The locationpreset exist outside the terrain");
-                    continue;
-                }
-
-                if (roadsEnabled && (loc.type == 0 || loc.type == 2))
-                {
-                    if (OverlapsRoad(loc, locationPrefab, pathsDataPoint))
+                    if ((loc.terrainX + locationPrefab.height > 128 || loc.terrainY + locationPrefab.width > 128))
+                    {
+                        Debug.LogWarning("Invalid Location at " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY + " : The locationpreset exist outside the terrain");
                         continue;
+                    }
+
+                    if (roadsEnabled)
+                    {
+                        if (LocationHelper.OverlapsRoad(loc, locationPrefab, pathsDataPoint))
+                            continue;
+                    }
                 }
 
                 //Smooth the terrain
@@ -529,140 +533,6 @@ namespace LocationLoader
         bool IsDynamicObject(LocationObject obj)
         {
             return obj.type == 2;
-        }
-
-        const byte Road_N = 128;//0b_1000_0000;
-        const byte Road_NE = 64; //0b_0100_0000;
-        const byte Road_E = 32; //0b_0010_0000;
-        const byte Road_SE = 16; //0b_0001_0000;
-        const byte Road_S = 8;  //0b_0000_1000;
-        const byte Road_SW = 4;  //0b_0000_0100;
-        const byte Road_W = 2;  //0b_0000_0010;
-        const byte Road_NW = 1;  //0b_0000_0001;
-
-        const float RoadWidth = 4; // Actually 2, but let's leave a bit of a gap
-
-        bool OverlapsRoad(LocationInstance loc, LocationPrefab locationPrefab, byte pathsDataPoint)
-        {
-            Rect locationRect = new Rect(loc.terrainX, loc.terrainY, locationPrefab.width, locationPrefab.height);
-            Vector2 locationTopLeft = new Vector2(loc.terrainX, loc.terrainY + locationPrefab.height);
-            Vector2 locationTopRight = new Vector2(loc.terrainX + locationPrefab.width, loc.terrainY + locationPrefab.height);
-            Vector2 locationBottomLeft = new Vector2(loc.terrainX, loc.terrainY);
-            Vector2 locationBottomRight = new Vector2(loc.terrainX + locationPrefab.width, loc.terrainY);
-
-            if ((pathsDataPoint & Road_N) != 0)
-            {
-                if (locationRect.Overlaps(new Rect(TERRAIN_SIZE / 2 - RoadWidth / 2, TERRAIN_SIZE / 2, RoadWidth, TERRAIN_SIZE / 2)))
-                    return true;
-            }
-
-            if ((pathsDataPoint & Road_E) != 0)
-            {
-                if (locationRect.Overlaps(new Rect(TERRAIN_SIZE / 2, TERRAIN_SIZE / 2 - RoadWidth / 2, TERRAIN_SIZE / 2, RoadWidth)))
-                    return true;
-            }
-
-            if ((pathsDataPoint & Road_S) != 0)
-            {
-                if (locationRect.Overlaps(new Rect(TERRAIN_SIZE / 2 - RoadWidth / 2, 0, RoadWidth, TERRAIN_SIZE / 2)))
-                    return true;
-            }
-
-            if ((pathsDataPoint & Road_W) != 0)
-            {
-                if (locationRect.Overlaps(new Rect(0, TERRAIN_SIZE / 2 - RoadWidth / 2, TERRAIN_SIZE / 2, RoadWidth)))
-                    return true;
-            }
-
-            if((pathsDataPoint & Road_NE) != 0)
-            {
-                // Location can only overlap if anywhere in the top-right quadrant
-                if (locationTopRight.x >= TERRAIN_SIZE / 2 && locationTopRight.y >= TERRAIN_SIZE / 2)
-                {
-                    float topLeftDiff = locationTopLeft.x - locationTopLeft.y;
-                    float bottomRightDiff = locationBottomRight.x - locationBottomRight.y;
-
-                    // Corner overlaps the path
-                    if(Mathf.Abs(topLeftDiff) <= RoadWidth / 2 || Mathf.Abs(bottomRightDiff) <= RoadWidth / 2)
-                    {
-                        return true;
-                    }
-
-                    // If corners are on different sides of the path, we have an overlap
-                    if(Mathf.Sign(topLeftDiff) != Mathf.Sign(bottomRightDiff))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            if ((pathsDataPoint & Road_SE) != 0)
-            {
-                // Location can only overlap if anywhere in the bottom-right quadrant
-                if (locationBottomRight.x >= TERRAIN_SIZE / 2 && locationBottomRight.y <= TERRAIN_SIZE / 2)
-                {
-                    float bottomLeftDiff = locationBottomLeft.x + locationBottomLeft.y - TERRAIN_SIZE;
-                    float topRightDiff = locationTopRight.x + locationTopRight.y - TERRAIN_SIZE;
-
-                    // Corner overlaps the path
-                    if (Mathf.Abs(bottomLeftDiff) <= RoadWidth / 2 || Mathf.Abs(topRightDiff) <= RoadWidth / 2)
-                    {
-                        return true;
-                    }
-
-                    // If corners are on different sides of the path, we have an overlap
-                    if (Mathf.Sign(bottomLeftDiff) != Mathf.Sign(topRightDiff))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            if ((pathsDataPoint & Road_SW) != 0)
-            {
-                // Location can only overlap if anywhere in the bottom-left quadrant
-                if (locationBottomLeft.x <= TERRAIN_SIZE / 2 && locationBottomLeft.y <= TERRAIN_SIZE / 2)
-                {
-                    float topLeftDiff = locationTopLeft.x - locationTopLeft.y;
-                    float bottomRightDiff = locationBottomRight.x - locationBottomRight.y;
-
-                    // Corner overlaps the path
-                    if (Mathf.Abs(topLeftDiff) <= RoadWidth / 2 || Mathf.Abs(bottomRightDiff) <= RoadWidth / 2)
-                    {
-                        return true;
-                    }
-
-                    // If corners are on different sides of the path, we have an overlap
-                    if (Mathf.Sign(topLeftDiff) != Mathf.Sign(bottomRightDiff))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            if ((pathsDataPoint & Road_NW) != 0)
-            {
-                // Location can only overlap if anywhere in the bottom-right quadrant
-                if (locationTopLeft.x <= TERRAIN_SIZE / 2 && locationTopLeft.y >= TERRAIN_SIZE / 2)
-                {
-                    float bottomLeftDiff = locationBottomLeft.x + locationBottomLeft.y - TERRAIN_SIZE;
-                    float topRightDiff = locationTopRight.x + locationTopRight.y - TERRAIN_SIZE;
-
-                    // Corner overlaps the path
-                    if (Mathf.Abs(bottomLeftDiff) <= RoadWidth / 2 || Mathf.Abs(topRightDiff) <= RoadWidth / 2)
-                    {
-                        return true;
-                    }
-
-                    // If corners are on different sides of the path, we have an overlap
-                    if (Mathf.Sign(bottomLeftDiff) != Mathf.Sign(topRightDiff))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
+        }       
     }
 }
