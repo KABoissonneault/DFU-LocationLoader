@@ -132,6 +132,8 @@ namespace LocationLoader
         {
             float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * GameManager.Instance.StreamingWorld.TerrainScale;
 
+            Vector3 originOffset = new Vector3(locationPrefab.width * TERRAIN_SIZE_MULTI / 2f, 0f, locationPrefab.height * TERRAIN_SIZE_MULTI / 2f);
+
             Vector3 terrainOffset = new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax + loc.heightOffset, loc.terrainY * TERRAIN_SIZE_MULTI);
 
             // If it's the first time loading this prefab, load the non-dynamic objects into a template
@@ -154,7 +156,7 @@ namespace LocationLoader
                         obj.type,
                         obj.name,
                         templateTransform,
-                        obj.pos,
+                        obj.pos - originOffset,
                         obj.rot,
                         obj.scale,
                         loc.locationID,
@@ -186,7 +188,7 @@ namespace LocationLoader
             }
 
             GameObject instance = Instantiate(prefabObject, new Vector3(), Quaternion.identity, daggerTerrain.gameObject.transform);
-            instance.transform.localPosition = terrainOffset;
+            instance.transform.localPosition = terrainOffset + originOffset;
             instance.transform.localRotation = loc.rot;
             instance.name = prefabName;
             LocationData data = instance.AddComponent<LocationData>();
