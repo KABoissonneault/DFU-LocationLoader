@@ -20,7 +20,7 @@ namespace LocationLoader
         Dictionary<string, LocationPrefab> prefabInfos = new Dictionary<string, LocationPrefab>();
         Dictionary<string, GameObject> prefabTemplates = new Dictionary<string, GameObject>();
 
-        public const float TERRAIN_SIZE = 128;
+        public const int TERRAIN_SIZE = 128;
         public const float TERRAINPIXELSIZE = 819.2f;
         public const float TERRAIN_SIZE_MULTI = TERRAINPIXELSIZE / TERRAIN_SIZE;
         public const float ROAD_WIDTH = 4; // Actually 2, but let's leave a bit of a gap   
@@ -30,8 +30,9 @@ namespace LocationLoader
             DaggerfallTerrain.OnPromoteTerrainData += AddLocation;
         }
 
-        private void Start()
+        void Start()
         {
+            LocationConsole.RegisterCommands();
         }
 
         void CacheLocationPrefabs()
