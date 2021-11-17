@@ -925,7 +925,7 @@ namespace LocationLoader
                 return null;
             }
 
-            
+
             if (path.EndsWith(".csv"))
             {
                 TextReader reader = File.OpenText(path);
@@ -997,7 +997,7 @@ namespace LocationLoader
                     tmpInst.terrainY = int.Parse(node["terrainY"].InnerXml);
 
                     XmlNode child = node["rotW"];
-                    if(child != null)
+                    if (child != null)
                     {
                         tmpInst.rot.w = float.Parse(child.InnerXml, cultureInfo);
                         tmpInst.rot.x = float.Parse(node["rotX"].InnerXml, cultureInfo);
@@ -1007,7 +1007,7 @@ namespace LocationLoader
                     else
                     {
                         child = node["rotYAxis"];
-                        if(child != null)
+                        if (child != null)
                         {
                             float yRot = float.Parse(child.InnerXml, cultureInfo);
                             tmpInst.rot.eulerAngles = new Vector3(0, yRot, 0);
@@ -1015,12 +1015,12 @@ namespace LocationLoader
                     }
 
                     child = node["heightOffset"];
-                    if(child != null)
+                    if (child != null)
                     {
                         tmpInst.heightOffset = float.Parse(child.InnerXml, cultureInfo);
                     }
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Debug.LogWarning($"Error while parsing location instance: {e.Message}");
                     continue;
@@ -1044,7 +1044,7 @@ namespace LocationLoader
             bool GetIndex(string fieldName, out int index)
             {
                 index = -1;
-                for(int i = 0; i < fields.Length; ++i)
+                for (int i = 0; i < fields.Length; ++i)
                 {
                     if (fields[i].Equals(fieldName, StringComparison.InvariantCultureIgnoreCase))
                     {
@@ -1052,7 +1052,7 @@ namespace LocationLoader
                         break;
                     }
                 }
-                if(index == -1)
+                if (index == -1)
                 {
                     Debug.LogError($"Location instance file failed ({contextString}): could not find field '{fieldName}' in header");
                     return false;
@@ -1106,7 +1106,7 @@ namespace LocationLoader
                 LocationInstance tmpInst = new LocationInstance();
 
                 try
-                {                    
+                {
                     tmpInst.name = tokens[nameIndex];
                     tmpInst.type = int.Parse(tokens[typeIndex]);
                     tmpInst.prefab = tokens[prefabIndex];
@@ -1120,9 +1120,9 @@ namespace LocationLoader
                     if (rotXIndex.HasValue) tmpInst.rot.x = float.Parse(tokens[rotXIndex.Value], cultureInfo);
                     if (rotYIndex.HasValue) tmpInst.rot.y = float.Parse(tokens[rotYIndex.Value], cultureInfo);
                     if (rotZIndex.HasValue) tmpInst.rot.z = float.Parse(tokens[rotZIndex.Value], cultureInfo);
-                    if (rotXAxisIndex.HasValue) tmpInst.rot.eulerAngles.Set(float.Parse(tokens[rotXAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.y, tmpInst.rot.eulerAngles.z);
-                    if (rotYAxisIndex.HasValue) tmpInst.rot.eulerAngles.Set(tmpInst.rot.eulerAngles.x, float.Parse(tokens[rotYAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.z);
-                    if (rotZAxisIndex.HasValue) tmpInst.rot.eulerAngles.Set(tmpInst.rot.eulerAngles.x, tmpInst.rot.eulerAngles.y, float.Parse(tokens[rotZAxisIndex.Value], cultureInfo));
+                    if (rotXAxisIndex.HasValue) tmpInst.rot.eulerAngles = new Vector3(float.Parse(tokens[rotXAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.y, tmpInst.rot.eulerAngles.z);
+                    if (rotYAxisIndex.HasValue) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, float.Parse(tokens[rotYAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.z);
+                    if (rotZAxisIndex.HasValue) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, tmpInst.rot.eulerAngles.y, float.Parse(tokens[rotZAxisIndex.Value], cultureInfo));
                     if (heightOffsetIndex.HasValue) tmpInst.heightOffset = float.Parse(tokens[heightOffsetIndex.Value], cultureInfo);
                 }
                 catch (Exception e)
@@ -1132,8 +1132,99 @@ namespace LocationLoader
                 }
 
                 yield return tmpInst;
-                
+
             }
+        }
+
+        public static LocationInstance LoadSingleLocationInstanceCsv(string line, string[] fields, string contextString)
+        {
+            bool GetIndex(string fieldName, out int index)
+            {
+                index = -1;
+                for (int i = 0; i < fields.Length; ++i)
+                {
+                    if (fields[i].Equals(fieldName, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+                if (index == -1)
+                {
+                    Debug.LogError($"Location instance file failed ({contextString}): could not find field '{fieldName}' in header");
+                    return false;
+                }
+                return true;
+            }
+
+            int? GetIndexOpt(string fieldName)
+            {
+                int index = -1;
+                for (int i = 0; i < fields.Length; ++i)
+                {
+                    if (fields[i].Equals(fieldName, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+                if (index == -1)
+                {
+                    return null;
+                }
+                return index;
+            }
+
+            if (!GetIndex("name", out int nameIndex)) return null;
+            if (!GetIndex("type", out int typeIndex)) return null;
+            if (!GetIndex("prefab", out int prefabIndex)) return null;
+            if (!GetIndex("worldX", out int worldXIndex)) return null;
+            if (!GetIndex("worldY", out int worldYIndex)) return null;
+            if (!GetIndex("terrainX", out int terrainXIndex)) return null;
+            if (!GetIndex("terrainY", out int terrainYIndex)) return null;
+            if (!GetIndex("locationID", out int locationIDIndex)) return null;
+            int? rotWIndex = GetIndexOpt("rotW");
+            int? rotXIndex = GetIndexOpt("rotX");
+            int? rotYIndex = GetIndexOpt("rotY");
+            int? rotZIndex = GetIndexOpt("rotZ");
+            int? rotXAxisIndex = GetIndexOpt("rotXAxis");
+            int? rotYAxisIndex = GetIndexOpt("rotYAxis");
+            int? rotZAxisIndex = GetIndexOpt("rotZAxis");
+            int? heightOffsetIndex = GetIndexOpt("heightOffset");
+
+            CultureInfo cultureInfo = new CultureInfo("en-US");
+
+            string[] tokens = line.Split(';', ',');
+
+            LocationInstance tmpInst = new LocationInstance();
+
+            try
+            {
+                tmpInst.name = tokens[nameIndex];
+                tmpInst.type = int.Parse(tokens[typeIndex]);
+                tmpInst.prefab = tokens[prefabIndex];
+                tmpInst.worldX = int.Parse(tokens[worldXIndex]);
+                tmpInst.worldY = int.Parse(tokens[worldYIndex]);
+                tmpInst.terrainX = int.Parse(tokens[terrainXIndex]);
+                tmpInst.terrainY = int.Parse(tokens[terrainYIndex]);
+                tmpInst.locationID = ulong.Parse(tokens[locationIDIndex]);
+
+                if (rotWIndex.HasValue) tmpInst.rot.w = float.Parse(tokens[rotWIndex.Value], cultureInfo);
+                if (rotXIndex.HasValue) tmpInst.rot.x = float.Parse(tokens[rotXIndex.Value], cultureInfo);
+                if (rotYIndex.HasValue) tmpInst.rot.y = float.Parse(tokens[rotYIndex.Value], cultureInfo);
+                if (rotZIndex.HasValue) tmpInst.rot.z = float.Parse(tokens[rotZIndex.Value], cultureInfo);
+                if (rotXAxisIndex.HasValue) tmpInst.rot.eulerAngles = new Vector3(float.Parse(tokens[rotXAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.y, tmpInst.rot.eulerAngles.z);
+                if (rotYAxisIndex.HasValue) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, float.Parse(tokens[rotYAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.z);
+                if (rotZAxisIndex.HasValue) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, tmpInst.rot.eulerAngles.y, float.Parse(tokens[rotZAxisIndex.Value], cultureInfo));
+                if (heightOffsetIndex.HasValue) tmpInst.heightOffset = float.Parse(tokens[heightOffsetIndex.Value], cultureInfo);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to parse a location instance ({contextString}): {e.Message}");
+                return null;
+            }
+
+            return tmpInst;
         }
 
         /// <summary>
@@ -1221,7 +1312,7 @@ namespace LocationLoader
                 locationPrefab.height = int.Parse(prefabNode["height"].InnerXml);
                 locationPrefab.width = int.Parse(prefabNode["width"].InnerXml);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Debug.LogWarning($"Error while parsing location prefab: {e.Message}");
                 return null;
@@ -1233,18 +1324,18 @@ namespace LocationLoader
                 XmlNode objectNode = objects[i];
 
                 var obj = new LocationObject();
-                
+
                 try
                 {
                     obj.type = int.Parse(objectNode["type"].InnerXml);
                     obj.name = objectNode["name"].InnerXml;
-                    
+
                     obj.objectID = int.Parse(objectNode["objectID"].InnerXml);
-                    
+
                     obj.pos.x = float.Parse(objectNode["posX"].InnerXml);
                     obj.pos.y = float.Parse(objectNode["posY"].InnerXml);
                     obj.pos.z = float.Parse(objectNode["posZ"].InnerXml);
-                    
+
                     obj.scale.x = float.Parse(objectNode["scaleX"].InnerXml);
                     obj.scale.y = float.Parse(objectNode["scaleY"].InnerXml);
                     obj.scale.z = float.Parse(objectNode["scaleZ"].InnerXml);
@@ -1266,7 +1357,7 @@ namespace LocationLoader
                     if (!ValidateValue(obj.type, obj.name))
                         continue;
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Debug.LogWarning($"Error while parsing location prefab object: {e.Message}");
                     continue;
@@ -1383,7 +1474,7 @@ namespace LocationLoader
                 return false;
 
             }
-            else if(type == 2)
+            else if (type == 2)
             {
                 string[] arg = name.Split('.');
 
@@ -1391,7 +1482,7 @@ namespace LocationLoader
                 {
                     try
                     {
-                        if(int.Parse(arg[0]) != 199)
+                        if (int.Parse(arg[0]) != 199)
                         {
                             Debug.LogWarning("Editor marker name format is invalid, use 199.RECORDID");
                             return false;
@@ -1462,7 +1553,7 @@ namespace LocationLoader
                     else
                     {
                         go = GameObjectHelper.CreateDaggerfallMeshGameObject(modelId, parent);
-                        if(go != null)
+                        if (go != null)
                         {
                             go.transform.localPosition = pos;
                             go.transform.localRotation = rot;
@@ -1480,7 +1571,7 @@ namespace LocationLoader
                 go = MeshReplacement.ImportCustomFlatGameobject(int.Parse(arg[0]), int.Parse(arg[1]), pos, parent);
 
                 if (go == null)
-                {   
+                {
                     go = GameObjectHelper.CreateDaggerfallBillboardGameObject(int.Parse(arg[0]), int.Parse(arg[1]), parent);
 
                     if (go != null)
@@ -1495,7 +1586,7 @@ namespace LocationLoader
                     }
                 }
 
-                if(go != null)
+                if (go != null)
                 {
                     go.transform.localScale = new Vector3(go.transform.localScale.x * scale.x, go.transform.localScale.y * scale.y, go.transform.localScale.z * scale.z);
                 }
@@ -1799,7 +1890,7 @@ namespace LocationLoader
             if (!LootTables.GenerateLoot(loot, 2))
                 DaggerfallUnity.LogMessage(string.Format("DaggerfallInterior: Location type {0} is out of range or unknown.", 0, true));
 
-            if(go.GetComponent<DaggerfallBillboard>() != null)
+            if (go.GetComponent<DaggerfallBillboard>() != null)
                 go.GetComponent<DaggerfallBillboard>().SetMaterial(textureArchive, textureRecord);
 
             go.transform.parent = parent;
@@ -1826,10 +1917,15 @@ namespace LocationLoader
         public static bool OverlapsRoad(LocationInstance loc, LocationPrefab locationPrefab, byte pathsDataPoint)
         {
             Rect locationRect = new Rect(loc.terrainX, loc.terrainY, locationPrefab.width, locationPrefab.height);
-            Vector2 locationTopLeft = new Vector2(loc.terrainX, loc.terrainY + locationPrefab.height);
-            Vector2 locationTopRight = new Vector2(loc.terrainX + locationPrefab.width, loc.terrainY + locationPrefab.height);
-            Vector2 locationBottomLeft = new Vector2(loc.terrainX, loc.terrainY);
-            Vector2 locationBottomRight = new Vector2(loc.terrainX + locationPrefab.width, loc.terrainY);
+            return OverlapsRoad(locationRect, pathsDataPoint);
+        }
+
+        public static bool OverlapsRoad(Rect locationRect, byte pathsDataPoint)
+        {
+            Vector2 locationTopLeft = new Vector2(locationRect.xMin, locationRect.yMax);
+            Vector2 locationTopRight = new Vector2(locationRect.xMax, locationRect.yMax);
+            Vector2 locationBottomLeft = new Vector2(locationRect.xMin, locationRect.yMin);
+            Vector2 locationBottomRight = new Vector2(locationRect.xMax, locationRect.yMin);
 
             const float TERRAIN_SIZE = LocationLoader.TERRAIN_SIZE;
             const float HALF_TERRAIN_SIZE = LocationLoader.TERRAIN_SIZE / 2;
