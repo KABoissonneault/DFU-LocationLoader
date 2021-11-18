@@ -451,7 +451,7 @@ namespace LocationLoader
 
                 if (loc.type == 0 || loc.type == 2)
                 {
-                    if ((loc.terrainX + locationPrefab.height > 128 || loc.terrainY + locationPrefab.width > 128))
+                    if ((loc.terrainX + locationPrefab.width > 128 || loc.terrainY + locationPrefab.height > 128))
                     {
                         Debug.LogWarning("Invalid Location at " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY + " : The locationpreset exist outside the terrain");
                         continue;
