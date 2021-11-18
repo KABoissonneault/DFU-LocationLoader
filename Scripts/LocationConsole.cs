@@ -1,3 +1,4 @@
+using DaggerfallConnect.Arena2;
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
 using System;
@@ -113,6 +114,14 @@ namespace LocationLoader
                 {
                     int xOffsetMax = (instance.terrainX + prefab.width) / LocationLoader.TERRAIN_SIZE;
                     int yOffsetMax = (instance.terrainY + prefab.height) / LocationLoader.TERRAIN_SIZE;
+
+                    // Check for instance overflow from the bounds of the world
+                    if (instance.worldX + xOffsetMax > MapsFile.MaxMapPixelX)
+                        return false;
+
+                    if (instance.worldY - yOffsetMax < MapsFile.MinMapPixelY)
+                        return false;
+
                     for(int xOffset = 0; xOffset <= xOffsetMax; ++xOffset)
                     {
                         for(int yOffset = 0; yOffset <= yOffsetMax; ++yOffset)
@@ -137,17 +146,22 @@ namespace LocationLoader
                     );
                 }
 
-                // Instance is on existing location
+                
                 foreach (var (coordinate, _) in overlappingCoordinates)
                 {
+                    // Instance is on existing location
                     if (DaggerfallUnity.Instance.ContentReader.HasLocation(coordinate.x, coordinate.y))
+                        return false;
+
+                    // Instance is on the ocean
+                    if (DaggerfallUnity.Instance.ContentReader.MapFileReader.GetClimateIndex(coordinate.x, coordinate.y) == (int)MapsFile.Climates.Ocean)
                         return false;
                 }
                 
                 // Instance is out of bounds
                 if (type != 1)
                 {
-                    if (instance.terrainX + prefab.height > 128 || instance.terrainY + prefab.width > 128)
+                    if (instance.terrainX + prefab.width > LocationLoader.TERRAIN_SIZE || instance.terrainY + prefab.height > LocationLoader.TERRAIN_SIZE)
                     {
                         return false;
                     }
@@ -192,6 +206,7 @@ namespace LocationLoader
                 string[] fields = header.Split(',');
 
                 string fullAssetPath = Path.Combine(modFolder, "Locations", fileRelativePath);
+
                 using (StreamWriter streamWriter = new StreamWriter(fullAssetPath, append: false))
                 {
                     streamWriter.WriteLine(header);
@@ -205,7 +220,8 @@ namespace LocationLoader
                         LocationInstance instance = LocationHelper.LoadSingleLocationInstanceCsv(instanceLine, fields, context);
                         if (instance == null)
                         {
-                            throw new Exception($"({context}) Instance could not be parsed. Aborting");
+                            Debug.LogWarning($"({context}) Instance could not be parsed. Removing");
+                            continue;
                         }
 
                         if (ModLocationPasses(instance, mod))
@@ -253,7 +269,14 @@ namespace LocationLoader
                                 && file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
                             .Select(file => file.Substring(locationsFolder.Length)))
                     {
-                        PruneModFile(mod, modFolder, fileRelativePath);
+                        try
+                        {
+                            PruneModFile(mod, modFolder, fileRelativePath);
+                        }
+                        catch(Exception e)
+                        {
+                            Debug.LogError(e.Message);
+                        }
                     }
                 }
                 else
@@ -263,7 +286,14 @@ namespace LocationLoader
                         && file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
                     .Select(file => file.Substring(locationsFolder.Length)))
                     {
-                        PruneModFile(mod, modFolder, fileRelativePath);
+                        try
+                        {
+                            PruneModFile(mod, modFolder, fileRelativePath);
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogError(e.Message);
+                        }
                     }
                 }
             }
