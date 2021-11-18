@@ -225,14 +225,14 @@ namespace LocationLoader
                                     break;
                                 }
                                 MobileTypes mobileType = (MobileTypes)enemyID;
-                                go = GameObjectHelper.CreateEnemy(TextManager.Instance.GetLocalizedEnemyName((int)mobileType), mobileType, obj.pos, MobileGender.Unspecified, instance.transform);
+                                go = GameObjectHelper.CreateEnemy(TextManager.Instance.GetLocalizedEnemyName((int)mobileType), mobileType, obj.pos - originOffset, MobileGender.Unspecified, instance.transform);
                                 break;
 
                             case "19":
                             {
                                 int record = UnityEngine.Random.Range(0, 48);
                                 go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, 216, record, instance.transform);
-                                go.transform.localPosition = obj.pos;
+                                go.transform.localPosition = obj.pos - originOffset;
                                 break;
                             }
                         }
