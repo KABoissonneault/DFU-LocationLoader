@@ -11,6 +11,7 @@ using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Utility.AssetInjection;
 using DaggerfallWorkshop.Game.Items;
 using System.Globalization;
+using DaggerfallWorkshop.Game.Serialization;
 
 namespace LocationLoader
 {
@@ -1873,24 +1874,51 @@ namespace LocationLoader
         {
             GameObject go = GameObject.Instantiate(DaggerfallUnity.Instance.Option_LootContainerPrefab.gameObject);
 
+            // We use our own serializer, get rid of the DFU one
+            SerializableLootContainer serializableLootContainer = go.GetComponent<SerializableLootContainer>();
+            if (serializableLootContainer != null)
+            {
+                GameObject.Destroy(serializableLootContainer);
+            }
+
+            
             // Setup DaggerfallLoot component to make lootable
             DaggerfallLoot loot = go.GetComponent<DaggerfallLoot>();
             if (loot)
             {
-                loot.LoadID = (locationID * 10000) + (ulong)objID;
+                ulong v = (uint)objID;
+                loot.LoadID = (locationID << 16) | v;
+                loot.WorldContext = WorldContext.Exterior;
                 loot.ContainerType = LootContainerTypes.RandomTreasure;
-                loot.ContainerImage = InventoryContainerImages.Chest;
                 loot.TextureArchive = textureArchive;
                 loot.TextureRecord = textureRecord;
+
+                LocationLootSerializer serializer = go.AddComponent<LocationLootSerializer>();
+                if (!serializer.TryLoadSavedData())
+                {
+                    // We had no existing save, generate new loot
+                    if (!LootTables.GenerateLoot(loot, 2))
+                        DaggerfallUnity.LogMessage(string.Format("DaggerfallInterior: Location type {0} is out of range or unknown.", 0, true));
+
+                    var billboard = go.GetComponent<DaggerfallBillboard>();
+                    if (billboard != null)
+                        go.GetComponent<DaggerfallBillboard>().SetMaterial(textureArchive, textureRecord);
+
+                    loot.stockedDate = DaggerfallLoot.CreateStockedDate(DaggerfallUnity.Instance.WorldTime.Now);
+                }
             }
-
-            if (!LootTables.GenerateLoot(loot, 2))
-                DaggerfallUnity.LogMessage(string.Format("DaggerfallInterior: Location type {0} is out of range or unknown.", 0, true));
-
-            if (go.GetComponent<DaggerfallBillboard>() != null)
-                go.GetComponent<DaggerfallBillboard>().SetMaterial(textureArchive, textureRecord);
-
+            
             go.transform.parent = parent;
+
+            LocationData instanceData = parent.GetComponent<LocationData>();
+            if (instanceData)
+            {
+                GameManager.Instance.StreamingWorld.TrackLooseObject(go, statefulObj: true, instanceData.Location.worldX, instanceData.Location.worldY);
+            }
+            else
+            {
+                GameManager.Instance.StreamingWorld.TrackLooseObject(go, statefulObj: true);
+            }
 
             return go;
         }

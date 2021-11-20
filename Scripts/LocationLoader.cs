@@ -7,6 +7,8 @@ using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Utility;
 using System;
 using DaggerfallWorkshop;
+using UnityEngine.SceneManagement;
+using DaggerfallWorkshop.Game.Serialization;
 
 namespace LocationLoader
 {
@@ -25,14 +27,50 @@ namespace LocationLoader
         public const float TERRAIN_SIZE_MULTI = TERRAINPIXELSIZE / TERRAIN_SIZE;
         public const float ROAD_WIDTH = 4; // Actually 2, but let's leave a bit of a gap   
 
-        void Awake()
-        {
-            DaggerfallTerrain.OnPromoteTerrainData += AddLocation;
-        }
+        bool sceneLoading = false; 
 
         void Start()
         {
             LocationConsole.RegisterCommands();
+        }
+
+        private void OnEnable()
+        {
+            DaggerfallTerrain.OnPromoteTerrainData += AddLocation;
+            StreamingWorld.OnInitWorld += StreamingWorld_OnInitWorld;
+            StreamingWorld.OnUpdateTerrainsEnd += StreamingWorld_OnUpdateTerrainsEnd;
+        }
+
+        private void OnDisable()
+        {
+            DaggerfallTerrain.OnPromoteTerrainData -= AddLocation;
+        }
+
+        private void StreamingWorld_OnInitWorld()
+        {
+            sceneLoading = true;
+        }
+
+        private void StreamingWorld_OnUpdateTerrainsEnd()
+        {
+            if(sceneLoading)
+            {
+                StartCoroutine(InstantiateAllDynamicObjectsNextFrame());
+                sceneLoading = false;
+            }
+        }
+
+        System.Collections.IEnumerator InstantiateAllDynamicObjectsNextFrame()
+        {
+            yield return new WaitForEndOfFrame();
+
+            var instances = FindObjectsOfType<LocationData>();
+            foreach (var instance in instances)
+            {
+                InstantiateInstanceDynamicObjects(instance.gameObject, instance.Location, instance.Prefab);
+            }
+
+            yield break;
         }
 
         void CacheLocationPrefabs()
@@ -129,6 +167,64 @@ namespace LocationLoader
             return prefabInfo;
         }
 
+        void InstantiateInstanceDynamicObjects(GameObject instance, LocationInstance loc, LocationPrefab locationPrefab)
+        {
+            Vector3 originOffset = new Vector3(locationPrefab.width * TERRAIN_SIZE_MULTI / 2f, 0f, locationPrefab.height * TERRAIN_SIZE_MULTI / 2f);
+
+            foreach (LocationObject obj in locationPrefab.obj)
+            {
+                if (!IsDynamicObject(obj))
+                    continue;
+
+                GameObject go = null;
+
+                if (obj.type == 2)
+                {
+                    string[] arg = obj.name.Split('.');
+
+                    if (arg[0] == "199")
+                    {
+                        switch (arg[1])
+                        {
+                            case "16":
+                                if (!int.TryParse(obj.extraData, out int enemyID))
+                                {
+                                    Debug.LogError($"Could not spawn enemy, invalid extra data '{obj.extraData}'");
+                                    break;
+                                }
+
+                                if (!Enum.IsDefined(typeof(MobileTypes), enemyID))
+                                {
+                                    Debug.LogError($"Could not spawn enemy, unknown mobile type '{obj.extraData}'");
+                                    break;
+                                }
+                                MobileTypes mobileType = (MobileTypes)enemyID;
+                                go = GameObjectHelper.CreateEnemy(TextManager.Instance.GetLocalizedEnemyName((int)mobileType), mobileType, obj.pos - originOffset, MobileGender.Unspecified, instance.transform);
+                                break;
+
+                            case "19":
+                                {
+                                    int record = UnityEngine.Random.Range(0, 48);
+                                    go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, 216, record, instance.transform);
+                                    go.transform.localPosition = obj.pos - originOffset;
+                                    break;
+                                }
+                        }
+                    }
+                }
+
+                if (go != null)
+                {
+                    if (go.GetComponent<DaggerfallBillboard>())
+                    {
+                        float tempY = go.transform.position.y;
+                        go.GetComponent<DaggerfallBillboard>().AlignToBase();
+                        go.transform.position = new Vector3(go.transform.position.x, tempY + ((go.transform.position.y - tempY) * go.transform.localScale.y), go.transform.position.z);
+                    }
+                }
+            }
+        }
+
         void InstantiatePrefab(string prefabName, LocationPrefab locationPrefab, LocationInstance loc, DaggerfallTerrain daggerTerrain)
         {
             float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * GameManager.Instance.StreamingWorld.TerrainScale;
@@ -196,61 +292,12 @@ namespace LocationLoader
             data.Location = loc;
             data.Prefab = locationPrefab;
 
-            // Add the dynamic objects
-            foreach (LocationObject obj in locationPrefab.obj)
-            {
-                if (!IsDynamicObject(obj))
-                    continue;
-
-                GameObject go = null;
-
-                if (obj.type == 2)
-                {
-                    string[] arg = obj.name.Split('.');
-
-                    if (arg[0] == "199")
-                    {
-                        switch(arg[1])
-                        {
-                            case "16":
-                                if(!int.TryParse(obj.extraData, out int enemyID))
-                                {
-                                    Debug.LogError($"Could not spawn enemy, invalid extra data '{obj.extraData}'");
-                                    break;
-                                }
-
-                                if (!Enum.IsDefined(typeof(MobileTypes), enemyID))
-                                {
-                                    Debug.LogError($"Could not spawn enemy, unknown mobile type '{obj.extraData}'");
-                                    break;
-                                }
-                                MobileTypes mobileType = (MobileTypes)enemyID;
-                                go = GameObjectHelper.CreateEnemy(TextManager.Instance.GetLocalizedEnemyName((int)mobileType), mobileType, obj.pos - originOffset, MobileGender.Unspecified, instance.transform);
-                                break;
-
-                            case "19":
-                            {
-                                int record = UnityEngine.Random.Range(0, 48);
-                                go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, 216, record, instance.transform);
-                                go.transform.localPosition = obj.pos - originOffset;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (go != null)
-                {
-                    if (go.GetComponent<DaggerfallBillboard>())
-                    {
-                        float tempY = go.transform.position.y;
-                        go.GetComponent<DaggerfallBillboard>().AlignToBase();
-                        go.transform.position = new Vector3(go.transform.position.x, tempY + ((go.transform.position.y - tempY) * go.transform.localScale.y), go.transform.position.z);
-                    }
-                }
-            }
-
             instance.SetActive(true);
+
+            if (!sceneLoading)
+            {
+                InstantiateInstanceDynamicObjects(instance, loc, locationPrefab);
+            }
         }
 
         void CacheRegionInstances(int regionIndex)

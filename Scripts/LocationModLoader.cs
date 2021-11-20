@@ -4,18 +4,20 @@ using DaggerfallWorkshop.Game.Utility.ModSupport;   //required for modding featu
 
 namespace LocationLoader
 {
-    public class LocationModLoader : MonoBehaviour
+    public static class LocationModLoader
     {
         public static Mod mod { get; private set; }
+        public static GameObject modObject { get; private set; }
 
         [Invoke(StateManager.StateTypes.Start, 0)]
         public static void Init(InitParams initParams)
         {
             // Get mod
             mod = initParams.Mod;
-            // Add script to the scene.
 
-            new GameObject("LocationLoader").AddComponent<LocationLoader>();
+            modObject = new GameObject("LocationLoader");
+            modObject.AddComponent<LocationLoader>();
+            mod.SaveDataInterface = modObject.AddComponent<LocationSaveDataInterface>();
             mod.IsReady = true;
 
             const int ladderModelId = 41409;
