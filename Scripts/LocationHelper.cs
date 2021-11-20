@@ -1910,16 +1910,6 @@ namespace LocationLoader
             
             go.transform.parent = parent;
 
-            LocationData instanceData = parent.GetComponent<LocationData>();
-            if (instanceData)
-            {
-                GameManager.Instance.StreamingWorld.TrackLooseObject(go, statefulObj: true, instanceData.Location.worldX, instanceData.Location.worldY);
-            }
-            else
-            {
-                GameManager.Instance.StreamingWorld.TrackLooseObject(go, statefulObj: true);
-            }
-
             return go;
         }
 
