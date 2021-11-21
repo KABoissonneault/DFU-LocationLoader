@@ -13,6 +13,7 @@
         "Assets/Game/Mods/LocationLoader/Scripts/LocationModLoader.cs",
         "Assets/Game/Mods/LocationLoader/Scripts/Editor/LocationInstanceEditor.cs",
         "Assets/Game/Mods/LocationLoader/Scripts/Editor/LocationEditor.cs",
-        "Assets/Game/Mods/LocationLoader/Scripts/Editor/LocationPrefabEditor.cs"
+        "Assets/Game/Mods/LocationLoader/Scripts/Editor/LocationPrefabEditor.cs",
+        "Assets/Game/Mods/LocationLoader/Scripts/LocationSaveDataInterface.cs"
     ]
 }

@@ -37,14 +37,14 @@ namespace LocationLoader
     }
 
     [fsObject("v1")]
-    struct LocationSaveData_v1
+    public struct LocationSaveData_v1
     {
         public ulong[] clearedEnemies;
         public EnemyData_v1[] activeEnemies;
         public LocationLootData_v1[] lootContainers;
     }
 
-    class LocationLootSerializer : MonoBehaviour, ISerializableGameObject
+    public class LocationLootSerializer : MonoBehaviour, ISerializableGameObject
     {
         #region Fields
 
@@ -430,21 +430,6 @@ namespace LocationLoader
 
         #region Private Methods
 
-        void RestoreExteriorPositionHandler(DaggerfallEnemy enemy, EnemyData_v1 data, WorldContext enemyContext)
-        {
-            // If enemy context matches serialized world context then enemy was saved after floating y change
-            // Need to get relative difference between current and serialized world compensation to get actual y position
-            if (enemyContext == data.worldContext)
-            {
-                float diffY = GameManager.Instance.StreamingWorld.WorldCompensation.y - data.worldCompensation.y;
-                enemy.transform.position = data.currentPosition + new Vector3(0, diffY, 0);
-                return;
-            }
-
-            // Otherwise we migrate a legacy exterior position by adjusting for world compensation
-            enemy.transform.position = data.currentPosition + GameManager.Instance.StreamingWorld.WorldCompensation;
-        }
-
         bool HasChanged()
         {
             if (!enemy)
@@ -465,7 +450,7 @@ namespace LocationLoader
         #endregion
     }
 
-    class LocationSaveDataInterface : MonoBehaviour, IHasModSaveData
+    public class LocationSaveDataInterface : MonoBehaviour, IHasModSaveData
     {
         Dictionary<ulong, LocationLootData_v1> savedLoot = new Dictionary<ulong, LocationLootData_v1>();
         Dictionary<ulong, LocationLootSerializer> activeLootSerializers = new Dictionary<ulong, LocationLootSerializer>();

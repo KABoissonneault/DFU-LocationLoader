@@ -32,7 +32,11 @@ namespace LocationLoader
 
         void Start()
         {
+            Debug.Log("Begin mod init: Location Loader");
+
             LocationConsole.RegisterCommands();
+
+            Debug.Log("Finished mod init: Location Loader");
         }
 
         private void OnEnable()

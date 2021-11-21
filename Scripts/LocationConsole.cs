@@ -11,7 +11,7 @@ using Wenzil.Console;
 
 namespace LocationLoader
 {
-    static class LocationConsole
+    public static class LocationConsole
     {
         public static void RegisterCommands()
         {
