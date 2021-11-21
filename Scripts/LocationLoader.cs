@@ -9,6 +9,7 @@ using System;
 using DaggerfallWorkshop;
 using UnityEngine.SceneManagement;
 using DaggerfallWorkshop.Game.Serialization;
+using DaggerfallWorkshop.Game.Entity;
 
 namespace LocationLoader
 {
@@ -198,8 +199,41 @@ namespace LocationLoader
                                     Debug.LogError($"Could not spawn enemy, unknown mobile type '{obj.extraData}'");
                                     break;
                                 }
+
+                                ulong v = (uint)obj.objectID;
+                                ulong loadId = (loc.locationID << 16) | v;
+
+                                // Enemy is dead, don't spawn anything
+                                if (LocationModLoader.modObject.GetComponent<LocationSaveDataInterface>().IsEnemyDead(loadId))
+                                {
+                                    break;
+                                }
+
                                 MobileTypes mobileType = (MobileTypes)enemyID;
                                 go = GameObjectHelper.CreateEnemy(TextManager.Instance.GetLocalizedEnemyName((int)mobileType), mobileType, obj.pos - originOffset, MobileGender.Unspecified, instance.transform);
+                                SerializableEnemy serializable = go.GetComponent<SerializableEnemy>();
+                                if(serializable != null)
+                                {
+                                    Destroy(serializable);
+                                }
+
+                                DaggerfallEntityBehaviour behaviour = go.GetComponent<DaggerfallEntityBehaviour>();
+                                EnemyEntity entity = (EnemyEntity)behaviour.Entity;
+                                if(entity.MobileEnemy.Gender == MobileGender.Male)
+                                {
+                                    entity.Gender = Genders.Male;
+                                }
+                                else if(entity.MobileEnemy.Gender == MobileGender.Female)
+                                {
+                                    entity.Gender = Genders.Female;
+                                }
+
+                                DaggerfallEnemy enemy = go.GetComponent<DaggerfallEnemy>();
+                                if (enemy != null)
+                                {
+                                    enemy.LoadID = loadId;
+                                    go.AddComponent<LocationEnemySerializer>();
+                                }
                                 break;
 
                             case "19":
