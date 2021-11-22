@@ -375,8 +375,18 @@ namespace LocationLoader
                                      locationObject.rot,
                                      locationObject.scale, 0, 0
                 );
+
+                if (newObject != null)
+                {
+                    if (newObject.GetComponent<DaggerfallBillboard>())
+                    {
+                        float tempY = newObject.transform.position.y;
+                        newObject.GetComponent<DaggerfallBillboard>().AlignToBase();
+                        newObject.transform.position = new Vector3(newObject.transform.position.x, tempY + ((newObject.transform.position.y - tempY) * newObject.transform.localScale.y), newObject.transform.position.z);
+                    }
+                }
             }
-            
+
             if (newObject != null)
             {
 
