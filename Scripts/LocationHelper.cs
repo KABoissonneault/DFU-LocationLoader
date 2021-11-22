@@ -1303,6 +1303,8 @@ namespace LocationLoader
                 return null;
             }
 
+            CultureInfo cultureInfo = new CultureInfo("en-US");
+
             LocationPrefab locationPrefab = new LocationPrefab();
 
             try
@@ -1330,20 +1332,20 @@ namespace LocationLoader
 
                     obj.objectID = int.Parse(objectNode["objectID"].InnerXml);
 
-                    obj.pos.x = float.Parse(objectNode["posX"].InnerXml);
-                    obj.pos.y = float.Parse(objectNode["posY"].InnerXml);
-                    obj.pos.z = float.Parse(objectNode["posZ"].InnerXml);
+                    obj.pos.x = float.Parse(objectNode["posX"].InnerXml, cultureInfo);
+                    obj.pos.y = float.Parse(objectNode["posY"].InnerXml, cultureInfo);
+                    obj.pos.z = float.Parse(objectNode["posZ"].InnerXml, cultureInfo);
 
-                    obj.scale.x = float.Parse(objectNode["scaleX"].InnerXml);
-                    obj.scale.y = float.Parse(objectNode["scaleY"].InnerXml);
-                    obj.scale.z = float.Parse(objectNode["scaleZ"].InnerXml);
+                    obj.scale.x = float.Parse(objectNode["scaleX"].InnerXml, cultureInfo);
+                    obj.scale.y = float.Parse(objectNode["scaleY"].InnerXml, cultureInfo);
+                    obj.scale.z = float.Parse(objectNode["scaleZ"].InnerXml, cultureInfo);
 
                     if (obj.type == 0)
                     {
-                        obj.rot.w = float.Parse(objectNode["rotW"].InnerXml);
-                        obj.rot.x = float.Parse(objectNode["rotX"].InnerXml);
-                        obj.rot.y = float.Parse(objectNode["rotY"].InnerXml);
-                        obj.rot.z = float.Parse(objectNode["rotZ"].InnerXml);
+                        obj.rot.w = float.Parse(objectNode["rotW"].InnerXml, cultureInfo);
+                        obj.rot.x = float.Parse(objectNode["rotX"].InnerXml, cultureInfo);
+                        obj.rot.y = float.Parse(objectNode["rotY"].InnerXml, cultureInfo);
+                        obj.rot.z = float.Parse(objectNode["rotZ"].InnerXml, cultureInfo);
                     }
 
                     var extraDataNode = objectNode["extraData"];
