@@ -1,6 +1,6 @@
 {
     "ModTitle": "Location Loader",
-    "ModVersion": "0.1",
+    "ModVersion": "0.1.0",
     "ModAuthor": "kaboissonneault",
     "ContactInfo": "@kaboissonneault",
     "DFUnity_Version": "0.13.1",
@@ -14,6 +14,7 @@
         "Assets/Game/Mods/LocationLoader/Scripts/Editor/LocationInstanceEditor.cs",
         "Assets/Game/Mods/LocationLoader/Scripts/Editor/LocationEditor.cs",
         "Assets/Game/Mods/LocationLoader/Scripts/Editor/LocationPrefabEditor.cs",
-        "Assets/Game/Mods/LocationLoader/Scripts/LocationSaveDataInterface.cs"
+        "Assets/Game/Mods/LocationLoader/Scripts/LocationSaveDataInterface.cs",
+        "Assets/Game/Mods/LocationLoader/Scripts/LocationConsole.cs"
     ]
 }
