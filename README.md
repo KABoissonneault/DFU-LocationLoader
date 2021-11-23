@@ -100,7 +100,73 @@ Editor markers are special objects used by Location Loader to take special actio
 Markers with "Y" under "Works?" can be used in location prefabs and be useful.
 
 ## Prefabs
+Prefabs are basically just a reusable pile of objects. The prefabs themselves don't do anything on their own but allow the creation of instances using them. Prefabs must define a 2d area they occupy, in units of "terrain tiles". This area is used for detecting out-of-bounds, location overlaps, and BasicRoads path overlap.
+
+```
+LocationPrefab
+  LocationObject[] objects
+  int width
+  int height
+```
+- objects: LocationObject[]
+  - Litterally just the set of all objects in the prefab. All objects should have a unique object id inside the prefab itself
+- width: int
+  - Length of the prefab on the west-east axis, in terrain tile units (128x128 terrain tiles per world pixel).
+- height: int
+  - Length of the prefab on the north-south axis, in terrain tile units (128x128 terrain tiles per world pixel).  
 
 ## Instances
+An instance is a unique instantiation of a prefab at a certain position in the world. There's actually multiple types of instances, which will be described below.
+
+```
+LocationInstance
+  ulong locationID
+  string name
+  int type
+  string prefab
+  int worldX
+  int worldY
+  int terrainX
+  int terrainY
+  Quaternion rot
+  float heightOffset
+```
+
+- locationID: ulong
+  - An arbitrary 64-bits unique identifier. Must be unique across the world, across all mods
+- name: string
+  - Arbitrary string to help describe an instance
+- type: int
+  - 0 for locations, 1 for decorations (more details below)
+- prefab: string
+  - Name of the prefab being instanciated. Basically the filename without the extension
+- worldX: int
+  - Value between 0 and 1000 to locate the terrain of the instance along the west-east axis in the world. 0 is west, 1000 is east.
+- worldY: int
+  - Value between 0 and 500 to locate the terrain of the instance along the north-south axis to locate the instance in the world. 0 is north, 500 is south.
+- terrainX: int
+  - Value between 0 and 128 to locate the instance along the west-east axis in the specified terrain. 0 is west, 128 is east.
+- terrainY: int
+  - Value between 0 and 128 to locate the instance along the north-south axis in the specified terrain. 0 is south, 128 is north (yes, opposite of worldY).
+- rot: Quaternion
+  - A rotation applied on the instance. The same prefab can therefore have different orientations in different instances
+- heightOffset: float
+  - A position offset on the up axis in the 3d space. Can be positive or negative. Units are in Unity distances.
+
+### Locations
+
+Instances of type 0 are the "classic" locations. Here's some properties of type 0 instances:
+
+- The terrain will be flattened across the area of the instance, like in Daggerfall's locations
+- Dynamic objects (ex: enemies and loot) will be spawned
+- Will never appear on top of another location or a BasicRoads path
+- Will never appear outside the bounds of its terrain
+
+### Decorations
+
+Instances of type 1 are an alternative type of instances. They are not considered "locations", but are loaded by Location Loader all the same. Here's some places where decorations differ from locations:
+
+- Terrain is not flattened
+- May appear outside the bounds of its initial terrain, potentially spanning multiple terrains
 
 # Serialization
