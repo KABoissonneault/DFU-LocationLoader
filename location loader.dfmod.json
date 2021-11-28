@@ -15,6 +15,7 @@
         "Assets/Game/Mods/LocationLoader/Scripts/Editor/LocationEditor.cs",
         "Assets/Game/Mods/LocationLoader/Scripts/Editor/LocationPrefabEditor.cs",
         "Assets/Game/Mods/LocationLoader/Scripts/LocationSaveDataInterface.cs",
-        "Assets/Game/Mods/LocationLoader/Scripts/LocationConsole.cs"
+        "Assets/Game/Mods/LocationLoader/Scripts/LocationConsole.cs",
+        "Assets/Game/Mods/LocationLoader/location loader.dfmod.json"
     ]
 }
