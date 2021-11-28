@@ -7,7 +7,6 @@ using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Utility;
 using System;
 using DaggerfallWorkshop;
-using UnityEngine.SceneManagement;
 using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Entity;
 
@@ -49,6 +48,8 @@ namespace LocationLoader
         private void OnDisable()
         {
             DaggerfallTerrain.OnPromoteTerrainData -= AddLocation;
+            StreamingWorld.OnInitWorld -= StreamingWorld_OnInitWorld;
+            StreamingWorld.OnUpdateTerrainsEnd -= StreamingWorld_OnUpdateTerrainsEnd;
         }
 
         private void StreamingWorld_OnInitWorld()
@@ -61,7 +62,6 @@ namespace LocationLoader
             if(sceneLoading)
             {
                 StartCoroutine(InstantiateAllDynamicObjectsNextFrame());
-                sceneLoading = false;
             }
         }
 
@@ -74,6 +74,8 @@ namespace LocationLoader
             {
                 InstantiateInstanceDynamicObjects(instance.gameObject, instance.Location, instance.Prefab);
             }
+
+            sceneLoading = false;
 
             yield break;
         }
