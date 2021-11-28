@@ -17,7 +17,7 @@ namespace LocationLoader
         {
 #if UNITY_EDITOR
             ConsoleCommandsDatabase.RegisterCommand("LLPruneInvalidInstances", "Tests location instances for validity and removes invalid ones from their package (only CSV supported)"
-                , "LLConvertAndPruneInstances [--region=<id>] [--type=<type>] [--mod=<modname>]", PruneInvalidInstances);
+                , "LLPruneInvalidInstances [--region=<id>] [--type=<type>] [--mod=<modname>]", PruneInvalidInstances);
 #endif
         }
 
@@ -142,7 +142,7 @@ namespace LocationLoader
                 else
                 {
                     overlappingCoordinates.Add(
-                        new Tuple<Vector2Int, Rect>(new Vector2Int(instance.terrainX, instance.terrainY), new Rect(instance.terrainX, instance.terrainY, prefab.width, prefab.height))
+                        new Tuple<Vector2Int, Rect>(new Vector2Int(instance.worldX, instance.worldY), new Rect(instance.terrainX, instance.terrainY, prefab.width, prefab.height))
                     );
                 }
 
