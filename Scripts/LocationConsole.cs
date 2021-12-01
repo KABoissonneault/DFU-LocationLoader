@@ -107,29 +107,41 @@ namespace LocationLoader
                     prefabCache.Add(instance.prefab, prefab);
                 }
 
+                int halfWidth = (prefab.width + 1) / 2;
+                int halfHeight = (prefab.height + 1) / 2;
+
                 // Get all world locations it overlaps
                 // Type 0 and type 2 instances only fit within their own map pixel, but type 1 can go out of bounds
                 List<Tuple<Vector2Int, Rect>> overlappingCoordinates = new List<Tuple<Vector2Int, Rect>>();
                 if(type == 1)
                 {
-                    int xOffsetMax = (instance.terrainX + prefab.width) / LocationLoader.TERRAIN_SIZE;
-                    int yOffsetMax = (instance.terrainY + prefab.height) / LocationLoader.TERRAIN_SIZE;
+                    int xOffsetMin = (int)Math.Floor(instance.terrainX - halfWidth / (float)LocationLoader.TERRAIN_SIZE);
+                    int yOffsetMin = (int)Math.Floor(instance.terrainY - halfHeight / (float)LocationLoader.TERRAIN_SIZE);
+                    int xOffsetMax = (instance.terrainX + halfWidth) / LocationLoader.TERRAIN_SIZE;
+                    int yOffsetMax = (instance.terrainY + halfHeight) / LocationLoader.TERRAIN_SIZE;
 
                     // Check for instance overflow from the bounds of the world
                     if (instance.worldX + xOffsetMax > MapsFile.MaxMapPixelX)
                         return false;
 
+                    if (instance.worldX + xOffsetMin > MapsFile.MinMapPixelX)
+                        return false;
+
                     if (instance.worldY - yOffsetMax < MapsFile.MinMapPixelY)
                         return false;
 
-                    for(int xOffset = 0; xOffset <= xOffsetMax; ++xOffset)
+                    if (instance.worldY - yOffsetMin > MapsFile.MaxMapPixelY)
+                        return false;
+
+                    // Find all overlapping coordinates and their overlap rectangle
+                    for(int xOffset = xOffsetMin; xOffset <= xOffsetMax; ++xOffset)
                     {
-                        for(int yOffset = 0; yOffset <= yOffsetMax; ++yOffset)
+                        for(int yOffset = xOffsetMax; yOffset <= yOffsetMax; ++yOffset)
                         {
-                            int xMin = Math.Max(instance.terrainX - xOffset * LocationLoader.TERRAIN_SIZE, 0);
-                            int xMax = Math.Min(instance.terrainX + prefab.width - xOffset * LocationLoader.TERRAIN_SIZE, 128);
-                            int yMin = Math.Max(instance.terrainY - yOffset * LocationLoader.TERRAIN_SIZE, 0);
-                            int yMax = Math.Min(instance.terrainY + prefab.height - yOffset * LocationLoader.TERRAIN_SIZE, 128);
+                            int xMin = Math.Max(instance.terrainX - halfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 0);
+                            int xMax = Math.Min(instance.terrainX + halfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 128);
+                            int yMin = Math.Max(instance.terrainY - halfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 0);
+                            int yMax = Math.Min(instance.terrainY + halfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 128);
 
                             overlappingCoordinates.Add(
                                 new Tuple<Vector2Int, Rect>(
@@ -161,7 +173,11 @@ namespace LocationLoader
                 // Instance is out of bounds
                 if (type != 1)
                 {
-                    if (instance.terrainX + prefab.width > LocationLoader.TERRAIN_SIZE || instance.terrainY + prefab.height > LocationLoader.TERRAIN_SIZE)
+                    if (instance.terrainX + halfWidth > LocationLoader.TERRAIN_SIZE
+                        || instance.terrainY + halfHeight > LocationLoader.TERRAIN_SIZE
+                        || instance.terrainX - halfWidth < 0
+                        || instance.terrainY - halfHeight < 0
+                        )
                     {
                         return false;
                     }

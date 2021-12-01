@@ -176,8 +176,6 @@ namespace LocationLoader
 
         void InstantiateInstanceDynamicObjects(GameObject instance, LocationInstance loc, LocationPrefab locationPrefab)
         {
-            Vector3 originOffset = new Vector3(locationPrefab.width * TERRAIN_SIZE_MULTI / 2f, 0f, locationPrefab.height * TERRAIN_SIZE_MULTI / 2f);
-
             foreach (LocationObject obj in locationPrefab.obj)
             {
                 if (!IsDynamicObject(obj))
@@ -216,7 +214,7 @@ namespace LocationLoader
                                 }
 
                                 MobileTypes mobileType = (MobileTypes)enemyID;
-                                go = GameObjectHelper.CreateEnemy(TextManager.Instance.GetLocalizedEnemyName((int)mobileType), mobileType, obj.pos - originOffset, MobileGender.Unspecified, instance.transform);
+                                go = GameObjectHelper.CreateEnemy(TextManager.Instance.GetLocalizedEnemyName((int)mobileType), mobileType, obj.pos, MobileGender.Unspecified, instance.transform);
                                 SerializableEnemy serializable = go.GetComponent<SerializableEnemy>();
                                 if(serializable != null)
                                 {
@@ -246,7 +244,7 @@ namespace LocationLoader
                                 {
                                     int record = UnityEngine.Random.Range(0, 48);
                                     go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, 216, record, instance.transform);
-                                    go.transform.localPosition = obj.pos - originOffset;
+                                    go.transform.localPosition = obj.pos;
                                     break;
                                 }
                         }
@@ -268,8 +266,6 @@ namespace LocationLoader
         void InstantiatePrefab(string prefabName, LocationPrefab locationPrefab, LocationInstance loc, DaggerfallTerrain daggerTerrain)
         {
             float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * GameManager.Instance.StreamingWorld.TerrainScale;
-
-            Vector3 originOffset = new Vector3(locationPrefab.width * TERRAIN_SIZE_MULTI / 2f, 0f, locationPrefab.height * TERRAIN_SIZE_MULTI / 2f);
 
             Vector3 terrainOffset = new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax + loc.heightOffset, loc.terrainY * TERRAIN_SIZE_MULTI);
 
@@ -293,7 +289,7 @@ namespace LocationLoader
                         obj.type,
                         obj.name,
                         templateTransform,
-                        obj.pos - originOffset,
+                        obj.pos,
                         obj.rot,
                         obj.scale,
                         loc.locationID,
@@ -325,7 +321,7 @@ namespace LocationLoader
             }
 
             GameObject instance = Instantiate(prefabObject, new Vector3(), Quaternion.identity, daggerTerrain.gameObject.transform);
-            instance.transform.localPosition = terrainOffset + originOffset;
+            instance.transform.localPosition = terrainOffset;
             instance.transform.localRotation = loc.rot;
             instance.name = prefabName;
             LocationData data = instance.AddComponent<LocationData>();
@@ -536,9 +532,18 @@ namespace LocationLoader
                 if (locationPrefab == null)
                     continue;
 
+                // Treating odd dimensions as ceiled-to-even
+                int halfWidth = (locationPrefab.width + 1) / 2;
+                int halfHeight = (locationPrefab.height + 1) / 2;
+                int roundedWidth = halfWidth * 2;
+                int roundedHeight = halfHeight * 2;
+
                 if (loc.type == 0 || loc.type == 2)
                 {
-                    if ((loc.terrainX + locationPrefab.width > 128 || loc.terrainY + locationPrefab.height > 128))
+                    if (loc.terrainX + halfWidth > 128
+                        || loc.terrainY + halfHeight > 128
+                        || loc.terrainX - halfWidth < 0
+                        || loc.terrainY - halfHeight < 0)
                     {
                         Debug.LogWarning("Invalid Location at " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY + " : The locationpreset exist outside the terrain");
                         continue;
@@ -553,18 +558,19 @@ namespace LocationLoader
 
                 //Smooth the terrain
                 
-                daggerTerrain.MapData.locationRect = new Rect(loc.terrainX, loc.terrainY, locationPrefab.width, locationPrefab.height);
-
+                
                 int count = 0;
                 float tmpAverageHeight = 0;
 
                 // Type 1 instances can overlap beyond terrain boundaries
                 // Estimate height using only the part in the current terrain tile for now
-                int maxX = Math.Min(loc.terrainX + locationPrefab.width, 128);
-                int maxY = Math.Min(loc.terrainY + locationPrefab.height, 128);
-                for (int x = loc.terrainX; x <= maxX; x++)
+                int minX = Math.Max(loc.terrainX - halfWidth, 0);
+                int minY = Math.Max(loc.terrainY - halfHeight, 0);
+                int maxX = Math.Min(loc.terrainX + halfWidth, 128);
+                int maxY = Math.Min(loc.terrainY + halfHeight, 128);
+                for (int x = minX; x <= maxX; x++)
                 {
-                    for (int y = loc.terrainY; y <= maxY; y++)
+                    for (int y = minY; y <= maxY; y++)
                     {
                         tmpAverageHeight += daggerTerrain.MapData.heightmapSamples[y, x];
                         count++;
@@ -575,6 +581,8 @@ namespace LocationLoader
 
                 if (loc.type == 0)
                 {
+                    daggerTerrain.MapData.locationRect = new Rect(loc.terrainX - halfWidth, loc.terrainY - halfHeight, roundedWidth, roundedHeight);
+
                     for (int x = 1; x < 127; x++)
                         for (int y = 1; y < 127; y++)
                             daggerTerrain.MapData.heightmapSamples[y, x] = Mathf.Lerp(daggerTerrain.MapData.heightmapSamples[y, x], daggerTerrain.MapData.averageHeight, 1 / (GetDistanceFromRect(daggerTerrain.MapData.locationRect, new Vector2(x, y)) + 1));

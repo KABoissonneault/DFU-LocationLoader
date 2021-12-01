@@ -251,7 +251,6 @@ namespace LocationLoader
                     //Always make sure that the ground is set correctly
                     ground.transform.SetParent(parent.transform);
                     ground.name = "Surface";
-                    ground.transform.localPosition = new Vector3(mapPixelSize / 2.0f, 0.0f, mapPixelSize / 2.0f);
                     ground.transform.localScale = new Vector3(mapPixelSize / 10.0f, 0, mapPixelSize / 10.0f);
                     var meshRenderer = ground.GetComponent<MeshRenderer>();
                     string terrainGridPath = AssetDatabase.GUIDToAssetPath(AssetDatabase.FindAssets("TerrainGrid t:material")[0]);
@@ -267,8 +266,6 @@ namespace LocationLoader
 
                     BoxCollider box = areaReference.AddComponent<BoxCollider>();
                     box.size = new Vector3(locationPrefab.width * terrainTileSize, 50f, locationPrefab.height * terrainTileSize);
-
-                    areaReference.transform.localPosition = new Vector3(box.size.x / 2f, 25f, box.size.z / 2f);
                 }
             }
         }

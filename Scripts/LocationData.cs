@@ -84,12 +84,7 @@ namespace LocationLoader
                     continue;
 
                 // Refine to closest marker
-
-                // "transform" here is offset by half the prefab size to get proper rotation
-                // We need to remove this offset to get the real world position
-                Vector3 originOffset = new Vector3(Prefab.width * LocationLoader.TERRAIN_SIZE_MULTI / 2f, 0f, Prefab.height * LocationLoader.TERRAIN_SIZE_MULTI / 2f);
-
-                Vector3 markerPos = transform.position + obj.pos - originOffset;
+                Vector3 markerPos = transform.position + obj.pos;
                 float distance = Vector3.Distance(sourcePos, markerPos);
                 if (distance < minDistance || !foundOne)
                 {
