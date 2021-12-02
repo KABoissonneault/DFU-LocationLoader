@@ -62,16 +62,16 @@ namespace LocationLoader
                 throw new Exception("DaggerfallLoot not found.");
         }
 
-        void Start()
+        void OnEnable()
         {
-            if(LoadID != 0)
+            if (LoadID != 0)
             {
                 RefreshWorldCompensation();
                 GetSaveDataInterface().RegisterActiveSerializer(this);
             }
         }
 
-        void OnDestroy()
+        void OnDisable()
         {
             if (LoadID != 0)
             {
@@ -83,7 +83,7 @@ namespace LocationLoader
                 }
             }
         }
-        
+                
         #endregion
 
         public bool TryLoadSavedData()
@@ -219,7 +219,7 @@ namespace LocationLoader
                 throw new Exception("DaggerfallEnemy not found.");
         }
 
-        void Start()
+        void OnEnable()
         {
             if (LoadID != 0)
             {
@@ -228,7 +228,7 @@ namespace LocationLoader
             }
         }
 
-        void OnDestroy()
+        void OnDisable()
         {
             if (LoadID != 0)
             {
