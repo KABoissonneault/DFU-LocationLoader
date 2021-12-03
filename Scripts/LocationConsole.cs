@@ -136,7 +136,7 @@ namespace LocationLoader
                     // Find all overlapping coordinates and their overlap rectangle
                     for(int xOffset = xOffsetMin; xOffset <= xOffsetMax; ++xOffset)
                     {
-                        for(int yOffset = xOffsetMax; yOffset <= yOffsetMax; ++yOffset)
+                        for(int yOffset = yOffsetMin; yOffset <= yOffsetMax; ++yOffset)
                         {
                             int xMin = Math.Max(instance.terrainX - halfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 0);
                             int xMax = Math.Min(instance.terrainX + halfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 128);
@@ -154,7 +154,8 @@ namespace LocationLoader
                 else
                 {
                     overlappingCoordinates.Add(
-                        new Tuple<Vector2Int, Rect>(new Vector2Int(instance.worldX, instance.worldY), new Rect(instance.terrainX, instance.terrainY, prefab.width, prefab.height))
+                        new Tuple<Vector2Int, Rect>(new Vector2Int(instance.worldX, instance.worldY),
+                        new Rect(instance.terrainX - halfWidth, instance.terrainY - halfHeight, halfWidth * 2, halfHeight * 2))
                     );
                 }
 
