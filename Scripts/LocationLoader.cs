@@ -477,14 +477,6 @@ namespace LocationLoader
             }
             CacheRegionInstances(regionIndex);
 
-            //Destroy old locations by going through all the child objects, but 
-            //don't delete the billboard batch (The surrounding vegettion)
-            foreach (Transform child in daggerTerrain.gameObject.transform)
-            {
-                if (!child.GetComponent<DaggerfallBillboardBatch>())
-                    Destroy(child.gameObject);
-            }
-
             Vector2Int worldLocation = new Vector2Int(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
             List<LocationInstance> locationInstances;
             if (!worldPixelInstances.TryGetValue(worldLocation, out locationInstances))

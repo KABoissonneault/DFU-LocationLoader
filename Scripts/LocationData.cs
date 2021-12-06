@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -44,8 +46,8 @@ namespace LocationLoader
 
         public void UpdateLocationID()
         {            
-            uint first = (uint)Random.Range(int.MinValue, int.MaxValue);
-            uint second = (uint)Random.Range(int.MinValue, int.MaxValue);
+            uint first = (uint)UnityEngine.Random.Range(int.MinValue, int.MaxValue);
+            uint second = (uint)UnityEngine.Random.Range(int.MinValue, int.MaxValue);
             locationID = ((ulong)first) << 32 | second;                      
         }
     }
@@ -63,6 +65,12 @@ namespace LocationLoader
         LadderTop = 22,
     }
 
+    public struct WorldArea
+    {
+        public Vector2Int WorldCoord;
+        public RectInt Area;
+    }
+
     public class LocationData : MonoBehaviour
     {
         [SerializeField]
@@ -70,6 +78,100 @@ namespace LocationLoader
 
         [SerializeField]
         public LocationPrefab Prefab;
+
+        public int Type
+        {
+            get { return Location.type; }
+        }
+
+        public int WorldX
+        {
+            get { return Location.worldX; }
+        }
+
+        public int WorldY
+        {
+            get { return Location.worldY; }
+        }
+
+        public int TerrainX
+        {
+            get { return Location.terrainX; }
+        }
+
+        public int TerrainY
+        {
+            get { return Location.terrainY; }
+        }
+
+        public int HalfWidth
+        {
+            get { return (Prefab.width + 1) / 2; }
+        }
+
+        public int TerrainWidth
+        {
+            get { return HalfWidth * 2; }
+        }
+
+        public int HalfHeight
+        {
+            get { return (Prefab.height + 1) / 2; }
+        }
+
+        public int TerrainHeight
+        {
+            get { return HalfHeight * 2; }
+        }
+
+        private void OnDisable()
+        {
+            // Distant Terrain likes disabling terrain gameobjects to pool and reuse them
+            // We gotta remove this component though, along with all its children
+            Destroy(gameObject);
+        }
+
+        public IEnumerable<WorldArea> GetOverlappingWorldAreas()
+        {
+            if (Type == 1)
+            {
+                int xOffsetMin = (int)Math.Floor((TerrainX - HalfWidth) / (float)LocationLoader.TERRAIN_SIZE);
+                int yOffsetMin = (int)Math.Floor((TerrainY - HalfHeight) / (float)LocationLoader.TERRAIN_SIZE);
+                int xOffsetMax = (TerrainX + HalfWidth) / LocationLoader.TERRAIN_SIZE;
+                int yOffsetMax = (TerrainY + HalfHeight) / LocationLoader.TERRAIN_SIZE;
+
+                // Find all overlapping coordinates and their overlap rectangle
+                for (int xOffset = xOffsetMin; xOffset <= xOffsetMax; ++xOffset)
+                {
+                    for (int yOffset = yOffsetMin; yOffset <= yOffsetMax; ++yOffset)
+                    {
+                        int xMin = Math.Max(TerrainX - HalfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 0);
+                        int xMax = Math.Min(TerrainX + HalfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 128);
+                        int yMin = Math.Max(TerrainY - HalfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 0);
+                        int yMax = Math.Min(TerrainY + HalfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 128);
+
+                        yield return new WorldArea()
+                        {
+                            WorldCoord = new Vector2Int(WorldX + xOffset, WorldY + yOffset),
+                            Area = new RectInt(xMin, yMin, xMax - xMin, yMax - yMin)
+                        };
+                    }
+                }
+            }
+            else
+            {
+                yield return new WorldArea()
+                {
+                    WorldCoord = new Vector2Int(WorldX, WorldY),
+                    Area = new RectInt(TerrainX - HalfWidth, TerrainY - HalfHeight, TerrainWidth, TerrainHeight)
+                };
+            }
+        }
+
+        public IEnumerable<Vector2Int> GetOverlappingCoordinates()
+        {
+            return GetOverlappingWorldAreas().Select(worldArea => worldArea.WorldCoord);
+        }
 
         public bool FindClosestMarker(EditorMarkerTypes type, Vector3 sourcePos, out Vector3 closestMarkerOut)
         {
