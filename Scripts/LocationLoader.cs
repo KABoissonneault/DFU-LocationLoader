@@ -549,8 +549,6 @@ namespace LocationLoader
                 }
 
                 //Smooth the terrain
-                
-                
                 int count = 0;
                 float tmpAverageHeight = 0;
 
@@ -560,9 +558,9 @@ namespace LocationLoader
                 int minY = Math.Max(loc.terrainY - halfHeight, 0);
                 int maxX = Math.Min(loc.terrainX + halfWidth, 128);
                 int maxY = Math.Min(loc.terrainY + halfHeight, 128);
-                for (int x = minX; x <= maxX; x++)
+                for (int y = minY; y <= maxY; y++)
                 {
-                    for (int y = minY; y <= maxY; y++)
+                    for (int x = minX; x <= maxX; x++)
                     {
                         tmpAverageHeight += daggerTerrain.MapData.heightmapSamples[y, x];
                         count++;
@@ -575,8 +573,8 @@ namespace LocationLoader
                 {
                     daggerTerrain.MapData.locationRect = new Rect(loc.terrainX - halfWidth, loc.terrainY - halfHeight, roundedWidth, roundedHeight);
 
-                    for (int x = 1; x < 127; x++)
-                        for (int y = 1; y < 127; y++)
+                    for (int y = 1; y < 127; y++)
+                        for (int x = 1; x < 127; x++)
                             daggerTerrain.MapData.heightmapSamples[y, x] = Mathf.Lerp(daggerTerrain.MapData.heightmapSamples[y, x], daggerTerrain.MapData.averageHeight, 1 / (GetDistanceFromRect(daggerTerrain.MapData.locationRect, new Vector2(x, y)) + 1));
                 }
 
