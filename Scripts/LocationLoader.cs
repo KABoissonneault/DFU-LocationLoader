@@ -360,7 +360,7 @@ namespace LocationLoader
                         if (directoryName != globalFolder)
                             continue;
 
-                        if (!filename.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) || !filename.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
+                        if (!filename.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) && !filename.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
                             continue;
 
                         string file = Path.GetFileName(filename).ToLower();
