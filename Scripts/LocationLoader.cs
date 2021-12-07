@@ -352,12 +352,12 @@ namespace LocationLoader
                     string modFolderPrefix = dummyFilePath.Substring(17);
                     modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
 
-                    string globalFolder = modFolderPrefix + "/Locations";
+                    string globalFolder = modFolderPrefix + "/locations";
 
                     foreach (string filename in mod.AssetBundle.GetAllAssetNames())
                     {
                         string directoryName = Path.GetDirectoryName(filename).Replace('\\', '/');
-                        if (directoryName != globalFolder)
+                        if (!string.Equals(directoryName, globalFolder, System.StringComparison.InvariantCultureIgnoreCase))
                             continue;
 
                         if (!filename.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) && !filename.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
@@ -379,14 +379,14 @@ namespace LocationLoader
                     foreach (string filename in mod.ModInfo.Files)
                     {
                         string directoryName = Path.GetDirectoryName(filename).Replace('\\', '/');
-                        if (directoryName != globalFolder)
+                        if (!string.Equals(directoryName, globalFolder, System.StringComparison.InvariantCultureIgnoreCase))
                             continue;
 
                         if (!filename.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) && !filename.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
                             continue;
 
                         string file = Path.GetFileName(filename).ToLower();
-                        modGlobalFiles[filename] = mod;
+                        modGlobalFiles[file] = mod;
                     }
                 }
 #endif
