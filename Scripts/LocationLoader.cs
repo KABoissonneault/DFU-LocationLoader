@@ -34,6 +34,7 @@ namespace LocationLoader
             Debug.Log("Begin mod init: Location Loader");
 
             LocationConsole.RegisterCommands();
+            CacheGlobalInstances();
 
             Debug.Log("Finished mod init: Location Loader");
         }
@@ -336,6 +337,120 @@ namespace LocationLoader
             }
         }
 
+        Dictionary<string, Mod> GetModGlobalFiles()
+        {
+            Dictionary<string, Mod> modGlobalFiles = new Dictionary<string, Mod>();
+
+            foreach (Mod mod in ModManager.Instance.Mods)
+            {
+                if (!mod.Enabled)
+                    continue;
+
+                if (mod.AssetBundle && mod.AssetBundle.GetAllAssetNames().Length > 0)
+                {
+                    string dummyFilePath = mod.AssetBundle.GetAllAssetNames()[0];
+                    string modFolderPrefix = dummyFilePath.Substring(17);
+                    modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
+
+                    string globalFolder = modFolderPrefix + "/Locations";
+
+                    foreach (string filename in mod.AssetBundle.GetAllAssetNames())
+                    {
+                        string directoryName = Path.GetDirectoryName(filename).Replace('\\', '/');
+                        if (directoryName != globalFolder)
+                            continue;
+
+                        if (!filename.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) || !filename.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
+                            continue;
+
+                        string file = Path.GetFileName(filename).ToLower();
+                        modGlobalFiles[file] = mod;
+                    }
+                }
+#if UNITY_EDITOR
+                else if (mod.IsVirtual && mod.ModInfo.Files.Count > 0)
+                {
+                    string dummyFilePath = mod.ModInfo.Files[0];
+                    string modFolderPrefix = dummyFilePath.Substring(17);
+                    modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
+
+                    string globalFolder = modFolderPrefix + "/Locations";
+
+                    foreach (string filename in mod.ModInfo.Files)
+                    {
+                        string directoryName = Path.GetDirectoryName(filename).Replace('\\', '/');
+                        if (directoryName != globalFolder)
+                            continue;
+
+                        if (!filename.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) && !filename.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
+                            continue;
+
+                        string file = Path.GetFileName(filename).ToLower();
+                        modGlobalFiles[filename] = mod;
+                    }
+                }
+#endif
+            }
+
+            string looseLocationFolder = Path.Combine(Application.dataPath, LocationHelper.locationInstanceFolder);
+            if (Directory.Exists(looseLocationFolder))
+            {
+                foreach (string filename in Directory.GetFiles(looseLocationFolder)
+                    .Where(file => file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
+                    .Select(file => Path.GetFileName(file).ToLower()))
+                {
+                    modGlobalFiles[filename] = null;
+                }
+            }
+
+            return modGlobalFiles;
+        }
+
+        void CacheGlobalInstances()
+        {
+            Dictionary<string, Mod> modGlobalFiles = GetModGlobalFiles();
+
+            foreach (var kvp in modGlobalFiles)
+            {
+                string filename = kvp.Key;
+                Mod mod = kvp.Value;
+
+                if (mod == null)
+                {
+                    string looseLocationFolder = Path.Combine(Application.dataPath, LocationHelper.locationInstanceFolder);
+                    string looseFileLocation = Path.Combine(looseLocationFolder, filename);
+
+                    foreach (LocationInstance instance in LocationHelper.LoadLocationInstance(looseFileLocation))
+                    {
+                        Vector2Int location = new Vector2Int(instance.worldX, instance.worldY);
+                        List<LocationInstance> instances;
+                        if (!worldPixelInstances.TryGetValue(location, out instances))
+                        {
+                            instances = new List<LocationInstance>();
+                            worldPixelInstances.Add(location, instances);
+                        }
+
+                        instances.Add(instance);
+                    }
+                }
+                else
+                {
+                    foreach (LocationInstance instance in LocationHelper.LoadLocationInstance(mod, filename))
+                    {
+                        Vector2Int location = new Vector2Int(instance.worldX, instance.worldY);
+                        List<LocationInstance> instances;
+                        if (!worldPixelInstances.TryGetValue(location, out instances))
+                        {
+                            instances = new List<LocationInstance>();
+                            worldPixelInstances.Add(location, instances);
+                        }
+
+                        instances.Add(instance);
+                    }
+                }
+            }
+        }
+
         void CacheRegionInstances(int regionIndex)
         {
             CacheRegionFileNames(regionIndex);
@@ -471,12 +586,11 @@ namespace LocationLoader
         void AddLocation(DaggerfallTerrain daggerTerrain, TerrainData terrainData)
         {
             var regionIndex = GetRegionIndex(daggerTerrain);
-            if(regionIndex == -1)
+            if(regionIndex != -1)
             {
-                return;
+                CacheRegionInstances(regionIndex);
             }
-            CacheRegionInstances(regionIndex);
-
+            
             Vector2Int worldLocation = new Vector2Int(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
             List<LocationInstance> locationInstances;
             if (!worldPixelInstances.TryGetValue(worldLocation, out locationInstances))
