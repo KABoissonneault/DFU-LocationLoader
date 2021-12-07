@@ -68,7 +68,7 @@ namespace LocationLoader
 
                     if(loc.prefab != null)
                     {
-                        LocationPrefab tmplocpref = LocationHelper.LoadLocationPrefab(Application.dataPath + LocationHelper.locationPrefabFolder + loc.prefab + ".txt");
+                        LocationPrefab tmplocpref = LocationHelper.LoadLocationPrefab(Path.Combine(Application.dataPath, LocationHelper.locationPrefabFolder, loc.prefab + ".txt"));
 
                         if (tmplocpref != null)
                         {

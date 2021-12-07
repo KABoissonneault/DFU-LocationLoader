@@ -17,8 +17,8 @@ namespace LocationLoader
 {
     public static class LocationHelper
     {
-        public const string locationInstanceFolder = "/StreamingAssets/Locations/";
-        public const string locationPrefabFolder = "/StreamingAssets/Locations/LocationPrefab/";
+        public const string locationInstanceFolder = "StreamingAssets/Locations/";
+        public const string locationPrefabFolder = "StreamingAssets/Locations/LocationPrefab/";
 
         const float animalSoundMaxDistance = 768 * MeshReader.GlobalScale; //Used for the objects with sound
 
