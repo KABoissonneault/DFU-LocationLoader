@@ -266,10 +266,6 @@ namespace LocationLoader
 
         void InstantiatePrefab(string prefabName, LocationPrefab locationPrefab, LocationInstance loc, DaggerfallTerrain daggerTerrain)
         {
-            float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * GameManager.Instance.StreamingWorld.TerrainScale;
-
-            Vector3 terrainOffset = new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax + loc.heightOffset, loc.terrainY * TERRAIN_SIZE_MULTI);
-
             // If it's the first time loading this prefab, load the non-dynamic objects into a template
             GameObject prefabObject;
             if (!prefabTemplates.TryGetValue(prefabName, out prefabObject))
@@ -319,6 +315,15 @@ namespace LocationLoader
                 }
 
                 prefabTemplates.Add(prefabName, prefabObject);
+            }
+
+            float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * GameManager.Instance.StreamingWorld.TerrainScale;
+
+            Vector3 terrainOffset = new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax + loc.heightOffset, loc.terrainY * TERRAIN_SIZE_MULTI);
+            // Put type 2 instances at sea level
+            if (loc.type == 2)
+            {
+                terrainOffset.y = 100 - daggerTerrain.gameObject.transform.position.y;
             }
 
             GameObject instance = Instantiate(prefabObject, new Vector3(), Quaternion.identity, daggerTerrain.gameObject.transform);
@@ -612,10 +617,9 @@ namespace LocationLoader
             {
                 if (daggerTerrain.MapData.hasLocation)
                 {
-                    if (loc.type == 0 || loc.type == 2)
+                    if (loc.type == 0)
                     {
-                        if(loc.type == 0)
-                            Debug.LogWarning("Location Already Present " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
+                        Debug.LogWarning("Location Already Present " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
                         continue;
                     }
                 }
@@ -626,10 +630,9 @@ namespace LocationLoader
                     daggerTerrain.MapData.mapRegionIndex == 28 ||
                     daggerTerrain.MapData.mapRegionIndex == 30) && daggerTerrain.MapData.worldHeight <= 2)
                 {
-                    if (loc.type == 0 || loc.type == 2)
+                    if (loc.type == 0)
                     {
-                        if(loc.type == 0)
-                            Debug.LogWarning("Location is in Ocean " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
+                        Debug.LogWarning("Location is in Ocean " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
                         continue;
                     }
                 }
