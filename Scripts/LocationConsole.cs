@@ -17,7 +17,7 @@ namespace LocationLoader
         {
 #if UNITY_EDITOR
             ConsoleCommandsDatabase.RegisterCommand("LLPruneInvalidInstances", "Tests location instances for validity and removes invalid ones from their package (only CSV supported)"
-                , "LLPruneInvalidInstances [--region=<id>] [--type=<type>] [--mod=<modname>]", PruneInvalidInstances);
+                , "LLPruneInvalidInstances [flags...] --mod=<modname>\n\tFlags:\n\t\t--region=<id>\n\t\t--type=<type>\n\t\t--prune-loc-overlap", PruneInvalidInstances);
 #endif
         }
 
@@ -27,6 +27,7 @@ namespace LocationLoader
             int? regionId = null;
             int? type = null;
             string modName = null;
+            bool pruneLocOverlap = false;
 
             bool parsingQuotedArg = false;
             StringBuilder quotedString = null;
@@ -77,6 +78,10 @@ namespace LocationLoader
                         modName = value;
                     }
                 }
+                else if(Arg == "--prune-loc-overlap")
+                {
+                    pruneLocOverlap = true;
+                }
                 else
                 {
                     return $"Unknown argument '{Arg}'";
@@ -88,22 +93,158 @@ namespace LocationLoader
                 modName = modNameBuilder.ToString();
             }
 
+            if (string.IsNullOrEmpty(modName))
+            {
+                return $"Loose files not yet supported. Specify a mod with --mod=<mod name>";
+            }
+
             Dictionary<string, LocationPrefab> prefabCache = new Dictionary<string, LocationPrefab>();
 
             Mod basicRoads = ModManager.Instance.GetMod("BasicRoads");
             bool roadsEnabled = basicRoads != null && basicRoads.Enabled;
 
-            bool BaseLocationPasses(LocationInstance instance, Func<string, LocationPrefab> loadPrefab)
+            Mod mod = ModManager.Instance.GetMod(modName);
+            if (mod == null)
+                return $"Mod '{modName}' not found";
+
+            if (!mod.IsVirtual)
+                return $"Mod '{modName} must be virtual (ie: have the sources in the editor)";
+
+            if (mod.ModInfo.Files.Count == 0)
+                return $"Mod '{modName} has no files in mod info (see .dfmod.json)";
+
+            string dummyFilePath = mod.ModInfo.Files[0];
+            string modFolderPrefix = dummyFilePath.Substring(17);
+            modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
+            string modFolder = Path.Combine(Application.dataPath, modFolderPrefix.Substring(7));
+
+            string locationsFolder = modFolderPrefix + "/Locations/";
+            string locationPrefabsFolder = modFolderPrefix + "/Locations/LocationPrefab";
+
+            void ForEachModFile(Action<string> Func)
+            {
+                if (regionId.HasValue)
+                {
+                    string regionName = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetRegionName(regionId.Value);
+
+                    string regionIdFolder = locationsFolder + regionId.Value;
+                    string regionNameFolder = locationsFolder + regionName;
+
+                    foreach (string fileRelativePath in mod.ModInfo.Files
+                            .Where(file => (file.StartsWith(regionIdFolder, StringComparison.InvariantCultureIgnoreCase) || file.StartsWith(regionNameFolder, StringComparison.InvariantCultureIgnoreCase))
+                                && file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
+                            .Select(file => file.Substring(locationsFolder.Length)))
+                    {
+                        try
+                        {
+                            Func(fileRelativePath);
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogError(e.Message);
+                        }
+                    }
+                }
+                else
+                {
+                    foreach (string fileRelativePath in mod.ModInfo.Files
+                    .Where(file => (file.StartsWith(locationsFolder, StringComparison.InvariantCultureIgnoreCase) && !file.StartsWith(locationPrefabsFolder, StringComparison.InvariantCultureIgnoreCase))
+                        && file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
+                    .Select(file => file.Substring(locationsFolder.Length)))
+                    {
+                        try
+                        {
+                            Func(fileRelativePath);
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogError(e.Message);
+                        }
+                    }
+                }
+            }
+
+            Dictionary<Vector2Int, List<LocationInstance>> occupyingInstancesPerTile = null;
+
+            if (pruneLocOverlap)
+            {
+                occupyingInstancesPerTile = new Dictionary<Vector2Int, List<LocationInstance>>();
+                ForEachModFile(
+                    fileRelativePath =>
+                    {
+                        string modFilename = Path.GetFileName(fileRelativePath);
+
+                        foreach (LocationInstance instance in LocationHelper.LoadLocationInstance(mod, modFilename))
+                        {
+                            if (instance.type != 0)
+                                continue;
+
+                            Vector2Int worldCoord = new Vector2Int(instance.worldX, instance.worldY);
+
+                            List<LocationInstance> occupyingInstances;
+                            if(!occupyingInstancesPerTile.TryGetValue(worldCoord, out occupyingInstances))
+                            {
+                                occupyingInstances = new List<LocationInstance>();
+                                occupyingInstancesPerTile.Add(worldCoord, occupyingInstances);
+                            }
+
+                            occupyingInstances­.Add(instance);
+                        }
+                    }
+                );
+            }
+
+            bool HasLocOverlap(Vector2Int worldCoord, RectInt terrainArea)
+            {
+                if (occupyingInstancesPerTile == null)
+                    return false;
+
+                List<LocationInstance> occupyingInstances;
+                if (!occupyingInstancesPerTile.TryGetValue(worldCoord, out occupyingInstances))
+                {
+                    return false;
+                }
+
+                foreach(LocationInstance occupyingInstance in occupyingInstances)
+                {
+                    LocationPrefab prefab;
+                    if (!prefabCache.TryGetValue(occupyingInstance.prefab, out prefab))
+                    {
+                        prefab = LocationHelper.LoadLocationPrefab(mod, occupyingInstance.prefab);
+                        prefabCache.Add(occupyingInstance.prefab, prefab);
+                    }
+
+                    int halfWidth = (prefab.width + 1) / 2;
+                    int halfHeight = (prefab.height + 1) / 2;
+
+                    if (occupyingInstance.terrainX - halfWidth < 0
+                        || occupyingInstance.terrainX + halfWidth > 128
+                        || occupyingInstance.terrainY - halfHeight < 0
+                        || occupyingInstance.terrainY + halfHeight > 128)
+                    {
+                        continue;
+                    }
+
+                    RectInt occupyingArea = new RectInt(occupyingInstance.terrainX - halfWidth, occupyingInstance.terrainY - halfHeight, halfWidth * 2, halfHeight * 2);
+
+                    if (terrainArea.Overlaps(occupyingArea))
+                        return true;
+                }
+                
+                return false;
+            }
+
+            bool LocationPasses(LocationInstance instance)
             {
                 if (type.HasValue && instance.type != type.Value)
                 {
                     return true;
                 }
-
+                                
                 LocationPrefab prefab;
                 if (!prefabCache.TryGetValue(instance.prefab, out prefab))
                 {
-                    prefab = loadPrefab(instance.prefab);
+                    prefab = LocationHelper.LoadLocationPrefab(mod, instance.prefab);
                     prefabCache.Add(instance.prefab, prefab);
                 }
 
@@ -112,21 +253,21 @@ namespace LocationLoader
 
                 // Get all world locations it overlaps
                 // Type 0 and type 2 instances only fit within their own map pixel, but type 1 can go out of bounds
-                List<Tuple<Vector2Int, Rect>> overlappingCoordinates = new List<Tuple<Vector2Int, Rect>>();
-                if(type == 1)
+                List<Tuple<Vector2Int, RectInt>> overlappingCoordinates = new List<Tuple<Vector2Int, RectInt>>();
+                if (type == 1)
                 {
-                    int xOffsetMin = (int)Math.Floor(instance.terrainX - halfWidth / (float)LocationLoader.TERRAIN_SIZE);
-                    int yOffsetMin = (int)Math.Floor(instance.terrainY - halfHeight / (float)LocationLoader.TERRAIN_SIZE);
+                    int xOffsetMin = (int)Math.Floor((instance.terrainX - halfWidth) / (float)LocationLoader.TERRAIN_SIZE);
+                    int yOffsetMin = (int)Math.Floor((instance.terrainY - halfHeight) / (float)LocationLoader.TERRAIN_SIZE);
                     int xOffsetMax = (instance.terrainX + halfWidth) / LocationLoader.TERRAIN_SIZE;
                     int yOffsetMax = (instance.terrainY + halfHeight) / LocationLoader.TERRAIN_SIZE;
 
                     // Check for instance overflow from the bounds of the world
+                    if (instance.worldX + xOffsetMin < MapsFile.MinMapPixelX)
+                        return false;
+
                     if (instance.worldX + xOffsetMax > MapsFile.MaxMapPixelX)
                         return false;
-
-                    if (instance.worldX + xOffsetMin > MapsFile.MinMapPixelX)
-                        return false;
-
+                    
                     if (instance.worldY - yOffsetMax < MapsFile.MinMapPixelY)
                         return false;
 
@@ -134,9 +275,9 @@ namespace LocationLoader
                         return false;
 
                     // Find all overlapping coordinates and their overlap rectangle
-                    for(int xOffset = xOffsetMin; xOffset <= xOffsetMax; ++xOffset)
+                    for (int xOffset = xOffsetMin; xOffset <= xOffsetMax; ++xOffset)
                     {
-                        for(int yOffset = yOffsetMin; yOffset <= yOffsetMax; ++yOffset)
+                        for (int yOffset = yOffsetMin; yOffset <= yOffsetMax; ++yOffset)
                         {
                             int xMin = Math.Max(instance.terrainX - halfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 0);
                             int xMax = Math.Min(instance.terrainX + halfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 128);
@@ -144,9 +285,9 @@ namespace LocationLoader
                             int yMax = Math.Min(instance.terrainY + halfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 128);
 
                             overlappingCoordinates.Add(
-                                new Tuple<Vector2Int, Rect>(
+                                new Tuple<Vector2Int, RectInt>(
                                     new Vector2Int(instance.worldX + xOffset, instance.worldY - yOffset),
-                                    new Rect(xMin, yMin, xMax - xMin, yMax - yMin))
+                                    new RectInt(xMin, yMin, xMax - xMin, yMax - yMin))
                                 );
                         }
                     }
@@ -154,23 +295,26 @@ namespace LocationLoader
                 else
                 {
                     overlappingCoordinates.Add(
-                        new Tuple<Vector2Int, Rect>(new Vector2Int(instance.worldX, instance.worldY),
-                        new Rect(instance.terrainX - halfWidth, instance.terrainY - halfHeight, halfWidth * 2, halfHeight * 2))
+                        new Tuple<Vector2Int, RectInt>(new Vector2Int(instance.worldX, instance.worldY),
+                        new RectInt(instance.terrainX - halfWidth, instance.terrainY - halfHeight, halfWidth * 2, halfHeight * 2))
                     );
                 }
 
-                
-                foreach (var (coordinate, _) in overlappingCoordinates)
+                foreach (var (coordinate, terrainArea) in overlappingCoordinates)
                 {
-                    // Instance is on existing location
+                    // Instance is on existing Daggerfall location
                     if (DaggerfallUnity.Instance.ContentReader.HasLocation(coordinate.x, coordinate.y))
                         return false;
 
                     // Instance is on the ocean
                     if (DaggerfallUnity.Instance.ContentReader.MapFileReader.GetClimateIndex(coordinate.x, coordinate.y) == (int)MapsFile.Climates.Ocean)
                         return false;
+
+                    // Instance overlaps another loaded location
+                    if (HasLocOverlap(coordinate, terrainArea))
+                        return false;
                 }
-                
+
                 // Instance is out of bounds
                 if (type != 1)
                 {
@@ -206,12 +350,7 @@ namespace LocationLoader
                 return true;
             }
 
-            bool ModLocationPasses(LocationInstance instance, Mod mod)
-            {
-                return BaseLocationPasses(instance, name => LocationHelper.LoadLocationPrefab(mod, name));
-            }
-
-            void PruneModFile(Mod mod, string modFolder, string fileRelativePath)
+            void PruneModFile(string fileRelativePath)
             {
                 string modFilename = Path.GetFileName(fileRelativePath);
 
@@ -241,7 +380,7 @@ namespace LocationLoader
                             continue;
                         }
 
-                        if (ModLocationPasses(instance, mod))
+                        if (LocationPasses(instance))
                         {
                             streamWriter.WriteLine(instanceLine);
                         }
@@ -249,71 +388,7 @@ namespace LocationLoader
                 }
             }
 
-            if (string.IsNullOrEmpty(modName))
-            {
-                return $"Loose files not yet supported. Specify a mod with --mod=<mod name>";
-            }
-            else
-            {
-                Mod mod = ModManager.Instance.GetMod(modName);
-                if(mod == null)
-                    return $"Mod '{modName}' not found";
-
-                if (!mod.IsVirtual)
-                    return $"Mod '{modName} must be virtual (ie: have the sources in the editor)";
-
-                if (mod.ModInfo.Files.Count == 0)
-                    return $"Mod '{modName} has no files in mod info (see .dfmod.json)";
-
-
-                string dummyFilePath = mod.ModInfo.Files[0];
-                string modFolderPrefix = dummyFilePath.Substring(17);
-                modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
-                string modFolder = Path.Combine(Application.dataPath, modFolderPrefix.Substring(7));
-
-                string locationsFolder = modFolderPrefix + "/Locations/";
-                string locationPrefabsFolder = modFolderPrefix + "/Locations/LocationPrefab";
-
-                if (regionId.HasValue)
-                {
-                    string regionName = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetRegionName(regionId.Value);
-
-                    string regionIdFolder = locationsFolder + regionId.Value;
-                    string regionNameFolder = locationsFolder + regionName;
-
-                    foreach (string fileRelativePath in mod.ModInfo.Files
-                            .Where(file => (file.StartsWith(regionIdFolder, StringComparison.InvariantCultureIgnoreCase) || file.StartsWith(regionNameFolder, StringComparison.InvariantCultureIgnoreCase))
-                                && file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
-                            .Select(file => file.Substring(locationsFolder.Length)))
-                    {
-                        try
-                        {
-                            PruneModFile(mod, modFolder, fileRelativePath);
-                        }
-                        catch(Exception e)
-                        {
-                            Debug.LogError(e.Message);
-                        }
-                    }
-                }
-                else
-                {
-                    foreach (string fileRelativePath in mod.ModInfo.Files
-                    .Where(file => (file.StartsWith(locationsFolder, StringComparison.InvariantCultureIgnoreCase) && !file.StartsWith(locationPrefabsFolder, StringComparison.InvariantCultureIgnoreCase))
-                        && file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
-                    .Select(file => file.Substring(locationsFolder.Length)))
-                    {
-                        try
-                        {
-                            PruneModFile(mod, modFolder, fileRelativePath);
-                        }
-                        catch (Exception e)
-                        {
-                            Debug.LogError(e.Message);
-                        }
-                    }
-                }
-            }
+            ForEachModFile(PruneModFile);
 
             return "Success";
         }

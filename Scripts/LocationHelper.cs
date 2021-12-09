@@ -1933,43 +1933,43 @@ namespace LocationLoader
         /// <returns></returns>
         public static bool OverlapsRoad(LocationInstance loc, LocationPrefab locationPrefab, byte pathsDataPoint)
         {
-            Rect locationRect = new Rect(loc.terrainX, loc.terrainY, locationPrefab.width, locationPrefab.height);
+            RectInt locationRect = new RectInt(loc.terrainX, loc.terrainY, locationPrefab.width, locationPrefab.height);
             return OverlapsRoad(locationRect, pathsDataPoint);
         }
 
-        public static bool OverlapsRoad(Rect locationRect, byte pathsDataPoint)
+        public static bool OverlapsRoad(RectInt locationRect, byte pathsDataPoint)
         {
-            Vector2 locationTopLeft = new Vector2(locationRect.xMin, locationRect.yMax);
-            Vector2 locationTopRight = new Vector2(locationRect.xMax, locationRect.yMax);
-            Vector2 locationBottomLeft = new Vector2(locationRect.xMin, locationRect.yMin);
-            Vector2 locationBottomRight = new Vector2(locationRect.xMax, locationRect.yMin);
+            Vector2Int locationTopLeft = new Vector2Int(locationRect.xMin, locationRect.yMax);
+            Vector2Int locationTopRight = new Vector2Int(locationRect.xMax, locationRect.yMax);
+            Vector2Int locationBottomLeft = new Vector2Int(locationRect.xMin, locationRect.yMin);
+            Vector2Int locationBottomRight = new Vector2Int(locationRect.xMax, locationRect.yMin);
 
-            const float TERRAIN_SIZE = LocationLoader.TERRAIN_SIZE;
-            const float HALF_TERRAIN_SIZE = LocationLoader.TERRAIN_SIZE / 2;
-            const float ROAD_WIDTH = LocationLoader.ROAD_WIDTH;
-            const float HALF_ROAD_WIDTH = LocationLoader.ROAD_WIDTH / 2;
+            const int TERRAIN_SIZE = LocationLoader.TERRAIN_SIZE;
+            const int HALF_TERRAIN_SIZE = LocationLoader.TERRAIN_SIZE / 2;
+            const int ROAD_WIDTH = LocationLoader.ROAD_WIDTH;
+            const int HALF_ROAD_WIDTH = LocationLoader.ROAD_WIDTH / 2;
 
             if ((pathsDataPoint & Road_N) != 0)
             {
-                if (locationRect.Overlaps(new Rect(HALF_TERRAIN_SIZE - HALF_ROAD_WIDTH, HALF_TERRAIN_SIZE, ROAD_WIDTH, HALF_TERRAIN_SIZE)))
+                if (locationRect.Overlaps(new RectInt(HALF_TERRAIN_SIZE - HALF_ROAD_WIDTH, HALF_TERRAIN_SIZE, ROAD_WIDTH, HALF_TERRAIN_SIZE)))
                     return true;
             }
 
             if ((pathsDataPoint & Road_E) != 0)
             {
-                if (locationRect.Overlaps(new Rect(HALF_TERRAIN_SIZE, HALF_TERRAIN_SIZE - HALF_ROAD_WIDTH, HALF_TERRAIN_SIZE, ROAD_WIDTH)))
+                if (locationRect.Overlaps(new RectInt(HALF_TERRAIN_SIZE, HALF_TERRAIN_SIZE - HALF_ROAD_WIDTH, HALF_TERRAIN_SIZE, ROAD_WIDTH)))
                     return true;
             }
 
             if ((pathsDataPoint & Road_S) != 0)
             {
-                if (locationRect.Overlaps(new Rect(HALF_TERRAIN_SIZE - HALF_ROAD_WIDTH, 0, ROAD_WIDTH, HALF_TERRAIN_SIZE)))
+                if (locationRect.Overlaps(new RectInt(HALF_TERRAIN_SIZE - HALF_ROAD_WIDTH, 0, ROAD_WIDTH, HALF_TERRAIN_SIZE)))
                     return true;
             }
 
             if ((pathsDataPoint & Road_W) != 0)
             {
-                if (locationRect.Overlaps(new Rect(0, HALF_TERRAIN_SIZE - HALF_ROAD_WIDTH, HALF_TERRAIN_SIZE, ROAD_WIDTH)))
+                if (locationRect.Overlaps(new RectInt(0, HALF_TERRAIN_SIZE - HALF_ROAD_WIDTH, HALF_TERRAIN_SIZE, ROAD_WIDTH)))
                     return true;
             }
 

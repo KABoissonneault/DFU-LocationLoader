@@ -23,9 +23,9 @@ namespace LocationLoader
         Dictionary<string, GameObject> prefabTemplates = new Dictionary<string, GameObject>();
 
         public const int TERRAIN_SIZE = 128;
+        public const int ROAD_WIDTH = 4; // Actually 2, but let's leave a bit of a gap   
         public const float TERRAINPIXELSIZE = 819.2f;
         public const float TERRAIN_SIZE_MULTI = TERRAINPIXELSIZE / TERRAIN_SIZE;
-        public const float ROAD_WIDTH = 4; // Actually 2, but let's leave a bit of a gap   
 
         bool sceneLoading = false; 
 
