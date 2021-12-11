@@ -160,30 +160,45 @@ namespace LocationLoader
 
                 scrollPosition = GUI.BeginScrollView(new Rect(2, 128, 532, 512), scrollPosition, new Rect(0, 0, 512, 20 + ((objScene.Count+1) * 60)),false, true);
 
-                for (int i = 0; i < objScene.Count; i++)
+                for (int i = 0; i < objScene.Count; ++i)
                 {
+                    GameObject sceneObj = objScene[i];
                     LocationObject obj = locationPrefab.obj[i];
-                    if (objScene[i] == null)
+
+                    if (sceneObj == null)
                     {                        
                         usedIds.Remove(obj.objectID);
                         objScene.RemoveAt(i);
                         locationPrefab.obj.RemoveAt(i);
-                        break;
+                        --i;
+                        continue;
                     }
 
-                    obj.pos = new Vector3(objScene[i].transform.localPosition.x, objScene[i].transform.localPosition.y, objScene[i].transform.localPosition.z);
-                    if(obj.type == 0)
-                        obj.rot = objScene[i].transform.rotation;
-                    obj.scale = objScene[i].transform.localScale;
+                    if (obj.type != 1)
+                    {
+                        obj.pos = sceneObj.transform.localPosition;
+                    }
+                    else
+                    {
+                        Vector3 scenePos = sceneObj.transform.localPosition;
 
-                    if (Selection.Contains(objScene[i]))
+                        // Reverse base alignment
+                        float billboardHeight = sceneObj.GetComponent<DaggerfallBillboard>().Summary.Size.y;
+                        obj.pos = new Vector3(scenePos.x, scenePos.y - (billboardHeight / 2) * sceneObj.transform.localScale.y, scenePos.z);
+                    }
+
+                    if(obj.type == 0)
+                        obj.rot = sceneObj.transform.rotation;
+                    obj.scale = sceneObj.transform.localScale;
+
+                    if (Selection.Contains(sceneObj))
                     {
                         GUI.BeginGroup(new Rect(6, 10 + (i * 60), 496, 52), lightGreenBG);
                     }
                     else
                         GUI.BeginGroup(new Rect(6, 10 + (i * 60), 496, 52), lightGrayBG);
 
-                    GUI.Label(new Rect(2, 4, 128, 16), "" + objScene[i].name);
+                    GUI.Label(new Rect(2, 4, 128, 16), "" + sceneObj.name);
                     GUI.Label(new Rect(2, 20, 128, 16), "Name: " + obj.name);
                     GUI.Label(new Rect(2, 36, 128, 16), "ID: " + obj.objectID);
 
@@ -219,10 +234,10 @@ namespace LocationLoader
                     }
 
                     GUI.color = new Color(0.9f, 0.5f, 0.5f);
-                    if (GUI.Button(new Rect(476, 0, 20, 20), "X") || (Event.current.Equals(Event.KeyboardEvent("Delete")) && Selection.Contains(objScene[i])))
+                    if (GUI.Button(new Rect(476, 0, 20, 20), "X") || (Event.current.Equals(Event.KeyboardEvent("Delete")) && Selection.Contains(sceneObj)))
                     {
                         usedIds.Remove(obj.objectID);
-                        DestroyImmediate(objScene[i]);
+                        DestroyImmediate(sceneObj);
                         objScene.RemoveAt(i);
                         locationPrefab.obj.RemoveAt(i);
                     }
@@ -230,7 +245,7 @@ namespace LocationLoader
 
                     if (GUI.Button(new Rect(0, 0, 758, 64), "", emptyBG))
                     {
-                        Selection.activeGameObject = objScene[i];
+                        Selection.activeGameObject = sceneObj;
                     }
 
                     GUI.EndGroup();
