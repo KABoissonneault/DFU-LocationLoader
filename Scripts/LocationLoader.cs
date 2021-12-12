@@ -612,7 +612,7 @@ namespace LocationLoader
         void AddLocation(DaggerfallTerrain daggerTerrain, TerrainData terrainData)
         {
             Vector2Int worldLocation = new Vector2Int(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
-            loadedTerrain.Add(worldLocation, new WeakReference<DaggerfallTerrain>(daggerTerrain));
+            loadedTerrain[worldLocation] = new WeakReference<DaggerfallTerrain>(daggerTerrain);
 
             var regionIndex = GetRegionIndex(daggerTerrain);
             if(regionIndex != -1)
