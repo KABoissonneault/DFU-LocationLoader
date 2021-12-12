@@ -338,13 +338,14 @@ namespace LocationLoader
                 prefabTemplates.Add(prefabName, prefabObject);
             }
 
-            float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * GameManager.Instance.StreamingWorld.TerrainScale;
+            float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * daggerTerrain.TerrainScale;
 
             Vector3 terrainOffset = new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax + loc.heightOffset, loc.terrainY * TERRAIN_SIZE_MULTI);
             // Put type 2 instances at sea level
             if (loc.type == 2)
             {
-                terrainOffset.y = 100 - daggerTerrain.gameObject.transform.position.y;
+                float oceanElevation = DaggerfallUnity.Instance.TerrainSampler.OceanElevation * daggerTerrain.TerrainScale;
+                terrainOffset.y = oceanElevation - daggerTerrain.gameObject.transform.position.y;
             }
 
             GameObject instance = Instantiate(prefabObject, new Vector3(), Quaternion.identity, daggerTerrain.gameObject.transform);
