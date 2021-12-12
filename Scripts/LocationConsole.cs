@@ -19,6 +19,9 @@ namespace LocationLoader
             ConsoleCommandsDatabase.RegisterCommand("LLPruneInvalidInstances", "Tests location instances for validity and removes invalid ones from their package (only CSV supported)"
                 , "LLPruneInvalidInstances [flags...] --mod=<modname>\n\tFlags:\n\t\t--region=<id>\n\t\t--type=<type>\n\t\t--prune-loc-overlap", PruneInvalidInstances);
 #endif
+
+            ConsoleCommandsDatabase.RegisterCommand("LLDumpTerrainSamples", "Dumps all height samples for the specified terrain in a CSV"
+                , "LLDumpTerrainSamples <worldX> <worldY> <filename>", DumpTerrainSamples);
         }
 
 #if UNITY_EDITOR
@@ -188,7 +191,7 @@ namespace LocationLoader
                                 occupyingInstancesPerTile.Add(worldCoord, occupyingInstances);
                             }
 
-                            occupyingInstances­.Add(instance);
+                            occupyingInstances.Add(instance);
                         }
                     }
                 );
@@ -393,5 +396,47 @@ namespace LocationLoader
             return "Success";
         }
 #endif
+        static string DumpTerrainSamples(string[] Args)
+        {
+            if (Args.Length != 3)
+                return "Invalid args. Expected 3";
+
+            if (!int.TryParse(Args[0], out int worldX))
+                return $"Error: First arg 'WorldX' was not an integer: {Args[0]}";
+
+            if (!int.TryParse(Args[1], out int worldY))
+                return $"Error: First arg 'WorldY' was not an integer: {Args[1]}";
+
+            string filename = Args[2];
+
+            if(string.IsNullOrEmpty(Path.GetExtension(filename)))
+            {
+                filename = filename + ".csv";
+            }
+
+            if(!LocationModLoader.modObject.GetComponent<LocationLoader>().TryGetTerrain(worldX, worldY, out DaggerfallTerrain daggerTerrain))
+            {
+                return $"Error: Could not find loaded terrain at ({worldX},{worldY})";
+            }
+
+            Directory.CreateDirectory(LocationModLoader.mod.PersistentDataDirectory);            
+            string path = Path.Combine(LocationModLoader.mod.PersistentDataDirectory, filename);
+            using (StreamWriter outFile = new StreamWriter(path))
+            {
+                for (int y = 128; y >= 0; --y)
+                {
+                    string row = string.Join(";",
+                    Enumerable.Range(0, 129)
+                        .Select(x => daggerTerrain.MapData.heightmapSamples[y, x].ToString())
+                    );
+                    outFile.WriteLine(row);
+                }
+            }
+
+            return "Success";
+        }
+
+
+
     }
 }

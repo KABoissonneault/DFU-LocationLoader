@@ -22,6 +22,8 @@ namespace LocationLoader
         Dictionary<string, LocationPrefab> prefabInfos = new Dictionary<string, LocationPrefab>();
         Dictionary<string, GameObject> prefabTemplates = new Dictionary<string, GameObject>();
 
+        Dictionary<Vector2Int, WeakReference<DaggerfallTerrain>> loadedTerrain = new Dictionary<Vector2Int, WeakReference<DaggerfallTerrain>>();
+
         public const int TERRAIN_SIZE = 128;
         public const int ROAD_WIDTH = 4; // Actually 2, but let's leave a bit of a gap   
         public const float TERRAINPIXELSIZE = 819.2f;
@@ -79,6 +81,25 @@ namespace LocationLoader
             sceneLoading = false;
 
             yield break;
+        }
+
+        public bool TryGetTerrain(int worldX, int worldY, out DaggerfallTerrain terrain)
+        {
+            var worldCoord = new Vector2Int(worldX, worldY);
+            if (loadedTerrain.TryGetValue(worldCoord, out WeakReference<DaggerfallTerrain> terrainReference))
+            {
+                if(terrainReference.TryGetTarget(out terrain))
+                {
+                    return true;
+                }
+                else
+                {
+                    loadedTerrain.Remove(worldCoord);
+                }
+            }
+
+            terrain = null;
+            return false;
         }
 
         void CacheLocationPrefabs()
@@ -590,13 +611,16 @@ namespace LocationLoader
 
         void AddLocation(DaggerfallTerrain daggerTerrain, TerrainData terrainData)
         {
+            Vector2Int worldLocation = new Vector2Int(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
+            loadedTerrain.Add(worldLocation, new WeakReference<DaggerfallTerrain>(daggerTerrain));
+
             var regionIndex = GetRegionIndex(daggerTerrain);
             if(regionIndex != -1)
             {
                 CacheRegionInstances(regionIndex);
             }
             
-            Vector2Int worldLocation = new Vector2Int(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
+            
             List<LocationInstance> locationInstances;
             if (!worldPixelInstances.TryGetValue(worldLocation, out locationInstances))
                 return;
