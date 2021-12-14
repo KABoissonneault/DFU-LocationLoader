@@ -1094,7 +1094,7 @@ namespace LocationLoader
             int? heightOffsetIndex = GetIndexOpt("heightOffset");
 
             CultureInfo cultureInfo = new CultureInfo("en-US");
-            int lineNumber = 0;
+            int lineNumber = 1;
             while (csvStream.Peek() >= 0)
             {
                 ++lineNumber;
