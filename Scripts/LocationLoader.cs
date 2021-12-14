@@ -23,6 +23,8 @@ namespace LocationLoader
         Dictionary<string, GameObject> prefabTemplates = new Dictionary<string, GameObject>();
 
         Dictionary<Vector2Int, WeakReference<DaggerfallTerrain>> loadedTerrain = new Dictionary<Vector2Int, WeakReference<DaggerfallTerrain>>();
+        Dictionary<Vector2Int, List<LocationData>> pendingType2Locations = new Dictionary<Vector2Int, List<LocationData>>();
+        Dictionary<ulong, List<Vector2Int>> type2InstancePendingTerrains = new Dictionary<ulong, List<Vector2Int>>();
 
         public const int TERRAIN_SIZE = 128;
         public const int ROAD_WIDTH = 4; // Actually 2, but let's leave a bit of a gap   
@@ -90,6 +92,13 @@ namespace LocationLoader
             {
                 if(terrainReference.TryGetTarget(out terrain))
                 {
+                    // Terrain has been pooled and placed somewhere else
+                    // Happens with Distant Terrain
+                    if(terrain.MapPixelX != worldX || terrain.MapPixelY != worldY)
+                    {
+                        loadedTerrain.Remove(worldCoord);
+                        return false;
+                    }
                     return true;
                 }
                 else
@@ -285,6 +294,19 @@ namespace LocationLoader
             }
         }
 
+        Vector3 GetLocationPosition(LocationInstance loc, DaggerfallTerrain daggerTerrain)
+        {
+            float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * daggerTerrain.TerrainScale;
+            Vector3 ret = new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax + loc.heightOffset, loc.terrainY * TERRAIN_SIZE_MULTI);
+            // Put type 2 instances at sea level
+            if (loc.type == 2)
+            {
+                float oceanElevation = DaggerfallUnity.Instance.TerrainSampler.OceanElevation * daggerTerrain.TerrainScale;
+                ret.y = oceanElevation - daggerTerrain.gameObject.transform.position.y;
+            }
+            return ret;
+        }
+
         void InstantiatePrefab(string prefabName, LocationPrefab locationPrefab, LocationInstance loc, DaggerfallTerrain daggerTerrain)
         {
             // If it's the first time loading this prefab, load the non-dynamic objects into a template
@@ -337,24 +359,32 @@ namespace LocationLoader
 
                 prefabTemplates.Add(prefabName, prefabObject);
             }
-
-            float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * daggerTerrain.TerrainScale;
-
-            Vector3 terrainOffset = new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax + loc.heightOffset, loc.terrainY * TERRAIN_SIZE_MULTI);
-            // Put type 2 instances at sea level
-            if (loc.type == 2)
-            {
-                float oceanElevation = DaggerfallUnity.Instance.TerrainSampler.OceanElevation * daggerTerrain.TerrainScale;
-                terrainOffset.y = oceanElevation - daggerTerrain.gameObject.transform.position.y;
-            }
+                        
+            Vector3 terrainOffset = GetLocationPosition(loc, daggerTerrain);
 
             GameObject instance = Instantiate(prefabObject, new Vector3(), Quaternion.identity, daggerTerrain.gameObject.transform);
             instance.transform.localPosition = terrainOffset;
             instance.transform.localRotation = loc.rot;
             instance.name = prefabName;
+
             LocationData data = instance.AddComponent<LocationData>();
             data.Location = loc;
             data.Prefab = locationPrefab;
+
+            // Now that we have the LocationData, add it to "pending instances" if needed
+            if(loc.type == 2 && type2InstancePendingTerrains.TryGetValue(loc.locationID, out List<Vector2Int> pendingTerrains))
+            {
+                foreach (Vector2Int terrainCoord in pendingTerrains)
+                {
+                    if(!pendingType2Locations.TryGetValue(terrainCoord, out List<LocationData> pendingLocations))
+                    {
+                        pendingLocations = new List<LocationData>();
+                        pendingType2Locations.Add(terrainCoord, pendingLocations);
+                    }
+
+                    pendingLocations.Add(data);
+                }
+            }
 
             instance.SetActive(true);
 
@@ -612,6 +642,8 @@ namespace LocationLoader
 
         void AddLocation(DaggerfallTerrain daggerTerrain, TerrainData terrainData)
         {
+            Debug.Log($"Promoting terrain {daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}");
+
             Vector2Int worldLocation = new Vector2Int(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
             loadedTerrain[worldLocation] = new WeakReference<DaggerfallTerrain>(daggerTerrain);
 
@@ -619,110 +651,184 @@ namespace LocationLoader
             if(regionIndex != -1)
             {
                 CacheRegionInstances(regionIndex);
-            }
-            
-            
-            List<LocationInstance> locationInstances;
-            if (!worldPixelInstances.TryGetValue(worldLocation, out locationInstances))
-                return;
+            }            
 
-            // Check if Basic Roads detects a road there
-            Mod basicRoads = ModManager.Instance.GetMod("BasicRoads");
-            bool roadsEnabled = basicRoads != null && basicRoads.Enabled;
-            byte pathsDataPoint = 0;
-            if (roadsEnabled)
+            // Spawn the terrain's instances
+            if (worldPixelInstances.TryGetValue(worldLocation, out List<LocationInstance> locationInstances))
             {
-                Vector2Int coords = new Vector2Int(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
-                ModManager.Instance.SendModMessage("BasicRoads", "getPathsPoint", coords,
-                    (string message, object data) => { pathsDataPoint = (byte)data; }
-                    );
-            }
-
-            foreach (LocationInstance loc in locationInstances)
-            {
-                if (daggerTerrain.MapData.hasLocation)
+                // Check if Basic Roads detects a road there
+                Mod basicRoads = ModManager.Instance.GetMod("BasicRoads");
+                bool roadsEnabled = basicRoads != null && basicRoads.Enabled;
+                byte pathsDataPoint = 0;
+                if (roadsEnabled)
                 {
-                    if (loc.type == 0)
-                    {
-                        Debug.LogWarning("Location Already Present " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
-                        continue;
-                    }
+                    Vector2Int coords = new Vector2Int(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
+                    ModManager.Instance.SendModMessage("BasicRoads", "getPathsPoint", coords,
+                        (string message, object data) => { pathsDataPoint = (byte)data; }
+                        );
                 }
 
-                if ((daggerTerrain.MapData.mapRegionIndex == 31 ||
-                    daggerTerrain.MapData.mapRegionIndex == 3 ||
-                    daggerTerrain.MapData.mapRegionIndex == 29 ||
-                    daggerTerrain.MapData.mapRegionIndex == 28 ||
-                    daggerTerrain.MapData.mapRegionIndex == 30) && daggerTerrain.MapData.worldHeight <= 2)
+                foreach (LocationInstance loc in locationInstances)
                 {
-                    if (loc.type == 0)
+                    if (daggerTerrain.MapData.hasLocation)
                     {
-                        Debug.LogWarning("Location is in Ocean " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
-                        continue;
-                    }
-                }
-
-                LocationPrefab locationPrefab = GetPrefabInfo(loc.prefab);
-                if (locationPrefab == null)
-                    continue;
-
-                // Treating odd dimensions as ceiled-to-even
-                int halfWidth = (locationPrefab.width + 1) / 2;
-                int halfHeight = (locationPrefab.height + 1) / 2;
-                int roundedWidth = halfWidth * 2;
-                int roundedHeight = halfHeight * 2;
-
-                if (loc.type == 0 || loc.type == 2)
-                {
-                    if (loc.terrainX + halfWidth > 128
-                        || loc.terrainY + halfHeight > 128
-                        || loc.terrainX - halfWidth < 0
-                        || loc.terrainY - halfHeight < 0)
-                    {
-                        Debug.LogWarning("Invalid Location at " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY + " : The locationpreset exist outside the terrain");
-                        continue;
-                    }
-
-                    if (roadsEnabled)
-                    {
-                        if (LocationHelper.OverlapsRoad(loc, locationPrefab, pathsDataPoint))
+                        if (loc.type == 0)
+                        {
+                            Debug.LogWarning("Location Already Present " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
                             continue;
+                        }
                     }
-                }
 
-                //Smooth the terrain
-                int count = 0;
-                float tmpAverageHeight = 0;
-
-                // Type 1 instances can overlap beyond terrain boundaries
-                // Estimate height using only the part in the current terrain tile for now
-                int minX = Math.Max(loc.terrainX - halfWidth, 0);
-                int minY = Math.Max(loc.terrainY - halfHeight, 0);
-                int maxX = Math.Min(loc.terrainX + halfWidth, 128);
-                int maxY = Math.Min(loc.terrainY + halfHeight, 128);
-                for (int y = minY; y <= maxY; y++)
-                {
-                    for (int x = minX; x <= maxX; x++)
+                    if ((daggerTerrain.MapData.mapRegionIndex == 31 ||
+                        daggerTerrain.MapData.mapRegionIndex == 3 ||
+                        daggerTerrain.MapData.mapRegionIndex == 29 ||
+                        daggerTerrain.MapData.mapRegionIndex == 28 ||
+                        daggerTerrain.MapData.mapRegionIndex == 30) && daggerTerrain.MapData.worldHeight <= 2)
                     {
-                        tmpAverageHeight += daggerTerrain.MapData.heightmapSamples[y, x];
-                        count++;
+                        if (loc.type == 0)
+                        {
+                            Debug.LogWarning("Location is in Ocean " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
+                            continue;
+                        }
                     }
+
+                    LocationPrefab locationPrefab = GetPrefabInfo(loc.prefab);
+                    if (locationPrefab == null)
+                        continue;
+
+                    // Treating odd dimensions as ceiled-to-even
+                    int halfWidth = (locationPrefab.width + 1) / 2;
+                    int halfHeight = (locationPrefab.height + 1) / 2;
+
+                    if (loc.type == 0)
+                    {
+                        if (loc.terrainX + halfWidth > 128
+                            || loc.terrainY + halfHeight > 128
+                            || loc.terrainX - halfWidth < 0
+                            || loc.terrainY - halfHeight < 0)
+                        {
+                            Debug.LogWarning("Invalid Location at " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY + " : The locationpreset exist outside the terrain");
+                            continue;
+                        }
+
+                        if (roadsEnabled)
+                        {
+                            if (LocationHelper.OverlapsRoad(loc, locationPrefab, pathsDataPoint))
+                                continue;
+                        }
+                    }
+
+                    if (loc.type == 2)
+                    {
+                        // We find and adjust the type 2 instance position here
+                        // So that terrain can be flattened in consequence
+                        // If the current tile has no coast and adjacent terrain are not loaded,
+                        // then we don't care about flattening, since it means the instance
+                        // is gonna be on water at the edge of this tile anyway
+                        if (FindNearestCoast(loc, daggerTerrain, out Vector2Int coastTileCoord))
+                        {
+                            loc.terrainX = coastTileCoord.x;
+                            loc.terrainY = coastTileCoord.y;
+                        }
+                    }
+
+                    //Smooth the terrain
+                    int count = 0;
+                    float tmpAverageHeight = 0;
+
+                    // Type 1 instances can overlap beyond terrain boundaries
+                    // Estimate height using only the part in the current terrain tile for now
+                    int minX = Math.Max(loc.terrainX - halfWidth, 0);
+                    int minY = Math.Max(loc.terrainY - halfHeight, 0);
+                    int maxX = Math.Min(loc.terrainX + halfWidth, 128);
+                    int maxY = Math.Min(loc.terrainY + halfHeight, 128);
+                    for (int y = minY; y <= maxY; y++)
+                    {
+                        for (int x = minX; x <= maxX; x++)
+                        {
+                            tmpAverageHeight += daggerTerrain.MapData.heightmapSamples[y, x];
+                            count++;
+                        }
+                    }
+
+                    daggerTerrain.MapData.averageHeight = tmpAverageHeight /= count;
+
+                    if (loc.type == 0 || loc.type == 2)
+                    {
+                        daggerTerrain.MapData.locationRect = new Rect(minX, minY, maxX - minX, maxY - minY);
+
+                        for (int y = 1; y < 127; y++)
+                            for (int x = 1; x < 127; x++)
+                                daggerTerrain.MapData.heightmapSamples[y, x] = Mathf.Lerp(daggerTerrain.MapData.heightmapSamples[y, x], daggerTerrain.MapData.averageHeight, 1 / (GetDistanceFromRect(daggerTerrain.MapData.locationRect, new Vector2(x, y)) + 1));
+                    }
+
+                    terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples);
+
+                    InstantiatePrefab(loc.prefab, locationPrefab, loc, daggerTerrain);
                 }
+            }
 
-                daggerTerrain.MapData.averageHeight = tmpAverageHeight /= count;
-
-                if (loc.type == 0)
+            // Check for pending instances waiting on this terrain
+            if(pendingType2Locations.TryGetValue(worldLocation, out List<LocationData> pendingLocations))
+            {
+                for(int i = 0; i < pendingLocations.Count; ++i)
                 {
-                    daggerTerrain.MapData.locationRect = new Rect(loc.terrainX - halfWidth, loc.terrainY - halfHeight, roundedWidth, roundedHeight);
+                    LocationData pendingLoc = pendingLocations[i];
 
-                    for (int y = 1; y < 127; y++)
-                        for (int x = 1; x < 127; x++)
-                            daggerTerrain.MapData.heightmapSamples[y, x] = Mathf.Lerp(daggerTerrain.MapData.heightmapSamples[y, x], daggerTerrain.MapData.averageHeight, 1 / (GetDistanceFromRect(daggerTerrain.MapData.locationRect, new Vector2(x, y)) + 1));
+                    if(pendingLoc == null)
+                    {
+                        // We got no info left on this instance
+                        continue;
+                    }
+
+                    if(!type2InstancePendingTerrains.TryGetValue(pendingLoc.Location.locationID, out List<Vector2Int> pendingTerrains))
+                    {
+                        // Invalid locations?
+                        continue;
+                    }
+
+                    // Removes the instance from all "pending terrains"
+                    void ClearPendingInstance()
+                    {
+                        foreach(Vector2Int pendingTerrainCoord in pendingTerrains)
+                        {
+                            if (pendingTerrainCoord == worldLocation)
+                                continue;
+
+                            if(pendingType2Locations.TryGetValue(pendingTerrainCoord, out List<LocationData> pendingTerrainPendingInstances))
+                            {
+                                pendingTerrainPendingInstances.Remove(pendingLoc);
+                                if (pendingTerrainPendingInstances.Count == 0)
+                                    pendingType2Locations.Remove(pendingTerrainCoord);
+                            }
+                        }
+
+                        type2InstancePendingTerrains.Remove(pendingLoc.Location.locationID);
+                    }
+
+                    if(!TryGetTerrain(pendingLoc.WorldX, pendingLoc.WorldY, out DaggerfallTerrain pendingLocTerrain))
+                    {
+                        // Terrain the location was on has expired
+                        ClearPendingInstance();
+                        continue;
+                    }
+
+                    if(FindNearestCoast(pendingLoc.Location, pendingLocTerrain, out Vector2Int coastCoord))
+                    {
+                        pendingLoc.Location.terrainX = coastCoord.x;
+                        pendingLoc.Location.terrainY = coastCoord.y;
+                        pendingLoc.gameObject.transform.localPosition = GetLocationPosition(pendingLoc.Location, pendingLocTerrain);
+
+                        // Instance is not pending anymore
+                        ClearPendingInstance();
+                        continue;
+                    }
+
+                    // Remove this terrain from the location's pending terrains
+                    pendingTerrains.Remove(worldLocation);
                 }
 
-                terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples);
-
-                InstantiatePrefab(loc.prefab, locationPrefab, loc, daggerTerrain);
+                pendingType2Locations.Remove(worldLocation);
             }
         }
 
@@ -763,6 +869,269 @@ namespace LocationLoader
         bool IsDynamicObject(LocationObject obj)
         {
             return obj.type == 2;
-        }       
+        }
+
+        bool FindNearestCoast(LocationInstance loc, DaggerfallTerrain daggerTerrain, out Vector2Int tileCoord)
+        {
+            byte GetTerrainSample(DaggerfallTerrain terrain, int x, int y)
+            {
+                return terrain.MapData.tilemapSamples[x, y];
+            }
+
+            byte GetSample(int x, int y)
+            {
+                return GetTerrainSample(daggerTerrain, x, y);
+            }
+
+            byte initial = GetSample(loc.terrainX, loc.terrainY);
+
+            // If we start in water
+            if(initial == 0)
+            {
+                // Find non-water in any direction
+                for(int i = 1;;++i)
+                {
+                    bool anyValid = false;
+
+                    // North
+                    if(loc.terrainY + i < 128)
+                    {
+                        if(GetSample(loc.terrainX, loc.terrainY + i) != 0)
+                        {
+                            tileCoord = new Vector2Int(loc.terrainX, loc.terrainY + i - 1);
+                            return true;
+                        }
+                        anyValid = true;
+                    }
+
+                    // East
+                    if (loc.terrainX + i < 128)
+                    {
+                        if (GetSample(loc.terrainX + i, loc.terrainY) != 0)
+                        {
+                            tileCoord = new Vector2Int(loc.terrainX + i - 1, loc.terrainY);
+                            return true;
+                        }
+                        anyValid = true;
+                    }
+
+                    // South
+                    if (loc.terrainY - i >= 0)
+                    {
+                        if (GetSample(loc.terrainX, loc.terrainY - i) != 0)
+                        {
+                            tileCoord = new Vector2Int(loc.terrainX, loc.terrainY - i + 1);
+                            return true;
+                        }
+                        anyValid = true;
+                    }
+
+                    // West
+                    if (loc.terrainX - i >= 0)
+                    {
+                        if (GetSample(loc.terrainX - i, loc.terrainY) != 0)
+                        {
+                            tileCoord = new Vector2Int(loc.terrainX - i + 1, loc.terrainY);
+                            return true;
+                        }
+                        anyValid = true;
+                    }
+
+                    if (!anyValid)
+                        break;
+                }
+                                
+                // Look the edges of adjacent terrain
+                if (GetNorthNeighbor(daggerTerrain, out DaggerfallTerrain northNeighbor))
+                {
+                    if(GetTerrainSample(northNeighbor, loc.terrainX, 0) != 0)
+                    {
+                        tileCoord = new Vector2Int(loc.terrainX, 127);
+                        return true;
+                    }
+                }
+
+                if (GetEastNeighbor(daggerTerrain, out DaggerfallTerrain eastNeighbor))
+                {
+                    if (GetTerrainSample(eastNeighbor, 0, loc.terrainY) != 0)
+                    {
+                        tileCoord = new Vector2Int(127, loc.terrainY);
+                        return true;
+                    }
+                }
+
+                if (GetSouthNeighbor(daggerTerrain, out DaggerfallTerrain southNeighbor))
+                {
+                    if (GetTerrainSample(southNeighbor, loc.terrainX, 127) != 0)
+                    {
+                        tileCoord = new Vector2Int(loc.terrainX, 0);
+                        return true;
+                    }
+                }
+
+                if (GetEastNeighbor(daggerTerrain, out DaggerfallTerrain westNeighbor))
+                {
+                    if (GetTerrainSample(westNeighbor, 127, loc.terrainY) != 0)
+                    {
+                        tileCoord = new Vector2Int(0, loc.terrainY);
+                        return true;
+                    }
+                }
+
+                List<Vector2Int> pendingTerrain = new List<Vector2Int>();
+                if(northNeighbor == null && loc.worldY != 0)
+                {
+                    pendingTerrain.Add(new Vector2Int(loc.worldX, loc.worldY - 1));
+                }
+
+                if (eastNeighbor == null && loc.worldX != 1000)
+                {
+                    pendingTerrain.Add(new Vector2Int(loc.worldX + 1, loc.worldY));
+                }
+
+                if (southNeighbor == null && loc.worldY != 500)
+                {
+                    pendingTerrain.Add(new Vector2Int(loc.worldX, loc.worldY + 1));
+                }
+
+                if (westNeighbor == null && loc.worldX != 0)
+                {
+                    pendingTerrain.Add(new Vector2Int(loc.worldX - 1, loc.worldY));
+                }
+
+                if (pendingTerrain.Count != 0)
+                {
+                    Debug.Log($"Location {loc.locationID} waiting for pending terrain");
+
+                    type2InstancePendingTerrains[loc.locationID] = pendingTerrain;
+                }
+            }
+            else
+            {
+                // Find water in any direction
+                for (int i = 1; ; ++i)
+                {
+                    bool anyValid = false;
+
+                    // North
+                    if (loc.terrainY + i < 128)
+                    {
+                        if (GetSample(loc.terrainX, loc.terrainY + i) == 0)
+                        {
+                            tileCoord = new Vector2Int(loc.terrainX, loc.terrainY + i);
+                            return true;
+                        }
+                        anyValid = true;
+                    }
+
+                    // East
+                    if (loc.terrainX + i < 128)
+                    {
+                        if (GetSample(loc.terrainX + i, loc.terrainY) == 0)
+                        {
+                            tileCoord = new Vector2Int(loc.terrainX + i, loc.terrainY);
+                            return true;
+                        }
+                        anyValid = true;
+                    }
+
+                    // South
+                    if (loc.terrainY - i >= 0)
+                    {
+                        if (GetSample(loc.terrainX, loc.terrainY - i) == 0)
+                        {
+                            tileCoord = new Vector2Int(loc.terrainX, loc.terrainY - i);
+                            return true;
+                        }
+                        anyValid = true;
+                    }
+
+                    // West
+                    if (loc.terrainX - i < 128)
+                    {
+                        if (GetSample(loc.terrainX - i, loc.terrainY) == 0)
+                        {
+                            tileCoord = new Vector2Int(loc.terrainX - i, loc.terrainY);
+                            return true;
+                        }
+                        anyValid = true;
+                    }
+
+                    if (!anyValid)
+                        break;
+                }
+            }
+
+            tileCoord = new Vector2Int(loc.terrainX, loc.terrainY);
+            return false;
+        }
+
+        bool GetNorthNeighbor(DaggerfallTerrain daggerTerrain, out DaggerfallTerrain northNeighbor)
+        {
+            if (daggerTerrain.TopNeighbour != null)
+            {
+                northNeighbor = daggerTerrain.TopNeighbour.GetComponent<DaggerfallTerrain>();
+                return true;
+            }
+
+            if(daggerTerrain.MapPixelY == 0)
+            {
+                northNeighbor = null;
+                return false;
+            }
+
+            return TryGetTerrain(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY - 1, out northNeighbor);
+        }
+
+        bool GetEastNeighbor(DaggerfallTerrain daggerTerrain, out DaggerfallTerrain eastNeighbor)
+        {
+            if (daggerTerrain.RightNeighbour != null)
+            {
+                eastNeighbor = daggerTerrain.RightNeighbour.GetComponent<DaggerfallTerrain>();
+                return true;
+            }
+
+            if (daggerTerrain.MapPixelX == 1000)
+            {
+                eastNeighbor = null;
+                return false;
+            }
+
+            return TryGetTerrain(daggerTerrain.MapPixelX + 1, daggerTerrain.MapPixelY, out eastNeighbor);
+        }
+
+        bool GetSouthNeighbor(DaggerfallTerrain daggerTerrain, out DaggerfallTerrain southNeighbor)
+        {
+            if (daggerTerrain.BottomNeighbour != null)
+            {
+                southNeighbor = daggerTerrain.BottomNeighbour.GetComponent<DaggerfallTerrain>();
+                return true;
+            }
+
+            if (daggerTerrain.MapPixelY == 500)
+            {
+                southNeighbor = null;
+                return false;
+            }
+
+            return TryGetTerrain(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY + 1, out southNeighbor);
+        }
+
+        bool GetWestNeighbor(DaggerfallTerrain daggerTerrain, out DaggerfallTerrain westNeighbor)
+        {
+            if (daggerTerrain.LeftNeighbour != null)
+            {
+                westNeighbor = daggerTerrain.LeftNeighbour.GetComponent<DaggerfallTerrain>();
+                return true;
+            }
+
+            if (daggerTerrain.MapPixelX == 0)
+            {
+                westNeighbor = null;
+                return false;
+            }
+
+            return TryGetTerrain(daggerTerrain.MapPixelX - 1, daggerTerrain.MapPixelY, out westNeighbor);
+        }
     }
 }
