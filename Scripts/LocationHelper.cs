@@ -1232,6 +1232,8 @@ namespace LocationLoader
         /// <param name="path"></param>
         public static void SaveLocationInstance(LocationInstance[] locationInstance, string path)
         {
+            CultureInfo cultureInfo = new CultureInfo("en-US");
+
             StreamWriter writer = new StreamWriter(path, false);
             writer.WriteLine("<locations>");
 
@@ -1248,14 +1250,14 @@ namespace LocationLoader
                 writer.WriteLine("\t\t<terrainY>" + inst.terrainY + "</terrainY>");
                 if(inst.rot != Quaternion.identity)
                 {
-                    writer.WriteLine($"\t\t<rotW>{inst.rot.w}</rotW");
-                    writer.WriteLine($"\t\t<rotX>{inst.rot.x}</rotW");
-                    writer.WriteLine($"\t\t<rotY>{inst.rot.y}</rotW");
-                    writer.WriteLine($"\t\t<rotZ>{inst.rot.z}</rotW");
+                    writer.WriteLine("\t\t<rotW>" + inst.rot.w.ToString(cultureInfo) + "</rotW>");
+                    writer.WriteLine("\t\t<rotX>" + inst.rot.x.ToString(cultureInfo) + "</rotX>");
+                    writer.WriteLine("\t\t<rotY>" + inst.rot.y.ToString(cultureInfo) + "</rotY>");
+                    writer.WriteLine("\t\t<rotZ>" + inst.rot.z.ToString(cultureInfo) + "</rotZ>");
                 }
                 if(inst.heightOffset != 0f)
                 {
-                    writer.WriteLine($"\t\t<heightOffset>{inst.heightOffset}</heightOffset>");
+                    writer.WriteLine("\t\t<heightOffset>" + inst.heightOffset.ToString(cultureInfo) + "</heightOffset>");
                 }
                 writer.WriteLine("\t</locationInstance>");
             }
@@ -1375,6 +1377,8 @@ namespace LocationLoader
         /// <param name="path"></param>
         public static void SaveLocationPrefab(LocationPrefab locationPrefab, string path)
         {
+            CultureInfo cultureInfo = new CultureInfo("en-US");
+
             //Write some text to the test.txt file
             StreamWriter writer = new StreamWriter(path, false);
 
@@ -1389,13 +1393,13 @@ namespace LocationLoader
                 writer.WriteLine("\t\t<objectID>" + obj.objectID + "</objectID>");
                 writer.WriteLine("\t\t<name>" + obj.name + "</name>");
 
-                writer.WriteLine("\t\t<posX>" + obj.pos.x + "</posX>");
-                writer.WriteLine("\t\t<posY>" + obj.pos.y + "</posY>");
-                writer.WriteLine("\t\t<posZ>" + obj.pos.z + "</posZ>");
+                writer.WriteLine("\t\t<posX>" + obj.pos.x.ToString(cultureInfo) + "</posX>");
+                writer.WriteLine("\t\t<posY>" + obj.pos.y.ToString(cultureInfo) + "</posY>");
+                writer.WriteLine("\t\t<posZ>" + obj.pos.z.ToString(cultureInfo) + "</posZ>");
 
-                writer.WriteLine("\t\t<scaleX>" + obj.scale.x + "</scaleX>");
-                writer.WriteLine("\t\t<scaleY>" + obj.scale.y + "</scaleY>");
-                writer.WriteLine("\t\t<scaleZ>" + obj.scale.z + "</scaleZ>");
+                writer.WriteLine("\t\t<scaleX>" + obj.scale.x.ToString(cultureInfo) + "</scaleX>");
+                writer.WriteLine("\t\t<scaleY>" + obj.scale.y.ToString(cultureInfo) + "</scaleY>");
+                writer.WriteLine("\t\t<scaleZ>" + obj.scale.z.ToString(cultureInfo) + "</scaleZ>");
 
                 if (!string.IsNullOrEmpty(obj.extraData))
                 {
@@ -1404,10 +1408,10 @@ namespace LocationLoader
 
                 if (obj.type == 0)
                 {
-                    writer.WriteLine("\t\t<rotW>" + obj.rot.w + "</rotW>");
-                    writer.WriteLine("\t\t<rotX>" + obj.rot.x + "</rotX>");
-                    writer.WriteLine("\t\t<rotY>" + obj.rot.y + "</rotY>");
-                    writer.WriteLine("\t\t<rotZ>" + obj.rot.z + "</rotZ>");
+                    writer.WriteLine("\t\t<rotW>" + obj.rot.w.ToString(cultureInfo) + "</rotW>");
+                    writer.WriteLine("\t\t<rotX>" + obj.rot.x.ToString(cultureInfo) + "</rotX>");
+                    writer.WriteLine("\t\t<rotY>" + obj.rot.y.ToString(cultureInfo) + "</rotY>");
+                    writer.WriteLine("\t\t<rotZ>" + obj.rot.z.ToString(cultureInfo) + "</rotZ>");
                 }
 
                 writer.WriteLine("\t</object>");
