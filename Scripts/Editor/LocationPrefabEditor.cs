@@ -155,7 +155,6 @@ namespace LocationLoader
                 {
                     BoxCollider box = areaReference.GetComponent<BoxCollider>();
                     box.size = new Vector3(locationPrefab.width * terrainTileSize, 50f, locationPrefab.height * terrainTileSize);
-                    areaReference.transform.localPosition = new Vector3(box.size.x / 2f, 25f, box.size.z / 2f);
                 }
 
                 scrollPosition = GUI.BeginScrollView(new Rect(2, 128, 532, 512), scrollPosition, new Rect(0, 0, 512, 20 + ((objScene.Count+1) * 60)),false, true);
