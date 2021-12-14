@@ -656,18 +656,6 @@ namespace LocationLoader
             // Spawn the terrain's instances
             if (worldPixelInstances.TryGetValue(worldLocation, out List<LocationInstance> locationInstances))
             {
-                // Check if Basic Roads detects a road there
-                Mod basicRoads = ModManager.Instance.GetMod("BasicRoads");
-                bool roadsEnabled = basicRoads != null && basicRoads.Enabled;
-                byte pathsDataPoint = 0;
-                if (roadsEnabled)
-                {
-                    Vector2Int coords = new Vector2Int(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
-                    ModManager.Instance.SendModMessage("BasicRoads", "getPathsPoint", coords,
-                        (string message, object data) => { pathsDataPoint = (byte)data; }
-                        );
-                }
-
                 foreach (LocationInstance loc in locationInstances)
                 {
                     if (daggerTerrain.MapData.hasLocation)
@@ -709,12 +697,6 @@ namespace LocationLoader
                         {
                             Debug.LogWarning("Invalid Location at " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY + " : The locationpreset exist outside the terrain");
                             continue;
-                        }
-
-                        if (roadsEnabled)
-                        {
-                            if (LocationHelper.OverlapsRoad(loc, locationPrefab, pathsDataPoint))
-                                continue;
                         }
                     }
 
