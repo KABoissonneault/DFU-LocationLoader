@@ -1042,7 +1042,7 @@ namespace LocationLoader
                     }
 
                     // West
-                    if (loc.terrainX - i < 128)
+                    if (loc.terrainX - i >= 0)
                     {
                         if (GetSample(loc.terrainX - i, loc.terrainY) == 0)
                         {
