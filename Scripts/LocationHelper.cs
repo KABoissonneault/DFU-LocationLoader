@@ -1101,6 +1101,8 @@ namespace LocationLoader
                 string line = csvStream.ReadLine();
                 string[] tokens = line.Split(';', ',');
 
+                tokens = tokens.Select(token => token.Trim('"')).ToArray();
+
                 LocationInstance tmpInst = new LocationInstance();
 
                 try
