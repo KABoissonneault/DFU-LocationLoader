@@ -740,8 +740,21 @@ namespace LocationLoader
                         daggerTerrain.MapData.locationRect = new Rect(minX, minY, maxX - minX, maxY - minY);
 
                         for (int y = 1; y < 127; y++)
+                        {
                             for (int x = 1; x < 127; x++)
+                            {
+                                // Don't flatten heightmap samples touching water tiles
+                                if (daggerTerrain.MapData.tilemapSamples[x, y] == 0
+                                    || daggerTerrain.MapData.tilemapSamples[x + 1, y] == 0
+                                    || daggerTerrain.MapData.tilemapSamples[x, y + 1] == 0
+                                    || daggerTerrain.MapData.tilemapSamples[x + 1, y + 1] == 0)
+                                {
+                                    continue;
+                                }
+
                                 daggerTerrain.MapData.heightmapSamples[y, x] = Mathf.Lerp(daggerTerrain.MapData.heightmapSamples[y, x], daggerTerrain.MapData.averageHeight, 1 / (GetDistanceFromRect(daggerTerrain.MapData.locationRect, new Vector2(x, y)) + 1));
+                            }
+                        }
                     }
 
                     terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples);
