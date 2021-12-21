@@ -32,7 +32,7 @@ namespace LocationLoader
         int objectPicker;
         int listMode;
         int sublistMode;
-        int setIndex;
+        int setIndex = 0;
         Vector2 scrollPosition = Vector2.zero, scrollPosition2 = Vector2.zero, scrollPosition3 = Vector2.zero;
         string[] listModeName = { "3D Model", "Billboard", "Editor", "Interior Parts" };
         string[] modelLists = { "All", "Structure", "Clutter", "Dungeon", "Furniture", "Graveyard" };
@@ -61,6 +61,12 @@ namespace LocationLoader
             }
 
             foreach (LocationHelper.BillboardSet set in LocationHelper.billboards)
+            {
+                foreach (string id in set.Ids)
+                    idName.Add(id, set.Name);
+            }
+
+            foreach(LocationHelper.ModelSet set in LocationHelper.interiorParts)
             {
                 foreach (string id in set.Ids)
                     idName.Add(id, set.Name);
