@@ -23,7 +23,8 @@ namespace LocationLoader
         string searchField = "";
         string currentPrefabName;
         List<string> searchListNames = new List<string>();
-        List<string> searchListID = new List<string>();
+        List<string[]> searchListIDSets = new List<string[]>();
+        Dictionary<string, string> idName = new Dictionary<string, string>();
 
         HashSet<int> usedIds = new HashSet<int>();
 
@@ -31,9 +32,12 @@ namespace LocationLoader
         int objectPicker;
         int listMode;
         int sublistMode;
+        int setIndex;
         Vector2 scrollPosition = Vector2.zero, scrollPosition2 = Vector2.zero, scrollPosition3 = Vector2.zero;
-        string[] listModeName = { "3D Model", "Billboard", "Editor" };
-        string[] billboardLists = { "All", "Lights", "Treasure"};
+        string[] listModeName = { "3D Model", "Billboard", "Editor", "Interior Parts" };
+        string[] modelLists = { "All", "Structure", "Clutter", "Dungeon", "Furniture", "Graveyard" };
+        string[] billboardLists = { "All", "People", "Interior", "Nature", "Lights", "Treasure", "Dungeon" };
+        string[] partsLists = { "All", "House", "Dungeon Rooms", "Dungeon Corridors", "Dungeon Misc", "Caves", "Dungeon Doors/Exits" };
 
         string extraData = "";
         List<string> dataIDFields = new List<string>();
@@ -49,6 +53,19 @@ namespace LocationLoader
 
         private void OnEnable()
         {
+            idName.Clear();
+            foreach (LocationHelper.ModelSet set in LocationHelper.models)
+            {
+                foreach (string id in set.Ids)
+                    idName.Add(id, set.Name);
+            }
+
+            foreach (LocationHelper.BillboardSet set in LocationHelper.billboards)
+            {
+                foreach (string id in set.Ids)
+                    idName.Add(id, set.Name);
+            }
+
             UpdateObjList();
         }
 
@@ -286,10 +303,16 @@ namespace LocationLoader
 
         private void ObjectPickerWindow()
         {
-            listMode = GUI.SelectionGrid(new Rect(4, 8, 384, 20), listMode, listModeName, 3);
+            listMode = GUI.SelectionGrid(new Rect(16, 8, listModeName.Length * 100, 20), listMode, listModeName, listModeName.Length);
+            if (GUI.changed)
+                sublistMode = 0;
 
-            if(listMode == 1)
-                sublistMode = GUI.SelectionGrid(new Rect(16, 42, 384, 16), sublistMode, billboardLists, 3);
+            if(listMode == 0)
+                sublistMode = GUI.SelectionGrid(new Rect(16, 42, modelLists.Length * 100, 16), sublistMode, modelLists, modelLists.Length);
+            else if (listMode == 1)
+                sublistMode = GUI.SelectionGrid(new Rect(16, 42, billboardLists.Length * 100, 16), sublistMode, billboardLists, billboardLists.Length);
+            else if(listMode == 3)
+                sublistMode = GUI.SelectionGrid(new Rect(16, 42, partsLists.Length * 130, 16), sublistMode, partsLists, partsLists.Length);
 
             GUI.Label(new Rect(new Rect(4, 72, 64, 16)), "Search: ");
             searchField = EditorGUI.TextField(new Rect(70, 72, 156, 16), searchField);
@@ -301,12 +324,14 @@ namespace LocationLoader
 
             int previousObjectPicker = objectPicker;
             objectPicker = GUI.SelectionGrid(new Rect(10, 10, 216, searchListNames.Count * 24), previousObjectPicker, searchListNames.ToArray(), 1);
+            if (GUI.changed)
+                setIndex = 0;
 
             GUI.EndScrollView();
 
             if(listMode == 2)
             {
-                if(searchListID[objectPicker] == "199.16")
+                if(searchListIDSets[objectPicker][setIndex] == "199.16")
                 {
                     var mobileIds = Enum.GetValues(typeof(MobileTypes)).Cast<MobileTypes>().ToArray();
 
@@ -334,8 +359,39 @@ namespace LocationLoader
                     GUI.EndScrollView();
                 }
             }
+            else
+            {
+                string[] currentSetIds = searchListIDSets[objectPicker];
+                if (currentSetIds.Length > 1)
+                {
+                    if(GUI.Button(new Rect(60, 582, 16, 16), "<"))
+                    {
+                        if (setIndex == 0)
+                            setIndex = currentSetIds.Length - 1;
+                        else
+                            setIndex = setIndex - 1;
+                    }
 
-            if (GUI.Button(new Rect(16, 582, 96, 20), "OK"))
+                    if(setIndex + 1 < 10)
+                        GUI.Label(new Rect(98, 582, 12, 16), (setIndex + 1).ToString());
+                    else
+                        GUI.Label(new Rect(92, 582, 24, 16), (setIndex + 1).ToString());
+
+                    GUI.Label(new Rect(116, 582, 12, 16), "/");
+                    GUI.Label(new Rect(128, 582, 24, 16), currentSetIds.Length.ToString());
+
+                    if (GUI.Button(new Rect(160, 582, 16, 16), ">"))
+                    {
+                        if (setIndex == currentSetIds.Length - 1)
+                            setIndex = 0;
+                        else
+                            setIndex = setIndex + 1;
+                    }
+                }
+            }
+
+
+            if (GUI.Button(new Rect(16, 612, 96, 20), "OK"))
             {
                 int newID = 0;
 
@@ -350,7 +406,7 @@ namespace LocationLoader
 
                 var obj = new LocationObject();
                 obj.type = listMode;
-                obj.name = searchListID[objectPicker];
+                obj.name = searchListIDSets[objectPicker][setIndex];
                 locationPrefab.obj.Add(obj);
 
                 obj.objectID = newID;
@@ -360,7 +416,7 @@ namespace LocationLoader
                 editMode = EditMode.EditLocation;
             }
 
-            if (GUI.Button(new Rect(128, 582, 96, 20), "Cancel"))
+            if (GUI.Button(new Rect(128, 612, 96, 20), "Cancel"))
             {
                 editMode = EditMode.EditLocation;
             }
@@ -404,8 +460,8 @@ namespace LocationLoader
                 objScene.Add(newObject);
 
                 if (locationObject.type == 0)
-                {
-                    if(LocationHelper.models.TryGetValue(locationObject.name, out string modelName))
+                {                    
+                    if(idName.TryGetValue(locationObject.name, out string modelName))
                     {
                         newObject.name = modelName;
                     }
@@ -416,41 +472,16 @@ namespace LocationLoader
                 }
                 else if (locationObject.type == 1)
                 {
-                    if (sublistMode == 0)
+                    if (idName.TryGetValue(locationObject.name, out string billboardName))
                     {
-                        if (LocationHelper.billboards.TryGetValue(locationObject.name, out string billboardName))
-                        {
-                            newObject.name = billboardName;
-                        }
-                        else
-                        {
-                            newObject.name = $"Unknown billboard ({locationObject.name})";
-                        }
+                        newObject.name = billboardName;
                     }
-                    else if (sublistMode == 1)
+                    else
                     {
-                        if (LocationHelper.billboardslights.TryGetValue(locationObject.name, out string billboardName))
-                        {
-                            newObject.name = billboardName;
-                        }
-                        else
-                        {
-                            newObject.name = $"Unknown light billboard ({locationObject.name})";
-                        }
-                    }
-                    else if (sublistMode == 2)
-                    {
-                        if (LocationHelper.billboardsTreasure.TryGetValue(locationObject.name, out string billboardName))
-                        {
-                            newObject.name = billboardName;
-                        }
-                        else
-                        {
-                            newObject.name = $"Unknown treasure billboard ({locationObject.name})";
-                        }
+                        newObject.name = $"Unknown billboard ({locationObject.name})";
                     }
                 }
-                else if(listMode == 2)
+                else if(locationObject.type == 2)
                 {
                     if(LocationHelper.editor.TryGetValue(locationObject.name, out string editorName))
                     {
@@ -471,67 +502,182 @@ namespace LocationLoader
             }
         }
 
+        void AddName(string name, string[] ids)
+        {
+            if (ids.Length > 1)
+            {
+                searchListNames.Add($"{name} [{ids.Length}]");
+            }
+            else
+            {
+                searchListNames.Add(name);
+            }
+
+            searchListIDSets.Add(ids);
+        }
+
+        void AddNames(LocationHelper.ModelSet[] setList)
+        {
+            if (string.IsNullOrEmpty(searchField))
+            {
+                foreach (var set in setList)
+                {
+                    AddName(set.Name, set.Ids);
+                }
+            }
+            else
+            {
+                foreach (var set in setList
+                            .Where(set => set.Name.IndexOf(searchField, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                            )
+                {
+                    AddName(set.Name, set.Ids);
+                }
+            }
+        }
+
+        void AddNames(LocationHelper.BillboardSet[] setList)
+        {
+            if (string.IsNullOrEmpty(searchField))
+            {
+                foreach (var set in setList)
+                {
+                    AddName(set.Name, set.Ids);
+                }
+            }
+            else
+            {
+                foreach (var set in setList
+                            .Where(set => set.Name.IndexOf(searchField, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                            )
+                {
+                    AddName(set.Name, set.Ids);
+                }
+            }
+        }
+
+        void AddNames(Dictionary<string, string> editorList)
+        {
+            if (string.IsNullOrEmpty(searchField))
+            {
+                foreach (var kvp in editorList)
+                {
+                    AddName(kvp.Value, new string[] { kvp.Key });
+                }
+            }
+            else
+            {
+                foreach (var kvp in editorList
+                            .Where(kvp => kvp.Value.IndexOf(searchField, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                            )
+                {
+                    AddName(kvp.Value, new string[] { kvp.Key });
+                }
+            }
+        }
+
         private void UpdateObjList()
         {
             searchListNames.Clear();
-            searchListID.Clear();
+            searchListIDSets.Clear();
 
             if (listMode == 0)
             {
-                foreach (KeyValuePair<string, string> pair in LocationHelper.models)
+                switch (sublistMode)
                 {
-                    if (pair.Value.ToLower().Contains(searchField.ToLower()))
-                    {
-                        searchListNames.Add(pair.Value);
-                        searchListID.Add(pair.Key);
-                    }     
+                    case 0:
+                        AddNames(LocationHelper.models);
+                        break;
+
+                    case 1:
+                        AddNames(LocationHelper.modelsStructure);
+                        break;
+
+                    case 2:
+                        AddNames(LocationHelper.modelsClutter);
+                        break;
+
+                    case 3:
+                        AddNames(LocationHelper.modelsDungeon);
+                        break;
+
+                    case 4:
+                        AddNames(LocationHelper.modelsFurniture);
+                        break;
+
+                    case 5:
+                        AddNames(LocationHelper.modelsGraveyard);
+                        break;
                 }
             }
             else if (listMode == 1)
             {
-                if (sublistMode == 0)
+                switch (sublistMode)
                 {
-                    foreach (KeyValuePair<string, string> pair in LocationHelper.billboards)
-                    {
-                        if (pair.Value.ToLower().Contains(searchField.ToLower()))
-                        {
-                            searchListNames.Add(pair.Value);
-                            searchListID.Add(pair.Key);
-                        }
-                    }
-                }
-                else if (sublistMode == 1)
-                {
-                    foreach (KeyValuePair<string, string> pair in LocationHelper.billboardslights)
-                    {
-                        if (pair.Value.ToLower().Contains(searchField.ToLower()))
-                        {
-                            searchListNames.Add(pair.Value);
-                            searchListID.Add(pair.Key);
-                        }
-                    }
-                }
-                else if (sublistMode == 2)
-                {
-                    foreach (KeyValuePair<string, string> pair in LocationHelper.billboardsTreasure)
-                    {
-                        if (pair.Value.ToLower().Contains(searchField.ToLower()))
-                        {
-                            searchListNames.Add(pair.Value);
-                            searchListID.Add(pair.Key);
-                        }
-                    }
+                    case 0:
+                        AddNames(LocationHelper.billboards);
+                        break;
+
+                    case 1:
+                        AddNames(LocationHelper.billboardsPeople);
+                        break;
+
+                    case 2:
+                        AddNames(LocationHelper.billboardsInterior);
+                        break;
+
+                    case 3:
+                        AddNames(LocationHelper.billboardsNature);
+                        break;
+
+                    case 4:
+                        AddNames(LocationHelper.billboardsLights);
+                        break;
+
+                    case 5:
+                        AddNames(LocationHelper.billboardsTreasure);
+                        break;
+
+                    case 6:
+                        AddNames(LocationHelper.billboardsDungeon);
+                        break;
                 }
             }
-            else if(listMode == 2)
+            else if (listMode == 2)
             {
-                foreach (KeyValuePair<string, string> pair in LocationHelper.editor)
+                AddNames(LocationHelper.editor);
+            }
+            else if (listMode == 3)
+            {
+                switch (sublistMode)
                 {
-                    if (pair.Value.ToLower().Contains(searchField.ToLower()))
-                    {
-                        searchListNames.Add(pair.Value);
-                        searchListID.Add(pair.Key);
-                    }
+                    case 0:
+                        AddNames(LocationHelper.interiorParts);
+                        break;
+
+                    case 1:
+                        AddNames(LocationHelper.houseParts);
+                        break;
+
+                    case 2:
+                        AddNames(LocationHelper.dungeonPartsRooms);
+                        break;
+
+                    case 3:
+                        AddNames(LocationHelper.dungeonPartsCorridors);
+                        break;
+
+                    case 4:
+                        AddNames(LocationHelper.dungeonPartsMisc);
+                        break;
+
+                    case 5:
+                        AddNames(LocationHelper.dungeonPartsCaves);
+                        break;
+
+                    case 6:
+                        AddNames(LocationHelper.dungeonPartsDoors);
+                        break;
                 }
             }
         }
