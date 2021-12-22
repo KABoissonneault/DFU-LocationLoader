@@ -54,22 +54,15 @@ namespace LocationLoader
         private void OnEnable()
         {
             idName.Clear();
-            foreach (LocationHelper.ModelSet set in LocationHelper.models)
+            foreach (LocationHelper.ObjectSet set in LocationHelper.objects)
             {
                 foreach (string id in set.Ids)
                     idName.Add(id, set.Name);
             }
 
-            foreach (LocationHelper.BillboardSet set in LocationHelper.billboards)
+            foreach(var kvp in LocationHelper.editor)
             {
-                foreach (string id in set.Ids)
-                    idName.Add(id, set.Name);
-            }
-
-            foreach(LocationHelper.ModelSet set in LocationHelper.interiorParts)
-            {
-                foreach (string id in set.Ids)
-                    idName.Add(id, set.Name);
+                idName.Add(kvp.Key, kvp.Value);
             }
 
             UpdateObjList();
@@ -149,7 +142,7 @@ namespace LocationLoader
 
                 foreach (LocationObject obj in locationPrefab.obj)
                 {
-                    CreateObject(obj);
+                    AddObject(obj, selectNew:false);
                     usedIds.Add(obj.objectID);
                 }
 
@@ -229,7 +222,7 @@ namespace LocationLoader
                         GUI.Label(new Rect(136, 20, 256, 16), "Rotation : " + obj.rot.eulerAngles);
                     GUI.Label(new Rect(136, 36, 256, 16), "Scale    : " + obj.scale);
 
-                    if (GUI.Button(new Rect(392, 20, 64, 16), "Duplicate"))
+                    if (GUI.Button(new Rect(392, 4, 64, 16), "Duplicate"))
                     {
                         int newID = 0;
 
@@ -251,8 +244,59 @@ namespace LocationLoader
                         duplicatedObj.rot = obj.rot;
                         duplicatedObj.scale = obj.scale;
                         locationPrefab.obj.Add(duplicatedObj);
-                        CreateObject(duplicatedObj, true);
+                        AddObject(duplicatedObj, selectNew: true);
                         //locationPrefab.obj.Sort((a, b) => a.objectID.CompareTo(b.objectID));
+                    }
+
+                    if(Selection.Contains(sceneObj))
+                    {
+                        if(TryGetObjectSet(sceneObj.name, obj.name, obj.type, out string[] objectSet))
+                        {
+                            if (objectSet.Length > 1)
+                            {
+                                int setIndex = Array.FindIndex(objectSet, id => id == obj.name);
+                                if (setIndex != -1)
+                                {
+                                    if (GUI.Button(new Rect(320, 36, 16, 16), "<"))
+                                    {
+                                        if (setIndex == 0)
+                                            setIndex = objectSet.Length - 1;
+                                        else
+                                            setIndex = setIndex - 1;
+
+                                        obj.name = objectSet[setIndex];
+
+                                        // Replace object
+                                        DestroyImmediate(sceneObj);
+                                        sceneObj = objScene[i] = CreateObject(obj);
+                                        Selection.activeGameObject = sceneObj;
+                                    }
+
+                                    if (setIndex + 1 < 10)
+                                        GUI.Label(new Rect(346, 36, 12, 16), (setIndex + 1).ToString());
+                                    else
+                                        GUI.Label(new Rect(340, 36, 24, 16), (setIndex + 1).ToString());
+
+                                    GUI.Label(new Rect(358, 36, 12, 16), "/");
+                                    GUI.Label(new Rect(368, 36, 24, 16), objectSet.Length.ToString());
+
+                                    if (GUI.Button(new Rect(388, 36, 16, 16), ">"))
+                                    {
+                                        if (setIndex == objectSet.Length - 1)
+                                            setIndex = 0;
+                                        else
+                                            setIndex = setIndex + 1;
+
+                                        obj.name = objectSet[setIndex];
+
+                                        // Replace object
+                                        DestroyImmediate(sceneObj);
+                                        sceneObj = objScene[i] = CreateObject(obj);
+                                        Selection.activeGameObject = sceneObj;
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     GUI.color = new Color(0.9f, 0.5f, 0.5f);
@@ -305,6 +349,43 @@ namespace LocationLoader
                     box.size = new Vector3(locationPrefab.width * terrainTileSize, 50f, locationPrefab.height * terrainTileSize);
                 }
             }
+        }
+
+        bool TryGetObjectSet(string setName, string objId, int objType, out string[] objectSet)
+        {
+            if(objType == 0)
+            {
+                int index = Array.FindIndex(LocationHelper.models, set => set.Name == setName && set.Ids.Contains(objId));
+                if(index != -1)
+                {
+                    objectSet = LocationHelper.models[index].Ids;
+                    return true;
+                }
+
+                index = Array.FindIndex(LocationHelper.interiorParts, set => set.Name == setName && set.Ids.Contains(objId));
+                if (index != -1)
+                {
+                    objectSet = LocationHelper.interiorParts[index].Ids;
+                    return true;
+                }
+            }
+            else if(objType == 1)
+            {
+                int index = Array.FindIndex(LocationHelper.billboards, set => set.Name == setName && set.Ids.Contains(objId));
+                if (index != -1)
+                {
+                    objectSet = LocationHelper.billboards[index].Ids;
+                    return true;
+                }
+            }
+            else if(objType == 2)
+            {
+                objectSet = new string[] { objId };
+                return true;
+            }
+
+            objectSet = null;
+            return false;
         }
 
         private void ObjectPickerWindow()
@@ -417,7 +498,7 @@ namespace LocationLoader
 
                 obj.objectID = newID;
                 obj.extraData = extraData;
-                CreateObject(obj, true);
+                AddObject(obj, selectNew: true);
                 //locationPrefab.obj.Sort((a, b) => a.objectID.CompareTo(b.objectID));
                 editMode = EditMode.EditLocation;
             }
@@ -428,22 +509,30 @@ namespace LocationLoader
             }
         }
 
-        private void CreateObject(LocationObject locationObject, bool selectNew = false)
+        private GameObject CreateObject(LocationObject locationObject)
         {
             if (!LocationHelper.ValidateValue(locationObject.type, locationObject.name))
-                return;
+                return null;
 
-            GameObject newObject;
             if (locationObject.type == 2)
             {
                 string[] arg = locationObject.name.Split('.');
 
-                newObject = GameObjectHelper.CreateDaggerfallBillboardGameObject(199, int.Parse(arg[1]), parent.transform);
+                var newObject = GameObjectHelper.CreateDaggerfallBillboardGameObject(199, int.Parse(arg[1]), parent.transform);
                 newObject.transform.localPosition = locationObject.pos;
+                if (LocationHelper.editor.TryGetValue(locationObject.name, out string editorName))
+                {
+                    newObject.name = editorName;
+                }
+                else
+                {
+                    newObject.name = $"Unknown editor marker ({locationObject.name})";
+                }
+                return newObject;
             }
             else
             {
-                newObject = LocationHelper.LoadStaticObject(locationObject.type, locationObject.name, parent.transform,
+                var newObject = LocationHelper.LoadStaticObject(locationObject.type, locationObject.name, parent.transform,
                                      new Vector3(locationObject.pos.x, locationObject.pos.y, locationObject.pos.z),
                                      locationObject.rot,
                                      locationObject.scale, 0, 0
@@ -457,48 +546,43 @@ namespace LocationLoader
                         newObject.GetComponent<DaggerfallBillboard>().AlignToBase();
                         newObject.transform.position = new Vector3(newObject.transform.position.x, tempY + ((newObject.transform.position.y - tempY) * newObject.transform.localScale.y), newObject.transform.position.z);
                     }
+
+                    if (locationObject.type == 0)
+                    {
+                        if (idName.TryGetValue(locationObject.name, out string modelName))
+                        {
+                            newObject.name = modelName;
+                        }
+                        else
+                        {
+                            newObject.name = $"Unknown model ({locationObject.name})";
+                        }
+                    }
+                    else if (locationObject.type == 1)
+                    {
+                        if (idName.TryGetValue(locationObject.name, out string billboardName))
+                        {
+                            newObject.name = billboardName;
+                        }
+                        else
+                        {
+                            newObject.name = $"Unknown billboard ({locationObject.name})";
+                        }
+                    }
                 }
+
+                return newObject;
             }
+        }
+
+        private void AddObject(LocationObject locationObject, bool selectNew)
+        {
+            GameObject newObject = CreateObject(locationObject);            
 
             if (newObject != null)
             {
-
                 objScene.Add(newObject);
-
-                if (locationObject.type == 0)
-                {                    
-                    if(idName.TryGetValue(locationObject.name, out string modelName))
-                    {
-                        newObject.name = modelName;
-                    }
-                    else
-                    {
-                        newObject.name = $"Unknown model ({locationObject.name})";
-                    }
-                }
-                else if (locationObject.type == 1)
-                {
-                    if (idName.TryGetValue(locationObject.name, out string billboardName))
-                    {
-                        newObject.name = billboardName;
-                    }
-                    else
-                    {
-                        newObject.name = $"Unknown billboard ({locationObject.name})";
-                    }
-                }
-                else if(locationObject.type == 2)
-                {
-                    if(LocationHelper.editor.TryGetValue(locationObject.name, out string editorName))
-                    {
-                        newObject.name = editorName;
-                    }
-                    else
-                    {
-                        newObject.name = $"Unknown editor marker ({locationObject.name})";
-                    }
-                }
-
+                
                 if (selectNew)
                     Selection.activeGameObject = objScene[objScene.Count - 1];
             }
@@ -522,27 +606,7 @@ namespace LocationLoader
             searchListIDSets.Add(ids);
         }
 
-        void AddNames(LocationHelper.ModelSet[] setList)
-        {
-            if (string.IsNullOrEmpty(searchField))
-            {
-                foreach (var set in setList)
-                {
-                    AddName(set.Name, set.Ids);
-                }
-            }
-            else
-            {
-                foreach (var set in setList
-                            .Where(set => set.Name.IndexOf(searchField, StringComparison.InvariantCultureIgnoreCase) >= 0)
-                            )
-                {
-                    AddName(set.Name, set.Ids);
-                }
-            }
-        }
-
-        void AddNames(LocationHelper.BillboardSet[] setList)
+        void AddNames(LocationHelper.ObjectSet[] setList)
         {
             if (string.IsNullOrEmpty(searchField))
             {
