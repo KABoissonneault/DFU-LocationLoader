@@ -19,7 +19,6 @@ namespace LocationLoader
         Vector2 scrollPosition;
         string[] locationTypes = { "Smooth Terrain", "No Smoothing" };
 
-        bool selectingPrefab = false;
         int selectedPrefab = -1;
 
         [MenuItem("Daggerfall Tools/Location Instance Editor")]
