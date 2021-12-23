@@ -97,6 +97,7 @@ namespace LocationLoader
             {
                 if (parent != null)
                     DestroyImmediate(parent);
+                objScene = new List<GameObject>();
 
                 locationPrefab = new LocationPrefab();
                 parent = new GameObject("Location Prefab");
