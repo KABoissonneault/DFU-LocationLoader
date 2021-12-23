@@ -3,7 +3,7 @@
     "ModVersion": "0.1.0",
     "ModAuthor": "kaboissonneault",
     "ContactInfo": "@kaboissonneault",
-    "DFUnity_Version": "0.13.1",
+    "DFUnity_Version": "0.13.4",
     "ModDescription": "Utility mod allowing mods to add new locations and prefabs to the world",
     "GUID": "fc5c0fa6-e80d-4cb1-89fa-c10be8e35bf3",
     "Files": [
