@@ -44,6 +44,19 @@ namespace LocationLoader
 
         LocationPrefab locationPrefab;
 
+        int GetCurrentObjectType()
+        {
+            switch(listMode)
+            {
+                case 0:
+                case 3:
+                    return 0;
+                case 1: return 1;
+                case 2: return 2;
+            }
+            throw new Exception("GetCurrentObjectType called with invalid list mode");
+        }
+
         [MenuItem("Daggerfall Tools/Location Prefab Editor")]
         static void Init()
         {
@@ -478,7 +491,6 @@ namespace LocationLoader
                 }
             }
 
-
             if (GUI.Button(new Rect(16, 612, 96, 20), "OK"))
             {
                 int newID = 0;
@@ -493,7 +505,7 @@ namespace LocationLoader
                 usedIds.Add(newID);
 
                 var obj = new LocationObject();
-                obj.type = listMode;
+                obj.type = GetCurrentObjectType();
                 obj.name = searchListIDSets[objectPicker][setIndex];
                 locationPrefab.obj.Add(obj);
 
@@ -534,7 +546,7 @@ namespace LocationLoader
             else
             {
                 var newObject = LocationHelper.LoadStaticObject(locationObject.type, locationObject.name, parent.transform,
-                                     new Vector3(locationObject.pos.x, locationObject.pos.y, locationObject.pos.z),
+                                     locationObject.pos,
                                      locationObject.rot,
                                      locationObject.scale, 0, 0
                 );
