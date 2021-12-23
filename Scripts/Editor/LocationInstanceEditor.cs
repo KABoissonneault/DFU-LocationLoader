@@ -3,6 +3,7 @@ using UnityEditor;
 using UnityEngine;
 using System.IO;
 using System.Linq;
+using System;
 
 namespace LocationLoader
 {
@@ -11,17 +12,46 @@ namespace LocationLoader
     {
         List<LocationInstance> locationInstance;
         List<string> locationInstaneNames;
-        List<LocationPrefab> locationPrefab;
+
+        Dictionary<string, LocationPrefab> prefabInfos = new Dictionary<string, LocationPrefab>();
 
         int listSelector;
         Vector2 scrollPosition;
         string[] locationTypes = { "Smooth Terrain", "No Smoothing" };
+
+        bool selectingPrefab = false;
+        int selectedPrefab = -1;
 
         [MenuItem("Daggerfall Tools/Location Instance Editor")]
         static void Init()
         {
             LocationInstanceEditor window = (LocationInstanceEditor)GetWindow(typeof(LocationInstanceEditor));
             window.titleContent = new GUIContent("Location Instance Editor");
+
+            string modsfolder = Path.Combine(Application.dataPath, "Game", "Mods");
+            foreach (var directory in Directory.EnumerateDirectories(modsfolder))
+            {
+                string locationPrefabs = Path.Combine(directory, "Locations", "LocationPrefab");
+                if (!Directory.Exists(locationPrefabs))
+                    continue;
+
+                foreach (var file in Directory.EnumerateFiles(locationPrefabs, "*.txt"))
+                {
+                    LocationPrefab prefab = LocationHelper.LoadLocationPrefab(file);
+                    if (prefab != null)
+                    {
+                        try
+                        {
+                            string prefabName = Path.GetFileNameWithoutExtension(file.ToLower());
+                            window.prefabInfos[prefabName] = prefab;
+                        }
+                        catch(Exception e)
+                        {
+                            Debug.LogError(e.Message);
+                        }
+                    }
+                }
+            }
         }
 
         private void Awake()
@@ -35,7 +65,6 @@ namespace LocationLoader
             {
                 locationInstance = new List<LocationInstance>();
                 locationInstaneNames = new List<string>();
-                locationPrefab = new List<LocationPrefab>();
             }
 
             if (GUI.Button(Rect_SaveFile, "Save File"))
@@ -60,29 +89,10 @@ namespace LocationLoader
                     return;
 
                 locationInstaneNames = new List<string>();
-                locationPrefab = new List<LocationPrefab>();
 
                 foreach (LocationInstance loc in locationInstance)
                 {
                     locationInstaneNames.Add(loc.name);
-
-                    if(loc.prefab != null)
-                    {
-                        LocationPrefab tmplocpref = LocationHelper.LoadLocationPrefab(Path.Combine(Application.dataPath, LocationHelper.locationPrefabFolder, loc.prefab + ".txt"));
-
-                        if (tmplocpref != null)
-                        {
-                            locationPrefab.Add(tmplocpref);
-                        }
-                        else
-                        {
-                            locationPrefab.Add(new LocationPrefab());
-                        }
-                    }
-                    else
-                    {
-                        locationPrefab.Add(new LocationPrefab());
-                    }
                 }
             }
 
@@ -118,21 +128,19 @@ namespace LocationLoader
 
                 if(GUI.Button(new Rect(506, 128, 96, 16), "Select Prefab"))
                 {
-                    string path = EditorUtility.OpenFilePanel("Open", LocationHelper.locationPrefabFolder, "txt");
-
-                    if (path.Length == 0)
-                        return;
-
-                    LocationPrefab tmplocpref  = LocationHelper.LoadLocationPrefab(path);
-
-                    if (tmplocpref != null)
+                    var content = prefabInfos.Keys.Select(name => new GUIContent(name)).ToArray();
+                    EditorUtility.DisplayCustomMenu(new Rect(612, 64, 128, 256), content, selectedPrefab, (_, prefabs, selected) =>
                     {
-                        locationInstance[listSelector].prefab = Path.GetFileNameWithoutExtension(path);
-                        locationPrefab[listSelector] = tmplocpref;
-                    }
+                        selectedPrefab = selected;
+                        if (selected != -1)
+                        {
+                            locationInstance[listSelector].prefab = prefabs[selected];
+                        }
+                    }, null);
                 }
 
-                if(locationInstance[listSelector].prefab != "" && !File.Exists(Application.dataPath + LocationHelper.locationPrefabFolder + locationInstance[listSelector].prefab + ".txt"))
+                LocationPrefab locationPrefab = null;
+                if (locationInstance[listSelector].prefab != "" && !prefabInfos.TryGetValue(locationInstance[listSelector].prefab, out locationPrefab))
                 {
                     GUI.contentColor = Color.red;
                     GUI.Label(new Rect(614, 128, 128, 16), "Prefab not found!");
@@ -148,17 +156,19 @@ namespace LocationLoader
                 GUI.Label(new Rect(312, 224, 64, 16), "World Y: ");
                 locationInstance[listSelector].worldY = EditorGUI.IntSlider(new Rect(372, 224, 256, 16), locationInstance[listSelector].worldY,3, 498);
 
-                GUI.Label(new Rect(312, 256, 64, 16), "Terrain X: ");
-                locationInstance[listSelector].terrainX = EditorGUI.IntSlider(new Rect(372, 256, 256, 16), locationInstance[listSelector].terrainX, 1, 127 - locationPrefab[listSelector].width);
+                if (locationPrefab != null)
+                {
+                    GUI.Label(new Rect(312, 256, 64, 16), "Terrain X: ");
+                    locationInstance[listSelector].terrainX = EditorGUI.IntSlider(new Rect(372, 256, 256, 16), locationInstance[listSelector].terrainX, 1, 127 - locationPrefab.width);
 
-                GUI.Label(new Rect(312, 288, 64, 16), "Terrain Y: ");
-                locationInstance[listSelector].terrainY = EditorGUI.IntSlider(new Rect(372, 288, 256, 16), locationInstance[listSelector].terrainY,1, 127 - locationPrefab[listSelector].height);
+                    GUI.Label(new Rect(312, 288, 64, 16), "Terrain Y: ");
+                    locationInstance[listSelector].terrainY = EditorGUI.IntSlider(new Rect(372, 288, 256, 16), locationInstance[listSelector].terrainY, 1, 127 - locationPrefab.height);
 
-                GUI.Label(new Rect(454, 320, 64, 16), "- N -");
-                GUI.Box(new Rect(336, 336, 256, 256), "", blackBG);
-                GUI.Box(new Rect((336+(locationInstance[listSelector].terrainX*2)), (592 - (locationInstance[listSelector].terrainY * 2)) - locationPrefab[listSelector].height * 2, locationPrefab[listSelector].width*2, locationPrefab[listSelector].height*2), "", lightGreenBG);
-                GUI.Label(new Rect(454, 592, 64, 16), "- S -");
-
+                    GUI.Label(new Rect(454, 320, 64, 16), "- N -");
+                    GUI.Box(new Rect(336, 336, 256, 256), "", blackBG);
+                    GUI.Box(new Rect((336 + (locationInstance[listSelector].terrainX * 2)), (592 - (locationInstance[listSelector].terrainY * 2)) - locationPrefab.height * 2, locationPrefab.width * 2, locationPrefab.height * 2), "", lightGreenBG);
+                    GUI.Label(new Rect(454, 592, 64, 16), "- S -");
+                }
             }
 
             if (GUI.Button(new Rect(32, 562, 96, 20), "Add Location"))
@@ -168,7 +178,6 @@ namespace LocationLoader
                 locationInstance.Add(loc);
                 loc.UpdateLocationID();
                 locationInstaneNames.Add("New Location");
-                locationPrefab.Add(new LocationPrefab());
             }
 
             if (GUI.Button(new Rect(160, 562, 128, 20), "Remove Location"))
