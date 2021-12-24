@@ -248,6 +248,8 @@ namespace LocationLoader
                 if (!prefabCache.TryGetValue(instance.prefab, out prefab))
                 {
                     prefab = LocationHelper.LoadLocationPrefab(mod, instance.prefab);
+                    if (prefab == null)
+                        return false; // couldn't find prefab
                     prefabCache.Add(instance.prefab, prefab);
                 }
 
@@ -375,17 +377,24 @@ namespace LocationLoader
                         ++line;
                         string instanceLine = assetReader.ReadLine();
 
-                        string context = $"mod={mod.ModInfo.ModTitle}, file={modFilename}, line={line}";
-                        LocationInstance instance = LocationHelper.LoadSingleLocationInstanceCsv(instanceLine, fields, context);
-                        if (instance == null)
+                        try
                         {
-                            Debug.LogWarning($"({context}) Instance could not be parsed. Removing");
-                            continue;
-                        }
+                            string context = $"mod={mod.ModInfo.ModTitle}, file={modFilename}, line={line}";
+                            LocationInstance instance = LocationHelper.LoadSingleLocationInstanceCsv(instanceLine, fields, context);
+                            if (instance == null)
+                            {
+                                Debug.LogWarning($"({context}) Instance could not be parsed. Removing");
+                                continue;
+                            }
 
-                        if (LocationPasses(instance))
+                            if (LocationPasses(instance))
+                            {
+                                streamWriter.WriteLine(instanceLine);
+                            }
+                        }
+                        catch(Exception e)
                         {
-                            streamWriter.WriteLine(instanceLine);
+                            Debug.LogError(e.Message);
                         }
                     }
                 }
