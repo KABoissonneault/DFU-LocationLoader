@@ -209,76 +209,73 @@ namespace LocationLoader
         {
             foreach (LocationObject obj in locationPrefab.obj)
             {
-                if (!IsDynamicObject(obj))
+                if (obj.type != 2)
                     continue;
 
                 GameObject go = null;
 
-                if (obj.type == 2)
+                string[] arg = obj.name.Split('.');
+
+                if (arg[0] == "199")
                 {
-                    string[] arg = obj.name.Split('.');
-
-                    if (arg[0] == "199")
+                    switch (arg[1])
                     {
-                        switch (arg[1])
-                        {
-                            case "16":
-                                if (!int.TryParse(obj.extraData, out int enemyID))
-                                {
-                                    Debug.LogError($"Could not spawn enemy, invalid extra data '{obj.extraData}'");
-                                    break;
-                                }
-
-                                if (!Enum.IsDefined(typeof(MobileTypes), enemyID))
-                                {
-                                    Debug.LogError($"Could not spawn enemy, unknown mobile type '{obj.extraData}'");
-                                    break;
-                                }
-
-                                ulong v = (uint)obj.objectID;
-                                ulong loadId = (loc.locationID << 16) | v;
-
-                                // Enemy is dead, don't spawn anything
-                                if (LocationModLoader.modObject.GetComponent<LocationSaveDataInterface>().IsEnemyDead(loadId))
-                                {
-                                    break;
-                                }
-
-                                MobileTypes mobileType = (MobileTypes)enemyID;
-                                go = GameObjectHelper.CreateEnemy(TextManager.Instance.GetLocalizedEnemyName((int)mobileType), mobileType, obj.pos, MobileGender.Unspecified, instance.transform);
-                                SerializableEnemy serializable = go.GetComponent<SerializableEnemy>();
-                                if(serializable != null)
-                                {
-                                    Destroy(serializable);
-                                }
-
-                                DaggerfallEntityBehaviour behaviour = go.GetComponent<DaggerfallEntityBehaviour>();
-                                EnemyEntity entity = (EnemyEntity)behaviour.Entity;
-                                if(entity.MobileEnemy.Gender == MobileGender.Male)
-                                {
-                                    entity.Gender = Genders.Male;
-                                }
-                                else if(entity.MobileEnemy.Gender == MobileGender.Female)
-                                {
-                                    entity.Gender = Genders.Female;
-                                }
-
-                                DaggerfallEnemy enemy = go.GetComponent<DaggerfallEnemy>();
-                                if (enemy != null)
-                                {
-                                    enemy.LoadID = loadId;
-                                    go.AddComponent<LocationEnemySerializer>();
-                                }
+                        case "16":
+                            if (!int.TryParse(obj.extraData, out int enemyID))
+                            {
+                                Debug.LogError($"Could not spawn enemy, invalid extra data '{obj.extraData}'");
                                 break;
+                            }
 
-                            case "19":
-                                {
-                                    int record = UnityEngine.Random.Range(0, 48);
-                                    go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, 216, record, instance.transform);
-                                    go.transform.localPosition = obj.pos;
-                                    break;
-                                }
-                        }
+                            if (!Enum.IsDefined(typeof(MobileTypes), enemyID))
+                            {
+                                Debug.LogError($"Could not spawn enemy, unknown mobile type '{obj.extraData}'");
+                                break;
+                            }
+
+                            ulong v = (uint)obj.objectID;
+                            ulong loadId = (loc.locationID << 16) | v;
+
+                            // Enemy is dead, don't spawn anything
+                            if (LocationModLoader.modObject.GetComponent<LocationSaveDataInterface>().IsEnemyDead(loadId))
+                            {
+                                break;
+                            }
+
+                            MobileTypes mobileType = (MobileTypes)enemyID;
+                            go = GameObjectHelper.CreateEnemy(TextManager.Instance.GetLocalizedEnemyName((int)mobileType), mobileType, obj.pos, MobileGender.Unspecified, instance.transform);
+                            SerializableEnemy serializable = go.GetComponent<SerializableEnemy>();
+                            if(serializable != null)
+                            {
+                                Destroy(serializable);
+                            }
+
+                            DaggerfallEntityBehaviour behaviour = go.GetComponent<DaggerfallEntityBehaviour>();
+                            EnemyEntity entity = (EnemyEntity)behaviour.Entity;
+                            if(entity.MobileEnemy.Gender == MobileGender.Male)
+                            {
+                                entity.Gender = Genders.Male;
+                            }
+                            else if(entity.MobileEnemy.Gender == MobileGender.Female)
+                            {
+                                entity.Gender = Genders.Female;
+                            }
+
+                            DaggerfallEnemy enemy = go.GetComponent<DaggerfallEnemy>();
+                            if (enemy != null)
+                            {
+                                enemy.LoadID = loadId;
+                                go.AddComponent<LocationEnemySerializer>();
+                            }
+                            break;
+
+                        case "19":
+                            {
+                                int record = UnityEngine.Random.Range(0, 48);
+                                go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, 216, record, instance.transform);
+                                go.transform.localPosition = obj.pos;
+                                break;
+                            }
                     }
                 }
 
@@ -307,7 +304,7 @@ namespace LocationLoader
             return ret;
         }
 
-        void InstantiatePrefab(string prefabName, LocationPrefab locationPrefab, LocationInstance loc, DaggerfallTerrain daggerTerrain)
+        GameObject CreatePrefabInstance(string prefabName, LocationPrefab locationPrefab, Transform prefabParent)
         {
             // If it's the first time loading this prefab, load the non-dynamic objects into a template
             GameObject prefabObject;
@@ -315,39 +312,52 @@ namespace LocationLoader
             {
                 prefabObject = new GameObject($"{prefabName}_Template");
                 prefabObject.SetActive(false);
-                Transform templateTransform = prefabObject.GetComponent<Transform>();
+                Transform templateTransform = prefabObject.transform;
                 templateTransform.parent = transform; // Put them under this mod for Hierarchy organization
 
                 ModelCombiner combiner = new ModelCombiner();
 
                 foreach (LocationObject obj in locationPrefab.obj)
                 {
-                    if (IsDynamicObject(obj))
-                        continue;
-
-                    GameObject go = LocationHelper.LoadStaticObject(
-                        obj.type,
-                        obj.name,
-                        templateTransform,
-                        obj.pos,
-                        obj.rot,
-                        obj.scale,
-                        loc.locationID,
-                        obj.objectID,
-                        combiner
-                        );
-
-                    if (go != null)
+                    // Only instantiate the static types for now
+                    if (obj.type == 0 || obj.type == 1)
                     {
-                        if (go.GetComponent<DaggerfallBillboard>())
+                        GameObject go = LocationHelper.LoadStaticObject(
+                            obj.type,
+                            obj.name,
+                            templateTransform,
+                            obj.pos,
+                            obj.rot,
+                            obj.scale,
+                            combiner
+                            );
+
+                        if (go != null)
                         {
-                            float tempY = go.transform.position.y;
-                            go.GetComponent<DaggerfallBillboard>().AlignToBase();
-                            go.transform.position = new Vector3(go.transform.position.x, tempY + ((go.transform.position.y - tempY) * go.transform.localScale.y), go.transform.position.z);
+                            if (go.GetComponent<DaggerfallBillboard>())
+                            {
+                                float tempY = go.transform.position.y;
+                                go.GetComponent<DaggerfallBillboard>().AlignToBase();
+                                go.transform.position = new Vector3(go.transform.position.x, tempY + ((go.transform.position.y - tempY) * go.transform.localScale.y), go.transform.position.z);
+                            }
+
+                            if (!go.GetComponent<DaggerfallLoot>())
+                                go.isStatic = true;
+                        }
+                    }
+                    else if (obj.type == 3)
+                    {
+                        LocationPrefab objPrefabInfo = GetPrefabInfo(obj.name);
+                        if (objPrefabInfo == null)
+                        {
+                            Debug.LogError($"Could not find prefab '{obj.name}' while instanciating prefab '{prefabName}'");
+                            continue;
                         }
 
-                        if (!go.GetComponent<DaggerfallLoot>())
-                            go.isStatic = true;
+                        GameObject subPrefab = CreatePrefabInstance(obj.name, objPrefabInfo, prefabObject.transform);
+                        subPrefab.transform.localPosition = obj.pos;
+                        subPrefab.transform.localRotation = obj.rot;
+                        subPrefab.transform.localScale = obj.scale;
                     }
                 }
 
@@ -360,12 +370,28 @@ namespace LocationLoader
                 prefabTemplates.Add(prefabName, prefabObject);
             }
                         
-            Vector3 terrainOffset = GetLocationPosition(loc, daggerTerrain);
+            GameObject instance = Instantiate(prefabObject, new Vector3(), Quaternion.identity, prefabParent);
+            instance.name = prefabName;
+            return instance;
+        }
 
-            GameObject instance = Instantiate(prefabObject, new Vector3(), Quaternion.identity, daggerTerrain.gameObject.transform);
+        void SetActiveRecursively(GameObject go)
+        {
+            go.SetActive(true);
+            foreach(Transform child in go.transform)
+            {
+                SetActiveRecursively(child.gameObject);
+            }
+        }
+
+        void InstantiatePrefab(string prefabName, LocationPrefab locationPrefab, LocationInstance loc, DaggerfallTerrain daggerTerrain)
+        {
+            // If it's the first time loading this prefab, load the non-dynamic objects into a template
+            GameObject instance = CreatePrefabInstance(prefabName, locationPrefab, daggerTerrain.transform);
+
+            Vector3 terrainOffset = GetLocationPosition(loc, daggerTerrain);
             instance.transform.localPosition = terrainOffset;
             instance.transform.localRotation = loc.rot;
-            instance.name = prefabName;
 
             LocationData data = instance.AddComponent<LocationData>();
             data.Location = loc;
@@ -386,7 +412,7 @@ namespace LocationLoader
                 }
             }
 
-            instance.SetActive(true);
+            SetActiveRecursively(instance);
 
             if (!sceneLoading)
             {
@@ -859,11 +885,6 @@ namespace LocationLoader
             }
 
             return region;
-        }
-
-        bool IsDynamicObject(LocationObject obj)
-        {
-            return obj.type == 2;
         }
 
         bool FindNearestCoast(LocationInstance loc, DaggerfallTerrain daggerTerrain, out Vector2Int tileCoord)

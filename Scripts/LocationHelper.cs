@@ -1654,6 +1654,11 @@ namespace LocationLoader
                 Debug.LogWarning("Editor marker name format is invalid, use 199.RECORDID");
                 return false;
             }
+            else if(type == 3)
+            {
+                // Just assume valid for now
+                return true;
+            }
             else
             {
                 Debug.LogWarning($"Invalid obj type found: {type}");
@@ -1671,7 +1676,7 @@ namespace LocationLoader
         /// <param name="rot"></param>
         /// <param name="scale"></param>
         /// <returns></returns>
-        public static GameObject LoadStaticObject(int type, string name, Transform parent, Vector3 pos, Quaternion rot, Vector3 scale, ulong locationID, int objID, ModelCombiner modelCombiner = null)
+        public static GameObject LoadStaticObject(int type, string name, Transform parent, Vector3 pos, Quaternion rot, Vector3 scale, ModelCombiner modelCombiner = null)
         {
             GameObject go = null;
             //Model
@@ -1710,7 +1715,6 @@ namespace LocationLoader
                     }
                 }
             }
-
             //Flat
             else if (type == 1)
             {

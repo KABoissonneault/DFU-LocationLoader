@@ -25,6 +25,7 @@ namespace LocationLoader
         List<string> searchListNames = new List<string>();
         List<string[]> searchListIDSets = new List<string[]>();
         Dictionary<string, string> idName = new Dictionary<string, string>();
+        Dictionary<string, LocationPrefab> prefabInfos = new Dictionary<string, LocationPrefab>();
 
         HashSet<int> usedIds = new HashSet<int>();
 
@@ -34,7 +35,7 @@ namespace LocationLoader
         int sublistMode;
         int setIndex = 0;
         Vector2 scrollPosition = Vector2.zero, scrollPosition2 = Vector2.zero, scrollPosition3 = Vector2.zero;
-        string[] listModeName = { "3D Model", "Billboard", "Editor", "Interior Parts" };
+        string[] listModeName = { "3D Model", "Billboard", "Editor", "Interior Parts", "Prefab" };
         string[] modelLists = { "All", "Structure", "Clutter", "Dungeon", "Furniture", "Graveyard" };
         string[] billboardLists = { "All", "People", "Interior", "Nature", "Lights", "Treasure", "Dungeon" };
         string[] partsLists = { "All", "House", "Dungeon Rooms", "Dungeon Corridors", "Dungeon Misc", "Caves", "Dungeon Doors/Exits" };
@@ -53,6 +54,7 @@ namespace LocationLoader
                     return 0;
                 case 1: return 1;
                 case 2: return 2;
+                case 4: return 3;
             }
             throw new Exception("GetCurrentObjectType called with invalid list mode");
         }
@@ -76,6 +78,31 @@ namespace LocationLoader
             foreach(var kvp in LocationHelper.editor)
             {
                 idName.Add(kvp.Key, kvp.Value);
+            }
+
+            string modsfolder = Path.Combine(Application.dataPath, "Game", "Mods");
+            foreach (var directory in Directory.EnumerateDirectories(modsfolder))
+            {
+                string locationPrefabs = Path.Combine(directory, "Locations", "LocationPrefab");
+                if (!Directory.Exists(locationPrefabs))
+                    continue;
+
+                foreach (var file in Directory.EnumerateFiles(locationPrefabs, "*.txt"))
+                {
+                    LocationPrefab prefab = LocationHelper.LoadLocationPrefab(file);
+                    if (prefab != null)
+                    {
+                        try
+                        {
+                            string prefabName = Path.GetFileNameWithoutExtension(file.ToLower());
+                            prefabInfos[prefabName] = prefab;
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogError(e.Message);
+                        }
+                    }
+                }
             }
 
             UpdateObjList();
@@ -522,16 +549,21 @@ namespace LocationLoader
             }
         }
 
-        private GameObject CreateObject(LocationObject locationObject)
+        private GameObject CreateObject(LocationObject locationObject, Transform objectParent = null, ModelCombiner combiner = null)
         {
             if (!LocationHelper.ValidateValue(locationObject.type, locationObject.name))
                 return null;
+
+            if(objectParent == null)
+            {
+                objectParent = parent.transform;
+            }
 
             if (locationObject.type == 2)
             {
                 string[] arg = locationObject.name.Split('.');
 
-                var newObject = GameObjectHelper.CreateDaggerfallBillboardGameObject(199, int.Parse(arg[1]), parent.transform);
+                var newObject = GameObjectHelper.CreateDaggerfallBillboardGameObject(199, int.Parse(arg[1]), objectParent);
                 newObject.transform.localPosition = locationObject.pos;
                 if (LocationHelper.editor.TryGetValue(locationObject.name, out string editorName))
                 {
@@ -543,12 +575,45 @@ namespace LocationLoader
                 }
                 return newObject;
             }
+            else if(locationObject.type == 3)
+            {
+                var newObject = new GameObject(locationObject.name);
+                newObject.transform.parent = objectParent;
+                newObject.transform.localPosition = locationObject.pos;
+
+                if (!prefabInfos.TryGetValue(locationObject.name.ToLower(), out LocationPrefab prefabInfo))
+                {
+                    newObject.name = $"Unknown prefab ({locationObject.name})";
+                }
+                else
+                {
+                    bool topPrefab = false;
+                    if(combiner == null)
+                    {
+                        combiner = new ModelCombiner();
+                        topPrefab = true;
+                    }
+                    
+                    foreach (LocationObject obj in prefabInfo.obj)
+                    {
+                        CreateObject(obj, newObject.transform, combiner);
+                    }
+
+                    if (topPrefab && combiner.VertexCount > 0)
+                    {
+                        combiner.Apply();
+                        GameObjectHelper.CreateCombinedMeshGameObject(combiner, $"{locationObject.name}_CombinedModels", newObject.transform, makeStatic: true);
+                    }
+                }
+
+                return newObject;
+            }
             else
             {
-                var newObject = LocationHelper.LoadStaticObject(locationObject.type, locationObject.name, parent.transform,
+                var newObject = LocationHelper.LoadStaticObject(locationObject.type, locationObject.name, objectParent,
                                      locationObject.pos,
                                      locationObject.rot,
-                                     locationObject.scale, 0, 0
+                                     locationObject.scale, combiner
                 );
 
                 if (newObject != null)
@@ -762,6 +827,12 @@ namespace LocationLoader
                         AddNames(LocationHelper.dungeonPartsDoors);
                         break;
                 }
+            }
+            else if(listMode == 4)
+            {
+                var prefabs = prefabInfos.Keys.Where(prefab => prefab != currentPrefabName.ToLower());
+                searchListNames.AddRange(prefabs);
+                searchListIDSets.AddRange(prefabs.Select(prefab => new string[] { prefab }));
             }
         }
 
