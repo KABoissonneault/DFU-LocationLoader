@@ -1337,6 +1337,7 @@ namespace LocationLoader
             CultureInfo cultureInfo = new CultureInfo("en-US");
 
             string[] tokens = line.Split(';', ',');
+            tokens = tokens.Select(token => token.Trim('"')).ToArray();
 
             LocationInstance tmpInst = new LocationInstance();
 
@@ -1351,14 +1352,14 @@ namespace LocationLoader
                 tmpInst.terrainY = int.Parse(tokens[terrainYIndex]);
                 tmpInst.locationID = ulong.Parse(tokens[locationIDIndex]);
 
-                if (rotWIndex.HasValue) tmpInst.rot.w = float.Parse(tokens[rotWIndex.Value], cultureInfo);
-                if (rotXIndex.HasValue) tmpInst.rot.x = float.Parse(tokens[rotXIndex.Value], cultureInfo);
-                if (rotYIndex.HasValue) tmpInst.rot.y = float.Parse(tokens[rotYIndex.Value], cultureInfo);
-                if (rotZIndex.HasValue) tmpInst.rot.z = float.Parse(tokens[rotZIndex.Value], cultureInfo);
-                if (rotXAxisIndex.HasValue) tmpInst.rot.eulerAngles = new Vector3(float.Parse(tokens[rotXAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.y, tmpInst.rot.eulerAngles.z);
-                if (rotYAxisIndex.HasValue) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, float.Parse(tokens[rotYAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.z);
-                if (rotZAxisIndex.HasValue) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, tmpInst.rot.eulerAngles.y, float.Parse(tokens[rotZAxisIndex.Value], cultureInfo));
-                if (heightOffsetIndex.HasValue) tmpInst.heightOffset = float.Parse(tokens[heightOffsetIndex.Value], cultureInfo);
+                if (rotWIndex.HasValue && !string.IsNullOrEmpty(tokens[rotWIndex.Value])) tmpInst.rot.w = float.Parse(tokens[rotWIndex.Value], cultureInfo);
+                if (rotXIndex.HasValue && !string.IsNullOrEmpty(tokens[rotXIndex.Value])) tmpInst.rot.x = float.Parse(tokens[rotXIndex.Value], cultureInfo);
+                if (rotYIndex.HasValue && !string.IsNullOrEmpty(tokens[rotYIndex.Value])) tmpInst.rot.y = float.Parse(tokens[rotYIndex.Value], cultureInfo);
+                if (rotZIndex.HasValue && !string.IsNullOrEmpty(tokens[rotZIndex.Value])) tmpInst.rot.z = float.Parse(tokens[rotZIndex.Value], cultureInfo);
+                if (rotXAxisIndex.HasValue && !string.IsNullOrEmpty(tokens[rotXAxisIndex.Value])) tmpInst.rot.eulerAngles = new Vector3(float.Parse(tokens[rotXAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.y, tmpInst.rot.eulerAngles.z);
+                if (rotYAxisIndex.HasValue && !string.IsNullOrEmpty(tokens[rotYAxisIndex.Value])) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, float.Parse(tokens[rotYAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.z);
+                if (rotZAxisIndex.HasValue && !string.IsNullOrEmpty(tokens[rotZAxisIndex.Value])) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, tmpInst.rot.eulerAngles.y, float.Parse(tokens[rotZAxisIndex.Value], cultureInfo));
+                if (heightOffsetIndex.HasValue && !string.IsNullOrEmpty(tokens[heightOffsetIndex.Value])) tmpInst.heightOffset = float.Parse(tokens[heightOffsetIndex.Value], cultureInfo);
             }
             catch (Exception e)
             {
