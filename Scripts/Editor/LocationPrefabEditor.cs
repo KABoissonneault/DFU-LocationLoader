@@ -17,7 +17,7 @@ namespace LocationLoader
         const float mapPixelSize = 800f;
         const float terrainTileSize = mapPixelSize / 128f;
 
-        GameObject parent, ground, areaReference;
+        GameObject parent, ground, areaReference, preview;
         List<GameObject> objScene = new List<GameObject>();
 
         string searchField = "";
@@ -120,12 +120,23 @@ namespace LocationLoader
                 if (parent != null && !parent.activeSelf)
                     parent.SetActive(true);
 
+                if (preview != null)
+                    DestroyImmediate(preview);
+                
                 EditLocationWindow();
             }
             else if (editMode == EditMode.ObjectPicker)
             {
                 if (parent != null && parent.activeSelf)
                     parent.SetActive(false);
+
+                if (preview == null)
+                {
+                    UpdatePreview();
+                }
+
+                if (!preview.activeSelf)
+                    preview.SetActive(true);
 
                 ObjectPickerWindow();
             }
@@ -309,7 +320,7 @@ namespace LocationLoader
 
                                         // Replace object
                                         DestroyImmediate(sceneObj);
-                                        sceneObj = objScene[i] = CreateObject(obj);
+                                        sceneObj = objScene[i] = CreateObject(obj, parent.transform);
                                         Selection.activeGameObject = sceneObj;
                                     }
 
@@ -332,7 +343,7 @@ namespace LocationLoader
 
                                         // Replace object
                                         DestroyImmediate(sceneObj);
-                                        sceneObj = objScene[i] = CreateObject(obj);
+                                        sceneObj = objScene[i] = CreateObject(obj, parent.transform);
                                         Selection.activeGameObject = sceneObj;
                                     }
                                 }
@@ -433,27 +444,50 @@ namespace LocationLoader
         {
             listMode = GUI.SelectionGrid(new Rect(16, 8, listModeName.Length * 100, 20), listMode, listModeName, listModeName.Length);
             if (GUI.changed)
+            {
                 sublistMode = 0;
+                objectPicker = 0;
+                setIndex = 0;
+                UpdateObjList();
+                UpdatePreview();
+                GUI.changed = false;
+            }
 
-            if(listMode == 0)
+            if (listMode == 0)
                 sublistMode = GUI.SelectionGrid(new Rect(16, 42, modelLists.Length * 100, 16), sublistMode, modelLists, modelLists.Length);
             else if (listMode == 1)
                 sublistMode = GUI.SelectionGrid(new Rect(16, 42, billboardLists.Length * 100, 16), sublistMode, billboardLists, billboardLists.Length);
             else if(listMode == 3)
                 sublistMode = GUI.SelectionGrid(new Rect(16, 42, partsLists.Length * 130, 16), sublistMode, partsLists, partsLists.Length);
 
+            if (GUI.changed)
+            {
+                objectPicker = 0;
+                setIndex = 0;
+                UpdateObjList();
+                UpdatePreview();
+                GUI.changed = false;
+            }
+
             GUI.Label(new Rect(new Rect(4, 72, 64, 16)), "Search: ");
             searchField = EditorGUI.TextField(new Rect(70, 72, 156, 16), searchField);
 
             if (GUI.changed)
+            {
                 UpdateObjList();
+                GUI.changed = false;
+            }
 
             scrollPosition2 = GUI.BeginScrollView(new Rect(4, 96, 256, 472), scrollPosition2, new Rect(0, 0, 236, 20 + (searchListNames.Count * 24)));
 
             int previousObjectPicker = objectPicker;
             objectPicker = GUI.SelectionGrid(new Rect(10, 10, 216, searchListNames.Count * 24), previousObjectPicker, searchListNames.ToArray(), 1);
             if (GUI.changed)
+            {
                 setIndex = 0;
+                UpdatePreview();
+                GUI.changed = false;
+            }
 
             GUI.EndScrollView();
 
@@ -498,6 +532,8 @@ namespace LocationLoader
                             setIndex = currentSetIds.Length - 1;
                         else
                             setIndex = setIndex - 1;
+
+                        UpdatePreview();
                     }
 
                     if(setIndex + 1 < 10)
@@ -514,6 +550,8 @@ namespace LocationLoader
                             setIndex = 0;
                         else
                             setIndex = setIndex + 1;
+
+                        UpdatePreview();
                     }
                 }
             }
@@ -549,15 +587,10 @@ namespace LocationLoader
             }
         }
 
-        private GameObject CreateObject(LocationObject locationObject, Transform objectParent = null, ModelCombiner combiner = null)
+        private GameObject CreateObject(LocationObject locationObject, Transform objectParent, ModelCombiner combiner = null)
         {
             if (!LocationHelper.ValidateValue(locationObject.type, locationObject.name))
                 return null;
-
-            if(objectParent == null)
-            {
-                objectParent = parent.transform;
-            }
 
             if (locationObject.type == 2)
             {
@@ -653,9 +686,23 @@ namespace LocationLoader
             }
         }
 
+        private void UpdatePreview()
+        {
+            if (preview != null)
+                DestroyImmediate(preview);
+
+            LocationObject previewObject = new LocationObject();
+
+            previewObject.type = GetCurrentObjectType();
+            previewObject.name = searchListIDSets[objectPicker][setIndex];
+
+            preview = CreateObject(previewObject, null);
+            preview.name = "Location Prefab Object Preview";
+        }
+
         private void AddObject(LocationObject locationObject, bool selectNew)
         {
-            GameObject newObject = CreateObject(locationObject);            
+            GameObject newObject = CreateObject(locationObject, parent.transform);            
 
             if (newObject != null)
             {
@@ -849,6 +896,9 @@ namespace LocationLoader
         {
             if (parent != null)
                 DestroyImmediate(parent);
+
+            if (preview != null)
+                DestroyImmediate(preview);
         }
     }
 #endif
