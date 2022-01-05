@@ -303,16 +303,16 @@ namespace LocationLoader
         }
 
         Vector3 GetLocationPosition(LocationInstance loc, DaggerfallTerrain daggerTerrain)
-        {
-            float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * daggerTerrain.TerrainScale;
-            Vector3 ret = new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax + loc.heightOffset, loc.terrainY * TERRAIN_SIZE_MULTI);
-            // Put type 2 instances at sea level
+        {            
             if (loc.type == 2)
             {
-                float oceanElevation = DaggerfallUnity.Instance.TerrainSampler.OceanElevation * daggerTerrain.TerrainScale;
-                ret.y = oceanElevation - daggerTerrain.gameObject.transform.position.y;
+                return new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, DaggerfallUnity.Instance.TerrainSampler.OceanElevation * daggerTerrain.TerrainScale, loc.terrainY * TERRAIN_SIZE_MULTI);
             }
-            return ret;
+            else
+            {
+                float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * daggerTerrain.TerrainScale;
+                return new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax + loc.heightOffset, loc.terrainY * TERRAIN_SIZE_MULTI);
+            }
         }
 
         GameObject CreatePrefabTemplate(string prefabName, LocationPrefab locationPrefab, Transform prefabParent, ModelCombiner combiner=null)
