@@ -734,7 +734,7 @@ namespace LocationLoader
                     int halfWidth = (locationPrefab.width + 1) / 2;
                     int halfHeight = (locationPrefab.height + 1) / 2;
 
-                    if (loc.type == 0)
+                    if (loc.type == 0 || loc.type == 2)
                     {
                         if (loc.terrainX + halfWidth > 128
                             || loc.terrainY + halfHeight > 128

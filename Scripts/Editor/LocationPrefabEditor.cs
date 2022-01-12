@@ -34,6 +34,7 @@ namespace LocationLoader
         int listMode;
         int sublistMode;
         int setIndex = 0;
+        int maxAreaLength = 128;
         Vector2 scrollPosition = Vector2.zero, scrollPosition2 = Vector2.zero, scrollPosition3 = Vector2.zero;
         string[] listModeName = { "3D Model", "Billboard", "Editor", "Interior Parts", "Prefab" };
         string[] modelLists = { "All", "Structure", "Clutter", "Dungeon", "Furniture", "Graveyard" };
@@ -154,6 +155,8 @@ namespace LocationLoader
                 parent = new GameObject("Location Prefab");
                 Selection.activeGameObject = parent;
                 currentPrefabName = "";
+
+                maxAreaLength = 128;
             }
 
             if (GUI.Button(Rect_SaveFile, "Save Prefab"))
@@ -200,6 +203,8 @@ namespace LocationLoader
 
                 Selection.activeGameObject = parent;
                 currentPrefabName = Path.GetFileName(path);
+
+                maxAreaLength = Math.Min(Math.Max(Math.Max(128, locationPrefab.width), locationPrefab.height), 9999);
             }
 
             if (parent != null && locationPrefab != null)
@@ -209,20 +214,40 @@ namespace LocationLoader
                     CreateGUIStyles();
                 }
 
-                GUI.Box(new Rect(4, 32, 516, 56), "", lightGrayBG);
+                GUI.Box(new Rect(4, 32, 656, 56), "", lightGrayBG);
                                 
                 GUI.Label(new Rect(16, 40, 64, 16), "Area X:");
                 int previousWidth = locationPrefab.width;
-                locationPrefab.width = EditorGUI.IntSlider(new Rect(90, 40, 400, 16), previousWidth, 1, 126);
+                locationPrefab.width = EditorGUI.IntSlider(new Rect(90, 40, 400, 16), previousWidth, 1, maxAreaLength);
 
                 GUI.Label(new Rect(16, 64, 64, 16), "Area Y:");
                 int previousHeight = locationPrefab.height;
-                locationPrefab.height = EditorGUI.IntSlider(new Rect(90, 64, 400, 16), previousHeight, 1, 126);
-
-                if(areaReference != null && (previousWidth != locationPrefab.width || previousHeight != locationPrefab.height))
+                locationPrefab.height = EditorGUI.IntSlider(new Rect(90, 64, 400, 16), previousHeight, 1, maxAreaLength);
+                                
+                if(areaReference != null && GUI.changed)
                 {
                     BoxCollider box = areaReference.GetComponent<BoxCollider>();
                     box.size = new Vector3(locationPrefab.width * terrainTileSize, 50f, locationPrefab.height * terrainTileSize);
+                    GUI.changed = false;
+                }
+
+                GUI.Label(new Rect(498, 40, 80, 16), "Max Length:");
+                string maxAreaLengthText = GUI.TextField(new Rect(586, 40, 64, 16), maxAreaLength.ToString(), 4);
+                if(GUI.changed)
+                {
+                    if(int.TryParse(maxAreaLengthText, out int parsedMaxAreaLength))
+                    {
+                        if(parsedMaxAreaLength < 0)
+                        {
+                            maxAreaLength = 0;
+                        }
+                        else
+                        {
+                            maxAreaLength = parsedMaxAreaLength;
+                        }
+                    }
+                    
+                    GUI.changed = false;
                 }
 
                 scrollPosition = GUI.BeginScrollView(new Rect(2, 128, 532, 512), scrollPosition, new Rect(0, 0, 512, 20 + ((objScene.Count+1) * 60)),false, true);
