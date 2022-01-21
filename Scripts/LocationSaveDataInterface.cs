@@ -551,7 +551,9 @@ namespace LocationLoader
 
         void ReloadActiveInstances(EnemyData_v1[] enemies)
         {
-            foreach (var loot in activeLootSerializers.Values)
+            // Copy collection since empty loot might get deregistered in the process
+            var currentSerializers = activeLootSerializers.Values.ToArray();
+            foreach (var loot in currentSerializers)
             {
                 TryDeserializeLoot(loot);
             }
