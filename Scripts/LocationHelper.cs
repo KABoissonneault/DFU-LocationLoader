@@ -1176,6 +1176,26 @@ namespace LocationLoader
             }
         }
 
+        static Regex CsvSplit = new Regex("(?:^|,)(\"(?:[^\"])*\"|[^,]*)", RegexOptions.Compiled);
+
+        static string[] SplitCsvLine(string line)
+        {
+            List<string> list = new List<string>();
+            string curr = null;
+            foreach (Match match in CsvSplit.Matches(line))
+            {
+                curr = match.Value;
+                if (0 == curr.Length)
+                {
+                    list.Add("");
+                }
+
+                list.Add(curr.TrimStart(',', ';').Trim('\"'));
+            }
+
+            return list.ToArray();
+        }
+
         public static IEnumerable<LocationInstance> LoadLocationInstanceCsv(TextReader csvStream, string contextString)
         {
             string header = csvStream.ReadLine();
@@ -1241,9 +1261,8 @@ namespace LocationLoader
             {
                 ++lineNumber;
                 string line = csvStream.ReadLine();
-                string[] tokens = line.Split(';', ',');
 
-                tokens = tokens.Select(token => token.Trim('"')).ToArray();
+                string[] tokens = SplitCsvLine(line);
 
                 LocationInstance tmpInst = new LocationInstance();
 
@@ -1336,8 +1355,7 @@ namespace LocationLoader
 
             CultureInfo cultureInfo = new CultureInfo("en-US");
 
-            string[] tokens = line.Split(';', ',');
-            tokens = tokens.Select(token => token.Trim('"')).ToArray();
+            string[] tokens = SplitCsvLine(line);
 
             LocationInstance tmpInst = new LocationInstance();
 
