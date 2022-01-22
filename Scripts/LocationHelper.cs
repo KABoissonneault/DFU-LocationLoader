@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Xml;
 using System.Linq;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
