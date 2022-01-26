@@ -697,7 +697,24 @@ namespace LocationLoader
             if(regionIndex != -1)
             {
                 CacheRegionInstances(regionIndex);
-            }            
+            }
+
+            // Terrain can be reused in terrain mods (ex: Distant Terrain)
+            // Delete existing locations left on reused terrain
+            foreach(var existingLoot in daggerTerrain.GetComponentsInChildren<LocationLootSerializer>())
+            {
+                existingLoot.InvalidateSave();
+            }
+
+            foreach (var existingEnemy in daggerTerrain.GetComponentsInChildren<LocationEnemySerializer>())
+            {
+                existingEnemy.InvalidateSave();
+            }
+
+            foreach (var existingLocation in daggerTerrain.GetComponentsInChildren<LocationData>())
+            {
+                Destroy(existingLocation.gameObject);
+            }
 
             // Spawn the terrain's instances
             if (worldPixelInstances.TryGetValue(worldLocation, out List<LocationInstance> locationInstances))

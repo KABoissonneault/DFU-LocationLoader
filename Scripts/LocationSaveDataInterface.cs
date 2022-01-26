@@ -99,13 +99,27 @@ namespace LocationLoader
             worldCompensation = GameManager.Instance.StreamingWorld.WorldCompensation;
         }
 
+        public void InvalidateSave()
+        {
+            if (LoadID != 0)
+            {
+                if (LocationModLoader.modObject != null)
+                {
+                    var saveDataInterface = GetSaveDataInterface();
+                    // Don't serialize, this is used for when invalid loot is loaded on reused terrain
+                    saveDataInterface.DeregisterActiveSerializer(this);
+                }
+                loot = null;
+            }
+        }
+
         LocationSaveDataInterface GetSaveDataInterface()
         {
             return LocationModLoader.modObject.GetComponent<LocationSaveDataInterface>();
         }
-
+        
         #region ISerializableGameObject
-        public ulong LoadID { get { return loot.LoadID; } }
+        public ulong LoadID { get { return loot ? loot.LoadID : 0; } }
         public bool ShouldSave { get { return true; } }
 
         public object GetSaveData()
@@ -268,6 +282,20 @@ namespace LocationLoader
         LocationSaveDataInterface GetSaveDataInterface()
         {
             return LocationModLoader.modObject.GetComponent<LocationSaveDataInterface>();
+        }
+
+        public void InvalidateSave()
+        {
+            if (LoadID != 0)
+            {
+                if (LocationModLoader.modObject != null)
+                {
+                    var saveDataInterface = GetSaveDataInterface();
+                    // Don't serialize, this is used for when invalid loot is loaded on reused terrain
+                    saveDataInterface.DeregisterActiveSerializer(this);
+                }
+                enemy = null;
+            }
         }
 
         #region ISerializableGameObject

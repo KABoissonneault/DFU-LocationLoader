@@ -124,13 +124,6 @@ namespace LocationLoader
             get { return HalfHeight * 2; }
         }
 
-        private void OnDisable()
-        {
-            // Distant Terrain likes disabling terrain gameobjects to pool and reuse them
-            // We gotta remove this component though, along with all its children
-            Destroy(gameObject);
-        }
-
         public IEnumerable<WorldArea> GetOverlappingWorldAreas()
         {
             if (Type == 1)
