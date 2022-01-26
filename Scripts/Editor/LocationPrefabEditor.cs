@@ -136,7 +136,7 @@ namespace LocationLoader
                     UpdatePreview();
                 }
 
-                if (!preview.activeSelf)
+                if (preview != null && !preview.activeSelf)
                     preview.SetActive(true);
 
                 ObjectPickerWindow();
@@ -499,7 +499,10 @@ namespace LocationLoader
 
             if (GUI.changed)
             {
+                objectPicker = 0;
+                setIndex = 0;
                 UpdateObjList();
+                UpdatePreview();
                 GUI.changed = false;
             }
 
@@ -548,35 +551,38 @@ namespace LocationLoader
             }
             else
             {
-                string[] currentSetIds = searchListIDSets[objectPicker];
-                if (currentSetIds.Length > 1)
+                if (searchListIDSets.Count > 0)
                 {
-                    if(GUI.Button(new Rect(60, 582, 16, 16), "<"))
+                    string[] currentSetIds = searchListIDSets[objectPicker];
+                    if (currentSetIds.Length > 1)
                     {
-                        if (setIndex == 0)
-                            setIndex = currentSetIds.Length - 1;
+                        if (GUI.Button(new Rect(60, 582, 16, 16), "<"))
+                        {
+                            if (setIndex == 0)
+                                setIndex = currentSetIds.Length - 1;
+                            else
+                                setIndex = setIndex - 1;
+
+                            UpdatePreview();
+                        }
+
+                        if (setIndex + 1 < 10)
+                            GUI.Label(new Rect(98, 582, 12, 16), (setIndex + 1).ToString());
                         else
-                            setIndex = setIndex - 1;
+                            GUI.Label(new Rect(92, 582, 24, 16), (setIndex + 1).ToString());
 
-                        UpdatePreview();
-                    }
+                        GUI.Label(new Rect(116, 582, 12, 16), "/");
+                        GUI.Label(new Rect(128, 582, 24, 16), currentSetIds.Length.ToString());
 
-                    if(setIndex + 1 < 10)
-                        GUI.Label(new Rect(98, 582, 12, 16), (setIndex + 1).ToString());
-                    else
-                        GUI.Label(new Rect(92, 582, 24, 16), (setIndex + 1).ToString());
+                        if (GUI.Button(new Rect(160, 582, 16, 16), ">"))
+                        {
+                            if (setIndex == currentSetIds.Length - 1)
+                                setIndex = 0;
+                            else
+                                setIndex = setIndex + 1;
 
-                    GUI.Label(new Rect(116, 582, 12, 16), "/");
-                    GUI.Label(new Rect(128, 582, 24, 16), currentSetIds.Length.ToString());
-
-                    if (GUI.Button(new Rect(160, 582, 16, 16), ">"))
-                    {
-                        if (setIndex == currentSetIds.Length - 1)
-                            setIndex = 0;
-                        else
-                            setIndex = setIndex + 1;
-
-                        UpdatePreview();
+                            UpdatePreview();
+                        }
                     }
                 }
             }
@@ -714,15 +720,21 @@ namespace LocationLoader
         private void UpdatePreview()
         {
             if (preview != null)
+            {
                 DestroyImmediate(preview);
+                preview = null;
+            }
 
-            LocationObject previewObject = new LocationObject();
+            if (searchListIDSets.Count > 0)
+            {
+                LocationObject previewObject = new LocationObject();
 
-            previewObject.type = GetCurrentObjectType();
-            previewObject.name = searchListIDSets[objectPicker][setIndex];
+                previewObject.type = GetCurrentObjectType();
+                previewObject.name = searchListIDSets[objectPicker][setIndex];
 
-            preview = CreateObject(previewObject, null);
-            preview.name = "Location Prefab Object Preview";
+                preview = CreateObject(previewObject, null);
+                preview.name = "Location Prefab Object Preview";
+            }
         }
 
         private void AddObject(LocationObject locationObject, bool selectNew)
