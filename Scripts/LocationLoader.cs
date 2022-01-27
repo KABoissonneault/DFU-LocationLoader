@@ -721,11 +721,14 @@ namespace LocationLoader
             {
                 foreach (LocationInstance loc in locationInstances)
                 {
+
+                    string context = $"location=\"{loc.name}\"";
+
                     if (daggerTerrain.MapData.hasLocation)
                     {
                         if (loc.type == 0)
                         {
-                            Debug.LogWarning("Location Already Present " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
+                            Debug.LogWarning($"Location already present at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");
                             continue;
                         }
                     }
@@ -738,7 +741,7 @@ namespace LocationLoader
                     {
                         if (loc.type == 0)
                         {
-                            Debug.LogWarning("Location is in Ocean " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY);
+                            Debug.LogWarning($"Location is in Ocean at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");
                             continue;
                         }
                     }
