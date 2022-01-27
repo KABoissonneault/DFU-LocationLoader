@@ -40,6 +40,10 @@ namespace LocationLoader
         string[] modelLists = { "All", "Structure", "Clutter", "Dungeon", "Furniture", "Graveyard" };
         string[] billboardLists = { "All", "People", "Interior", "Nature", "Lights", "Treasure", "Dungeon" };
         string[] partsLists = { "All", "House", "Dungeon Rooms", "Dungeon Corridors", "Dungeon Misc", "Caves", "Dungeon Doors/Exits" };
+        Vector3 locationCameraPivot;
+        Quaternion locationCameraRotation = Quaternion.identity;
+        float locationCameraSize = 10.0f;
+        Vector3 locationTargetPosition;
 
         string extraData = "";
         List<string> dataIDFields = new List<string>();
@@ -119,7 +123,9 @@ namespace LocationLoader
             if (editMode == EditMode.EditLocation)
             {
                 if (parent != null && !parent.activeSelf)
+                {
                     parent.SetActive(true);
+                }
 
                 if (preview != null)
                     DestroyImmediate(preview);
@@ -129,7 +135,9 @@ namespace LocationLoader
             else if (editMode == EditMode.ObjectPicker)
             {
                 if (parent != null && parent.activeSelf)
+                {
                     parent.SetActive(false);
+                }
 
                 if (preview == null)
                 {
@@ -137,7 +145,9 @@ namespace LocationLoader
                 }
 
                 if (preview != null && !preview.activeSelf)
+                {
                     preview.SetActive(true);
+                }
 
                 ObjectPickerWindow();
             }
@@ -155,6 +165,8 @@ namespace LocationLoader
                 parent = new GameObject("Location Prefab");
                 Selection.activeGameObject = parent;
                 currentPrefabName = "";
+
+                SceneView.lastActiveSceneView.FrameSelected();
 
                 maxAreaLength = 128;
             }
@@ -202,6 +214,8 @@ namespace LocationLoader
                 }
 
                 Selection.activeGameObject = parent;
+                SceneView.lastActiveSceneView.FrameSelected();
+
                 currentPrefabName = Path.GetFileName(path);
 
                 maxAreaLength = Math.Min(Math.Max(Math.Max(128, locationPrefab.width), locationPrefab.height), 9999);
@@ -396,6 +410,14 @@ namespace LocationLoader
 
                 if (GUI.Button(new Rect(6, 10 + (objScene.Count * 60), 496, 52), "Add New Object"))
                 {
+                    var camera = SceneView.lastActiveSceneView.camera;
+
+                    // Store current camera
+                    locationCameraPivot = SceneView.lastActiveSceneView.pivot;
+                    locationCameraRotation = SceneView.lastActiveSceneView.rotation;
+                    locationCameraSize = SceneView.lastActiveSceneView.size;
+                    locationTargetPosition = locationCameraPivot;
+                                       
                     editMode = EditMode.ObjectPicker;
                 }
 
@@ -607,13 +629,28 @@ namespace LocationLoader
 
                 obj.objectID = newID;
                 obj.extraData = extraData;
+                
+                // Restore old camera
+                SceneView.lastActiveSceneView.pivot = locationCameraPivot;
+                SceneView.lastActiveSceneView.rotation = locationCameraRotation;
+                SceneView.lastActiveSceneView.size = locationCameraSize;
+
+                // Set scene active for collision detection
+                obj.pos = locationTargetPosition;
+
                 AddObject(obj, selectNew: true);
                 //locationPrefab.obj.Sort((a, b) => a.objectID.CompareTo(b.objectID));
+
                 editMode = EditMode.EditLocation;
             }
 
             if (GUI.Button(new Rect(128, 612, 96, 20), "Cancel"))
             {
+                // Restore old camera
+                SceneView.lastActiveSceneView.pivot = locationCameraPivot;
+                SceneView.lastActiveSceneView.rotation = locationCameraRotation;
+                SceneView.lastActiveSceneView.size = locationCameraSize;
+
                 editMode = EditMode.EditLocation;
             }
         }
@@ -733,7 +770,10 @@ namespace LocationLoader
                 previewObject.name = searchListIDSets[objectPicker][setIndex];
 
                 preview = CreateObject(previewObject, null);
+                preview.layer = 2; // Ignore raycast 
                 preview.name = "Location Prefab Object Preview";
+
+                SceneView.lastActiveSceneView.Frame(preview.GetComponent<Renderer>().bounds);
             }
         }
 
@@ -924,6 +964,7 @@ namespace LocationLoader
         {
             if(parent != null)
             {
+                Selection.activeObject = null;
                 DestroyImmediate(parent);
                 parent = null;
             }
