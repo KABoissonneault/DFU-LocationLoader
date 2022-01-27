@@ -179,7 +179,8 @@ namespace LocationLoader
                     continue;
 
                 // Refine to closest marker
-                Vector3 markerPos = transform.position + obj.pos;
+                
+                Vector3 markerPos = transform.position + Location.rot * obj.pos;
                 float distance = Vector3.Distance(sourcePos, markerPos);
                 if (distance < minDistance || !foundOne)
                 {
