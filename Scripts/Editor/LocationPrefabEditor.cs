@@ -703,7 +703,10 @@ namespace LocationLoader
                     if (topPrefab && combiner.VertexCount > 0)
                     {
                         combiner.Apply();
-                        GameObjectHelper.CreateCombinedMeshGameObject(combiner, $"{locationObject.name}_CombinedModels", newObject.transform, makeStatic: true);
+                        var go = GameObjectHelper.CreateCombinedMeshGameObject(combiner, $"{locationObject.name}_CombinedModels", newObject.transform, makeStatic: true);
+                        go.transform.localPosition = Vector3.zero; // Assigning the parent kept the world position at 0, rather than relative
+                        go.transform.localRotation = Quaternion.identity;
+                        go.transform.localScale = Vector3.one;
                     }
                 }
 
