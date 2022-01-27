@@ -773,7 +773,11 @@ namespace LocationLoader
                 preview.layer = 2; // Ignore raycast 
                 preview.name = "Location Prefab Object Preview";
 
-                SceneView.lastActiveSceneView.Frame(preview.GetComponent<Renderer>().bounds);
+                var renderer = preview.GetComponent<Renderer>();
+                if (renderer == null)
+                    renderer = preview.GetComponentInChildren<Renderer>();
+
+                SceneView.lastActiveSceneView.Frame(renderer.bounds);
             }
         }
 
