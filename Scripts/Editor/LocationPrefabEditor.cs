@@ -120,6 +120,14 @@ namespace LocationLoader
 
         void OnGUI()
         {
+            if (Selection.activeGameObject != null)
+            {
+                while (Selection.activeGameObject.tag == DaggerfallUnity.staticGeometryTag && Selection.activeGameObject.name.EndsWith("_CombinedModels"))
+                {
+                    Selection.activeGameObject = Selection.activeGameObject.transform.parent.gameObject;
+                }
+            }
+
             if (editMode == EditMode.EditLocation)
             {
                 if (parent != null && !parent.activeSelf)
@@ -293,7 +301,7 @@ namespace LocationLoader
                         obj.pos = new Vector3(scenePos.x, scenePos.y - (billboardHeight / 2) * sceneObj.transform.localScale.y, scenePos.z);
                     }
 
-                    if(obj.type == 0)
+                    if(obj.type == 0 || obj.type == 3)
                         obj.rot = sceneObj.transform.rotation;
                     obj.scale = sceneObj.transform.localScale;
 
@@ -309,7 +317,7 @@ namespace LocationLoader
                     GUI.Label(new Rect(2, 36, 128, 16), "ID: " + obj.objectID);
 
                     GUI.Label(new Rect(136, 4, 256, 16), "Position : " + obj.pos);
-                    if(obj.type == 0)
+                    if(obj.type == 0 || obj.type == 3)
                         GUI.Label(new Rect(136, 20, 256, 16), "Rotation : " + obj.rot.eulerAngles);
                     GUI.Label(new Rect(136, 36, 256, 16), "Scale    : " + obj.scale);
 
@@ -681,6 +689,8 @@ namespace LocationLoader
                 var newObject = new GameObject(locationObject.name);
                 newObject.transform.parent = objectParent;
                 newObject.transform.localPosition = locationObject.pos;
+                newObject.transform.localRotation = locationObject.rot;
+                newObject.transform.localScale = locationObject.scale;
 
                 if (!prefabInfos.TryGetValue(locationObject.name.ToLower(), out LocationPrefab prefabInfo))
                 {

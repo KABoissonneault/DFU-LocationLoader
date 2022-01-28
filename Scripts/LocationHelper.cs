@@ -1506,7 +1506,7 @@ namespace LocationLoader
                     obj.scale.y = float.Parse(objectNode["scaleY"].InnerXml, cultureInfo);
                     obj.scale.z = float.Parse(objectNode["scaleZ"].InnerXml, cultureInfo);
 
-                    if (obj.type == 0)
+                    if (obj.type == 0 || obj.type == 3)
                     {
                         obj.rot.w = float.Parse(objectNode["rotW"].InnerXml, cultureInfo);
                         obj.rot.x = float.Parse(objectNode["rotX"].InnerXml, cultureInfo);
@@ -1570,7 +1570,7 @@ namespace LocationLoader
                     writer.WriteLine("\t\t<extraData>" + obj.extraData + "</extraData>");
                 }
 
-                if (obj.type == 0)
+                if (obj.type == 0 || obj.type == 3)
                 {
                     writer.WriteLine("\t\t<rotW>" + obj.rot.w.ToString(cultureInfo) + "</rotW>");
                     writer.WriteLine("\t\t<rotX>" + obj.rot.x.ToString(cultureInfo) + "</rotX>");
