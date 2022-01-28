@@ -1516,7 +1516,6 @@ namespace LocationLoader
                         if (node != null)
                             obj.rot.x = float.Parse(node.InnerXml, cultureInfo);
 
-
                         node = objectNode["rotY"];
                         if (node != null)
                             obj.rot.y = float.Parse(node.InnerXml, cultureInfo);

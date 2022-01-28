@@ -365,8 +365,8 @@ namespace LocationLoader
                         Debug.LogError($"Could not find prefab '{obj.name}' while instanciating prefab '{prefabName}'");
                         continue;
                     }
-
-                    GameObject subPrefab = CreatePrefabTemplate(obj.name, objPrefabInfo, prefabObject.transform, combiner);
+                                        
+                    GameObject subPrefab = CreatePrefabInstance(obj.name, objPrefabInfo, prefabObject.transform);
                     subPrefab.transform.localPosition = obj.pos;
                     subPrefab.transform.localRotation = obj.rot;
                     subPrefab.transform.localScale = obj.scale;
@@ -376,13 +376,16 @@ namespace LocationLoader
             if (topCombiner && combiner.VertexCount > 0)
             {
                 combiner.Apply();
-                GameObjectHelper.CreateCombinedMeshGameObject(combiner, $"{prefabName}_CombinedModels", templateTransform, makeStatic: true);
+                var go = GameObjectHelper.CreateCombinedMeshGameObject(combiner, $"{prefabName}_CombinedModels", templateTransform, makeStatic: true);
+                go.transform.localPosition = Vector3.zero;
+                go.transform.localRotation = Quaternion.identity;
+                go.transform.localScale = Vector3.one;
             }
 
             return prefabObject;
         }
 
-        GameObject CreatePrefabInstance(string prefabName, LocationPrefab locationPrefab, Transform prefabParent)
+        GameObject GetPrefabTemplate(string prefabName, LocationPrefab locationPrefab)
         {
             // If it's the first time loading this prefab, load the non-dynamic objects into a template
             GameObject prefabObject;
@@ -391,6 +394,12 @@ namespace LocationLoader
                 prefabObject = CreatePrefabTemplate(prefabName, locationPrefab, transform);
                 prefabTemplates.Add(prefabName, prefabObject);
             }
+            return prefabObject;
+        }
+
+        GameObject CreatePrefabInstance(string prefabName, LocationPrefab locationPrefab, Transform prefabParent)
+        {
+            GameObject prefabObject = GetPrefabTemplate(prefabName, locationPrefab);
                         
             GameObject instance = Instantiate(prefabObject, new Vector3(), Quaternion.identity, prefabParent);
             instance.name = prefabName;
