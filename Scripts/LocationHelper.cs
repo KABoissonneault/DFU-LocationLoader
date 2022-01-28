@@ -1508,10 +1508,22 @@ namespace LocationLoader
 
                     if (obj.type == 0 || obj.type == 3)
                     {
-                        obj.rot.w = float.Parse(objectNode["rotW"].InnerXml, cultureInfo);
-                        obj.rot.x = float.Parse(objectNode["rotX"].InnerXml, cultureInfo);
-                        obj.rot.y = float.Parse(objectNode["rotY"].InnerXml, cultureInfo);
-                        obj.rot.z = float.Parse(objectNode["rotZ"].InnerXml, cultureInfo);
+                        var node = objectNode["rotW"];
+                        if(node != null)
+                            obj.rot.w = float.Parse(node.InnerXml, cultureInfo);
+
+                        node = objectNode["rotX"];
+                        if (node != null)
+                            obj.rot.x = float.Parse(node.InnerXml, cultureInfo);
+
+
+                        node = objectNode["rotY"];
+                        if (node != null)
+                            obj.rot.y = float.Parse(node.InnerXml, cultureInfo);
+
+                        node = objectNode["rotZ"];
+                        if (node != null)
+                            obj.rot.z = float.Parse(node.InnerXml, cultureInfo);
                     }
 
                     var extraDataNode = objectNode["extraData"];
