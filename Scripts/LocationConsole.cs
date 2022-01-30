@@ -1,3 +1,4 @@
+using DaggerfallConnect;
 using DaggerfallConnect.Arena2;
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
@@ -8,6 +9,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using Wenzil.Console;
+using static DaggerfallWorkshop.Utility.ContentReader;
 
 namespace LocationLoader
 {
@@ -22,6 +24,9 @@ namespace LocationLoader
 
             ConsoleCommandsDatabase.RegisterCommand("LLDumpTerrainSamples", "Dumps all height samples for the specified terrain in a CSV"
                 , "LLDumpTerrainSamples <worldX> <worldY> <filename>", DumpTerrainSamples);
+
+            ConsoleCommandsDatabase.RegisterCommand("LLDumpDockLocations", "Dumps all the type 2 locations in the game, and what city they're close to",
+                "LLDumpDockLocations --mod=<modname> --file=<modfile>", DumpDockLocations);
         }
 
 #if UNITY_EDITOR
@@ -445,7 +450,197 @@ namespace LocationLoader
             return "Success";
         }
 
+        static string DumpDockLocations(string[] Args)
+        {
+            string modName = null;
+            string fileName = null;
 
+            bool parsingQuotedArg = false;
+            StringBuilder quotedString = null;
+
+            StringBuilder modNameBuilder = null;
+            StringBuilder fileNameBuilder = null;
+
+            foreach (string Arg in Args)
+            {
+                if (parsingQuotedArg)
+                {
+                    string ArgValue = Arg;
+                    if (Arg.EndsWith("\""))
+                    {
+                        parsingQuotedArg = false;
+                        ArgValue = Arg.Substring(0, Arg.Length - 1);
+                    }
+
+                    quotedString.Append(" ").Append(ArgValue);
+                }
+                else if (Arg.StartsWith("--mod="))
+                {
+                    string value = Arg.Replace("--mod=", "");
+                    if (value.StartsWith("\""))
+                    {
+                        quotedString = modNameBuilder = new StringBuilder(value.Substring(1));
+                        parsingQuotedArg = true;
+                    }
+                    else
+                    {
+                        modName = value;
+                    }
+                }
+                else if (Arg.StartsWith("--file="))
+                {
+                    string value = Arg.Replace("--file=", "");
+                    if (value.StartsWith("\""))
+                    {
+                        quotedString = fileNameBuilder = new StringBuilder(value.Substring(1));
+                        parsingQuotedArg = true;
+                    }
+                    else
+                    {
+                        fileName = value;
+                    }
+                }
+                else
+                {
+                    return $"Unknown argument '{Arg}'";
+                }
+            }
+
+            if (modNameBuilder != null && modNameBuilder.Length > 0)
+            {
+                modName = modNameBuilder.ToString();
+            }
+
+            if (fileNameBuilder != null && fileNameBuilder.Length > 0)
+            {
+                fileName = fileNameBuilder.ToString();
+            }
+
+            if (string.IsNullOrEmpty(modName))
+            {
+                return $"Loose files not yet supported. Specify a mod with --mod=<mod name>";
+            }
+
+            Mod mod = ModManager.Instance.GetMod(modName);
+            if (mod == null)
+                return $"Mod '{modName}' not found";
+
+            string dummyFilePath = mod.ModInfo.Files[0];
+            string modFolderPrefix = dummyFilePath.Substring(17);
+            modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
+            string modFolder = Path.Combine(Application.dataPath, modFolderPrefix.Substring(7));
+
+            string locationsFolder = modFolderPrefix + "/Locations/";
+            string locationPrefabsFolder = modFolderPrefix + "/Locations/LocationPrefab";
+
+            void ForEachModFile(Action<string> Func)
+            {
+                foreach (string fileRelativePath in mod.ModInfo.Files
+                .Where(file => (file.StartsWith(locationsFolder, StringComparison.InvariantCultureIgnoreCase) && !file.StartsWith(locationPrefabsFolder, StringComparison.InvariantCultureIgnoreCase))
+                    && file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
+                .Select(file => file.Substring(locationsFolder.Length)))
+                {
+                    if (!string.IsNullOrEmpty(fileName) && !Path.GetFileName(fileRelativePath).Equals(fileName, StringComparison.InvariantCultureIgnoreCase))
+                        continue;
+
+                    try
+                    {
+                        Func(fileRelativePath);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogError(e.Message);
+                    }
+                }
+            }
+
+            Directory.CreateDirectory(LocationModLoader.mod.PersistentDataDirectory);
+            string path = Path.Combine(LocationModLoader.mod.PersistentDataDirectory, "DockLocations.csv");
+            using (StreamWriter outFile = new StreamWriter(path))
+            {
+                outFile.WriteLine("Dock Type,LocId,Region,City,City MapId,City Type,Distance");
+
+                void OutputFile(string fileRelativePath)
+                {
+                    string modFilename = Path.GetFileName(fileRelativePath);
+
+                    foreach(LocationInstance loc in LocationHelper.LoadLocationInstance(mod, modFilename))
+                    {
+                        if (loc.type != 2)
+                            continue;
+
+                        var contentReader = DaggerfallUnity.Instance.ContentReader;
+
+                        MapSummary map;
+                        void DumpMap(int distance)
+                        {
+                            var regionName = contentReader.MapFileReader.GetRegionName(map.RegionIndex);
+                            DFLocation mapLocation = contentReader.MapFileReader.GetLocation(map.RegionIndex, map.MapIndex);
+                            outFile.WriteLine($"{loc.prefab},{loc.locationID},{regionName},{mapLocation.Name},{map.ID},{map.LocationType},{distance}");
+                        }
+
+                        const int MaxManhatanDistance = 8;
+                        for(int i = 1; i <= MaxManhatanDistance; ++i)
+                        {
+                            if(i % 2 == 0)
+                            {
+                                int offset = i / 2;
+                                if (contentReader.HasLocation(loc.worldX + offset, loc.worldY + offset, out map))
+                                {
+                                    DumpMap(i);
+                                    goto endloop;
+                                }
+                                else if (contentReader.HasLocation(loc.worldX - offset, loc.worldY + offset, out map))
+                                {
+                                    DumpMap(i);
+                                    goto endloop;
+                                }
+                                else if (contentReader.HasLocation(loc.worldX + offset, loc.worldY - offset, out map))
+                                {
+                                    DumpMap(i);
+                                    goto endloop;
+                                }
+                                else if (contentReader.HasLocation(loc.worldX - offset, loc.worldY - offset, out map))
+                                {
+                                    DumpMap(i);
+                                    goto endloop;
+                                }
+                            }
+
+                            if (contentReader.HasLocation(loc.worldX + i, loc.worldY, out map))
+                            {
+                                DumpMap(i);
+                                goto endloop;
+                            }
+
+                            if (contentReader.HasLocation(loc.worldX, loc.worldY + i, out map))
+                            {
+                                DumpMap(i);
+                                goto endloop;
+                            }
+
+                            if (contentReader.HasLocation(loc.worldX - i, loc.worldY, out map))
+                            {
+                                DumpMap(i);
+                                goto endloop;
+                            }
+
+                            if (contentReader.HasLocation(loc.worldX, loc.worldY - i, out map))
+                            {
+                                DumpMap(i);
+                                goto endloop;
+                            }
+                        }
+                        outFile.WriteLine($"{loc.prefab},{loc.locationID},,,,,");
+                        endloop: continue;                        
+                    }
+                }
+
+                ForEachModFile(OutputFile);
+            }
+
+            return "Success";
+        }
 
     }
 }
