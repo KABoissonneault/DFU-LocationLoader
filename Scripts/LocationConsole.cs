@@ -624,7 +624,19 @@ namespace LocationLoader
                                 goto endloop;
                             }
                         }
-                        outFile.WriteLine($"{loc.prefab},{loc.locationID},,,,,");
+
+                        int politicValue = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetPoliticIndex(loc.worldX, loc.worldY);
+                        string locRegionName;
+                        if(politicValue != 64)
+                        {
+                            int regionNumber = politicValue & 0x7F;
+                            locRegionName = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetRegionName(regionNumber);
+                        }
+                        else
+                        {
+                            locRegionName = "Unknown";
+                        }
+                        outFile.WriteLine($"{loc.prefab},{loc.locationID},{locRegionName},,,,");
                         endloop: continue;                        
                     }
                 }
