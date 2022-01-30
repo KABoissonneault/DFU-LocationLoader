@@ -2246,5 +2246,25 @@ namespace LocationLoader
 
             return false;
         }
+
+        public static bool IsOutOfBounds(LocationInstance loc, LocationPrefab prefab)
+        {
+            if (loc.type == 1)
+                return false;
+
+            float rot = Mathf.Deg2Rad * loc.rot.eulerAngles.y;
+            float cosRot = Mathf.Cos(rot);
+            float sinRot = Mathf.Sin(rot);
+            int width = Mathf.CeilToInt(Mathf.Abs(cosRot * prefab.width + sinRot * prefab.height));
+            int height = Mathf.CeilToInt(Mathf.Abs(sinRot * prefab.width + cosRot * prefab.height));
+
+            int halfWidth = (width+1) / 2;
+            int halfHeight = (height+1) / 2;
+
+            return loc.terrainX + halfWidth > 128
+                || loc.terrainX - halfWidth < 0
+                || loc.terrainY + halfHeight > 128
+                || loc.terrainY - halfHeight < 0;
+        }
     }
 }

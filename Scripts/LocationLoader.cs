@@ -730,7 +730,6 @@ namespace LocationLoader
             {
                 foreach (LocationInstance loc in locationInstances)
                 {
-
                     string context = $"location=\"{loc.name}\"";
 
                     if (daggerTerrain.MapData.hasLocation)
@@ -758,21 +757,11 @@ namespace LocationLoader
                     LocationPrefab locationPrefab = GetPrefabInfo(loc.prefab);
                     if (locationPrefab == null)
                         continue;
-
-                    // Treating odd dimensions as ceiled-to-even
-                    int halfWidth = (locationPrefab.width + 1) / 2;
-                    int halfHeight = (locationPrefab.height + 1) / 2;
-
-                    if (loc.type == 0 || loc.type == 2)
+                    
+                    if (LocationHelper.IsOutOfBounds(loc, locationPrefab))
                     {
-                        if (loc.terrainX + halfWidth > 128
-                            || loc.terrainY + halfHeight > 128
-                            || loc.terrainX - halfWidth < 0
-                            || loc.terrainY - halfHeight < 0)
-                        {
-                            Debug.LogWarning("Invalid Location at " + daggerTerrain.MapPixelX + " : " + daggerTerrain.MapPixelY + " : The locationpreset exist outside the terrain");
-                            continue;
-                        }
+                        Debug.LogWarning($"Out-of-bounds location at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");
+                        continue;
                     }
 
                     if (loc.type == 2)
@@ -792,6 +781,10 @@ namespace LocationLoader
                     //Smooth the terrain
                     int count = 0;
                     float tmpAverageHeight = 0;
+
+                    // Treating odd dimensions as ceiled-to-even
+                    int halfWidth = (locationPrefab.width + 1) / 2;
+                    int halfHeight = (locationPrefab.height + 1) / 2;
 
                     // Type 1 instances can overlap beyond terrain boundaries
                     // Estimate height using only the part in the current terrain tile for now

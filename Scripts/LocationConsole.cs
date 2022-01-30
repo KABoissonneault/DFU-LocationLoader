@@ -326,16 +326,9 @@ namespace LocationLoader
                 }
 
                 // Instance is out of bounds
-                if (type != 1)
+                if(LocationHelper.IsOutOfBounds(instance, prefab))
                 {
-                    if (instance.terrainX + halfWidth > LocationLoader.TERRAIN_SIZE
-                        || instance.terrainY + halfHeight > LocationLoader.TERRAIN_SIZE
-                        || instance.terrainX - halfWidth < 0
-                        || instance.terrainY - halfHeight < 0
-                        )
-                    {
-                        return false;
-                    }
+                    return false;
                 }
 
                 // Instance is on road
