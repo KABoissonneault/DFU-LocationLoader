@@ -1,6 +1,7 @@
 using DaggerfallConnect;
 using DaggerfallConnect.Arena2;
 using DaggerfallWorkshop;
+using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
 using System;
 using System.Collections.Generic;
@@ -26,7 +27,7 @@ namespace LocationLoader
                 , "LLDumpTerrainSamples <worldX> <worldY> <filename>", DumpTerrainSamples);
 
             ConsoleCommandsDatabase.RegisterCommand("LLDumpDockLocations", "Dumps all the type 2 locations in the game, and what city they're close to",
-                "LLDumpDockLocations --mod=<modname> --file=<modfile> --locationId=<id>", DumpDockLocations);
+                "LLDumpDockLocations --mod=<modname> --file=<modfile> --locationId=<id> --write-link", DumpDockLocations);
         }
 
 #if UNITY_EDITOR
@@ -448,6 +449,7 @@ namespace LocationLoader
             string modName = null;
             string fileName = null;
             ulong? locationId = null;
+            bool writeLink = false;
 
             bool parsingQuotedArg = false;
             StringBuilder quotedString = null;
@@ -505,6 +507,10 @@ namespace LocationLoader
                     {
                         return $"Invalid value in '--locationId=' ({value})";
                     }
+                }
+                else if (Arg == "--write-link")
+                {
+                    writeLink = true;
                 }
                 else
                 {
@@ -566,81 +572,183 @@ namespace LocationLoader
             {
                 outFile.WriteLine("Dock Type,LocId,Region,City,City MapId,City Type,Distance");
 
+                bool TryDumpLocation(LocationInstance loc)
+                {
+                    bool foundCity = false;
+
+                    if (locationId.HasValue && loc.locationID != locationId.Value)
+                        return foundCity;
+
+                    if (loc.type != 2)
+                        return foundCity;
+
+                    var contentReader = DaggerfallUnity.Instance.ContentReader;
+
+                    MapSummary map;
+                    void DumpMap(int distance)
+                    {
+                        foundCity = true;
+
+                        if(writeLink)
+                        {
+                            DockExtraData locExtraData;
+                            locExtraData.LinkedMapId = map.ID;
+                            loc.extraData = SaveLoadManager.Serialize(typeof(DockExtraData), locExtraData, pretty: false);
+                        }
+
+                        var regionName = contentReader.MapFileReader.GetRegionName(map.RegionIndex);
+                        DFLocation mapLocation = contentReader.MapFileReader.GetLocation(map.RegionIndex, map.MapIndex);
+                        outFile.WriteLine($"{loc.prefab},{loc.locationID},{regionName},{mapLocation.Name},{map.ID},{map.LocationType},{distance}");
+                    }
+
+                    const int MaxManhatanDistance = 3;
+                    for (int i = 1; i <= MaxManhatanDistance; ++i)
+                    {
+                        for (int j = 0; j < i; ++j)
+                        {
+                            if (contentReader.HasLocation(loc.worldX + i - j, loc.worldY + j, out map))
+                            {
+                                DumpMap(i);
+                                goto endloop;
+                            }
+                        }
+
+                        for (int j = 0; j < i; ++j)
+                        {
+                            if (contentReader.HasLocation(loc.worldX - j, loc.worldY + i - j, out map))
+                            {
+                                DumpMap(i);
+                                goto endloop;
+                            }
+                        }
+
+                        for (int j = 0; j < i; ++j)
+                        {
+                            if (contentReader.HasLocation(loc.worldX - i + j, loc.worldY - j, out map))
+                            {
+                                DumpMap(i);
+                                goto endloop;
+                            }
+                        }
+
+                        for (int j = 0; j < i; ++j)
+                        {
+                            if (contentReader.HasLocation(loc.worldX + j, loc.worldY - i + j, out map))
+                            {
+                                DumpMap(i);
+                                goto endloop;
+                            }
+                        }
+                    }
+
+                    // Fallback dump
+                    int politicValue = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetPoliticIndex(loc.worldX, loc.worldY);
+                    string locRegionName;
+                    if (politicValue != 64)
+                    {
+                        int regionNumber = politicValue & 0x7F;
+                        locRegionName = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetRegionName(regionNumber);
+                    }
+                    else
+                    {
+                        locRegionName = "Unknown";
+                    }
+                    outFile.WriteLine($"{loc.prefab},{loc.locationID},{locRegionName},,,,");
+
+                    endloop: return foundCity;
+                }
+
                 void OutputFile(string fileRelativePath)
                 {
                     string modFilename = Path.GetFileName(fileRelativePath);
 
-                    foreach(LocationInstance loc in LocationHelper.LoadLocationInstance(mod, modFilename))
+                    if (!writeLink)
                     {
-                        if (locationId.HasValue && loc.locationID != locationId.Value)
-                            continue;
-
-                        if (loc.type != 2)
-                            continue;
-
-                        var contentReader = DaggerfallUnity.Instance.ContentReader;
-
-                        MapSummary map;
-                        void DumpMap(int distance)
+                        foreach (LocationInstance loc in LocationHelper.LoadLocationInstance(mod, modFilename))
                         {
-                            var regionName = contentReader.MapFileReader.GetRegionName(map.RegionIndex);
-                            DFLocation mapLocation = contentReader.MapFileReader.GetLocation(map.RegionIndex, map.MapIndex);
-                            outFile.WriteLine($"{loc.prefab},{loc.locationID},{regionName},{mapLocation.Name},{map.ID},{map.LocationType},{distance}");
+                            TryDumpLocation(loc);
                         }
+                    }
+                    else
+                    {
+                        TextAsset asset = mod.GetAsset<TextAsset>(modFilename);
+                        TextReader assetReader = new StringReader(asset.text);
 
-                        const int MaxManhatanDistance = 3;
-                        for(int i = 1; i <= MaxManhatanDistance; ++i)
+                        int line = 1;
+                        string header = assetReader.ReadLine();
+                        string[] originalFields = header.Split(',');
+
+                        string[] newFields;
+                        int extraDataIndex;
+                        if(originalFields.Contains("extraData"))
                         {
-                            for (int j = 0; j < i; ++j)
-                            {
-                                if (contentReader.HasLocation(loc.worldX + i - j, loc.worldY + j, out map))
-                                {
-                                    DumpMap(i);
-                                    goto endloop;
-                                }
-                            }
-
-                            for (int j = 0; j < i; ++j)
-                            {
-                                if (contentReader.HasLocation(loc.worldX - j, loc.worldY + i - j, out map))
-                                {
-                                    DumpMap(i);
-                                    goto endloop;
-                                }
-                            }
-
-                            for (int j = 0; j < i; ++j)
-                            {
-                                if (contentReader.HasLocation(loc.worldX - i + j, loc.worldY - j, out map))
-                                {
-                                    DumpMap(i);
-                                    goto endloop;
-                                }
-                            }
-
-                            for (int j = 0; j < i; ++j)
-                            {
-                                if (contentReader.HasLocation(loc.worldX + j, loc.worldY - i + j, out map))
-                                {
-                                    DumpMap(i);
-                                    goto endloop;
-                                }
-                            }
-                        }
-
-                        int politicValue = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetPoliticIndex(loc.worldX, loc.worldY);
-                        string locRegionName;
-                        if(politicValue != 64)
-                        {
-                            int regionNumber = politicValue & 0x7F;
-                            locRegionName = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetRegionName(regionNumber);
+                            newFields = originalFields;
+                            extraDataIndex = Array.IndexOf(originalFields, "extraData");
                         }
                         else
                         {
-                            locRegionName = "Unknown";
+                            newFields = (string[])originalFields.Clone();
+                            UnityEditor.ArrayUtility.Add(ref newFields, "extraData");
+                            extraDataIndex = newFields.Length - 1;
                         }
-                        outFile.WriteLine($"{loc.prefab},{loc.locationID},{locRegionName},,,,");
-                        endloop: continue;                        
+
+                        string fullAssetPath = Path.Combine(modFolder, "Locations", fileRelativePath);
+
+                        using (StreamWriter locationFileWriter = new StreamWriter(fullAssetPath, append: false))
+                        {
+                            locationFileWriter.WriteLine(string.Join(",", newFields));
+                            while (assetReader.Peek() > 0)
+                            {
+                                ++line;
+                                string instanceLine = assetReader.ReadLine();
+
+                                try
+                                {
+                                    string context = $"mod={mod.ModInfo.ModTitle}, file={modFilename}, line={line}";
+                                    LocationInstance instance = LocationHelper.LoadSingleLocationInstanceCsv(instanceLine, originalFields, context);
+                                    if (instance == null)
+                                    {
+                                        Debug.LogWarning($"({context}) Instance could not be parsed. Removing");
+                                        continue;
+                                    }
+
+                                    if (TryDumpLocation(instance))
+                                    {
+                                        // Instance had a linked city written to it. Modify the line before dumping it back
+                                        string[] instanceValues = instanceLine.Split(',');
+
+                                        var serializedExtraData = instance.extraData.Replace("\"", "\\\"");
+                                        serializedExtraData = $"\"{serializedExtraData}\"";
+
+                                        if (newFields != originalFields)
+                                        {
+                                            UnityEditor.ArrayUtility.Add(ref instanceValues, serializedExtraData);
+                                        }
+                                        else
+                                        {
+                                            instanceValues[extraDataIndex] = serializedExtraData;
+                                        }
+                                        string modifiedInstanceLine = string.Join(",", instanceValues);
+                                        locationFileWriter.WriteLine(modifiedInstanceLine);
+                                    }
+                                    else
+                                    {
+                                        if (newFields == originalFields)
+                                        {
+                                            locationFileWriter.WriteLine(instanceLine);
+                                        }
+                                        else
+                                        {
+                                            locationFileWriter.WriteLine(instanceLine + ",");
+                                        }
+                                    }
+                                }
+                                catch(Exception e)
+                                {
+                                    Debug.LogError(e.Message);
+                                }
+                            }
+                        }
                     }
                 }
 
