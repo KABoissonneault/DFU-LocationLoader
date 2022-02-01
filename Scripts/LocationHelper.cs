@@ -1183,21 +1183,20 @@ namespace LocationLoader
             }
         }
 
-        static Regex CsvSplit = new Regex("(?:^|,)(\"(?:[^\"])*\"|[^,]*)", RegexOptions.Compiled);
+        static Regex CsvSplit = new Regex("(?:^|,)(\"(?:\\\\\"|[^\"])*\"|[^,]*)", RegexOptions.Compiled);
 
         static string[] SplitCsvLine(string line)
         {
             List<string> list = new List<string>();
-            string curr = null;
             foreach (Match match in CsvSplit.Matches(line))
             {
-                curr = match.Value;
+                string curr = match.Value;
                 if (0 == curr.Length)
                 {
                     list.Add("");
                 }
 
-                list.Add(curr.TrimStart(',', ';').Trim('\"'));
+                list.Add(curr.TrimStart(',', ';').Replace("\\\"", "\"").Trim('\"'));
             }
 
             return list.ToArray();
