@@ -1529,6 +1529,7 @@ namespace LocationLoader
                     if (extraDataNode != null)
                     {
                         obj.extraData = extraDataNode.InnerXml;
+                        FixupExtraData(obj);
                     }
 
                     if (!ValidateValue(obj.type, obj.name))
@@ -1543,6 +1544,25 @@ namespace LocationLoader
                 locationPrefab.obj.Add(obj);
             }
             return locationPrefab;
+        }
+
+        static void FixupExtraData(LocationObject obj)
+        {
+            if(obj.type == 2)
+            {
+                switch(obj.name)
+                {
+                    case "199.16":
+                        if(int.TryParse(obj.extraData, out int parsedValue))
+                        {
+                            EnemyMarkerExtraData enemyExtraData;
+                            enemyExtraData.EnemyId = parsedValue;
+
+                            obj.extraData = SaveLoadManager.Serialize(typeof(EnemyMarkerExtraData), enemyExtraData);
+                        }
+                        break;
+                }
+            }
         }
 
         /// <summary>

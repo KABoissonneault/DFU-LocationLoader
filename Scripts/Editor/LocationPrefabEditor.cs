@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEngine;
 using DaggerfallWorkshop;
 using System.IO;
+using DaggerfallWorkshop.Game.Serialization;
 
 namespace LocationLoader
 {
@@ -321,6 +322,8 @@ namespace LocationLoader
                         GUI.Label(new Rect(136, 20, 256, 16), "Rotation : " + obj.rot.eulerAngles);
                     GUI.Label(new Rect(136, 36, 256, 16), "Scale    : " + obj.scale);
 
+                    GuiDrawExtraData(obj);
+
                     if (GUI.Button(new Rect(392, 4, 64, 16), "Duplicate"))
                     {
                         int newID = 0;
@@ -566,15 +569,19 @@ namespace LocationLoader
 
                     if(string.IsNullOrEmpty(extraData))
                     {
-                        extraData = "0";
+                        extraData = EnemyMarkerExtraData.DefaultData;
                     }
+
+                    EnemyMarkerExtraData currentExtraData = (EnemyMarkerExtraData)SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), extraData);
 
                     scrollPosition3 = GUI.BeginScrollView(new Rect(264, 96, 256, 472), scrollPosition3, new Rect(0, 0, 236, 20 + dataIDFields.Count * 24));
 
-                    int previousSelectedIndex = Array.IndexOf(mobileIds, (MobileTypes)int.Parse(extraData));
+                    int previousSelectedIndex = Array.IndexOf(mobileIds, (MobileTypes)currentExtraData.EnemyId);
                     int newSelectedIndex = GUI.SelectionGrid(new Rect(10, 10, 216, dataIDFields.Count * 24), previousSelectedIndex, dataIDFields.ToArray(), 1);
 
-                    extraData = ((int)mobileIds[newSelectedIndex]).ToString();
+                    currentExtraData.EnemyId = (int)mobileIds[newSelectedIndex];
+
+                    extraData = SaveLoadManager.Serialize(typeof(EnemyMarkerExtraData), currentExtraData, pretty: false);
 
                     GUI.EndScrollView();
                 }
@@ -994,6 +1001,20 @@ namespace LocationLoader
 
             if (preview != null)
                 DestroyImmediate(preview);
+        }
+
+        void GuiDrawExtraData(LocationObject obj)
+        {
+            if (obj.type == 2)
+            {
+                switch(obj.name)
+                {
+                    case "199.16":
+                        var enemyExtraData = (EnemyMarkerExtraData)SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), obj.extraData);
+                        GUI.Label(new Rect(300, 4, 256, 16), "Enemy ID: " + enemyExtraData.EnemyId);
+                        break;
+                }                
+            }
         }
     }
 #endif

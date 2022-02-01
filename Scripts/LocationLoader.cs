@@ -231,15 +231,11 @@ namespace LocationLoader
                         switch (arg[1])
                         {
                             case "16":
-                                if (!int.TryParse(obj.extraData, out int enemyID))
-                                {
-                                    Debug.LogError($"Could not spawn enemy, invalid extra data '{obj.extraData}'");
-                                    break;
-                                }
+                                var extraData = (EnemyMarkerExtraData)SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), obj.extraData);
 
-                                if (!Enum.IsDefined(typeof(MobileTypes), enemyID))
+                                if (!Enum.IsDefined(typeof(MobileTypes), extraData.EnemyId) && DaggerfallEntity.GetCustomCareerTemplate(extraData.EnemyId) == null)
                                 {
-                                    Debug.LogError($"Could not spawn enemy, unknown mobile type '{obj.extraData}'");
+                                    Debug.LogError($"Could not spawn enemy, unknown mobile type '{extraData.EnemyId}'");
                                     break;
                                 }
 
@@ -252,7 +248,7 @@ namespace LocationLoader
                                     break;
                                 }
 
-                                MobileTypes mobileType = (MobileTypes)enemyID;
+                                MobileTypes mobileType = (MobileTypes)extraData.EnemyId;
                                 go = GameObjectHelper.CreateEnemy(TextManager.Instance.GetLocalizedEnemyName((int)mobileType), mobileType, obj.pos, MobileGender.Unspecified, instance.transform);
                                 SerializableEnemy serializable = go.GetComponent<SerializableEnemy>();
                                 if (serializable != null)
