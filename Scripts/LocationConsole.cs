@@ -26,7 +26,7 @@ namespace LocationLoader
                 , "LLDumpTerrainSamples <worldX> <worldY> <filename>", DumpTerrainSamples);
 
             ConsoleCommandsDatabase.RegisterCommand("LLDumpDockLocations", "Dumps all the type 2 locations in the game, and what city they're close to",
-                "LLDumpDockLocations --mod=<modname> --file=<modfile>", DumpDockLocations);
+                "LLDumpDockLocations --mod=<modname> --file=<modfile> --locationId=<id>", DumpDockLocations);
         }
 
 #if UNITY_EDITOR
@@ -447,6 +447,7 @@ namespace LocationLoader
         {
             string modName = null;
             string fileName = null;
+            ulong? locationId = null;
 
             bool parsingQuotedArg = false;
             StringBuilder quotedString = null;
@@ -491,6 +492,18 @@ namespace LocationLoader
                     else
                     {
                         fileName = value;
+                    }
+                }
+                else if (Arg.StartsWith("--locationId="))
+                {
+                    string value = Arg.Replace("--locationId=", "");
+                    if (ulong.TryParse(value, out ulong parsedValue))
+                    {
+                        locationId = parsedValue;
+                    }
+                    else
+                    {
+                        return $"Invalid value in '--locationId=' ({value})";
                     }
                 }
                 else
@@ -559,6 +572,9 @@ namespace LocationLoader
 
                     foreach(LocationInstance loc in LocationHelper.LoadLocationInstance(mod, modFilename))
                     {
+                        if (locationId.HasValue && loc.locationID != locationId.Value)
+                            continue;
+
                         if (loc.type != 2)
                             continue;
 
@@ -572,56 +588,43 @@ namespace LocationLoader
                             outFile.WriteLine($"{loc.prefab},{loc.locationID},{regionName},{mapLocation.Name},{map.ID},{map.LocationType},{distance}");
                         }
 
-                        const int MaxManhatanDistance = 8;
+                        const int MaxManhatanDistance = 3;
                         for(int i = 1; i <= MaxManhatanDistance; ++i)
                         {
-                            if(i % 2 == 0)
+                            for (int j = 0; j < i; ++j)
                             {
-                                int offset = i / 2;
-                                if (contentReader.HasLocation(loc.worldX + offset, loc.worldY + offset, out map))
-                                {
-                                    DumpMap(i);
-                                    goto endloop;
-                                }
-                                else if (contentReader.HasLocation(loc.worldX - offset, loc.worldY + offset, out map))
-                                {
-                                    DumpMap(i);
-                                    goto endloop;
-                                }
-                                else if (contentReader.HasLocation(loc.worldX + offset, loc.worldY - offset, out map))
-                                {
-                                    DumpMap(i);
-                                    goto endloop;
-                                }
-                                else if (contentReader.HasLocation(loc.worldX - offset, loc.worldY - offset, out map))
+                                if (contentReader.HasLocation(loc.worldX + i - j, loc.worldY + j, out map))
                                 {
                                     DumpMap(i);
                                     goto endloop;
                                 }
                             }
 
-                            if (contentReader.HasLocation(loc.worldX + i, loc.worldY, out map))
+                            for (int j = 0; j < i; ++j)
                             {
-                                DumpMap(i);
-                                goto endloop;
+                                if (contentReader.HasLocation(loc.worldX - j, loc.worldY + i - j, out map))
+                                {
+                                    DumpMap(i);
+                                    goto endloop;
+                                }
                             }
 
-                            if (contentReader.HasLocation(loc.worldX, loc.worldY + i, out map))
+                            for (int j = 0; j < i; ++j)
                             {
-                                DumpMap(i);
-                                goto endloop;
+                                if (contentReader.HasLocation(loc.worldX - i + j, loc.worldY - j, out map))
+                                {
+                                    DumpMap(i);
+                                    goto endloop;
+                                }
                             }
 
-                            if (contentReader.HasLocation(loc.worldX - i, loc.worldY, out map))
+                            for (int j = 0; j < i; ++j)
                             {
-                                DumpMap(i);
-                                goto endloop;
-                            }
-
-                            if (contentReader.HasLocation(loc.worldX, loc.worldY - i, out map))
-                            {
-                                DumpMap(i);
-                                goto endloop;
+                                if (contentReader.HasLocation(loc.worldX + j, loc.worldY - i + j, out map))
+                                {
+                                    DumpMap(i);
+                                    goto endloop;
+                                }
                             }
                         }
 
