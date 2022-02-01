@@ -1160,6 +1160,12 @@ namespace LocationLoader
                     {
                         tmpInst.heightOffset = float.Parse(child.InnerXml, cultureInfo);
                     }
+
+                    child = node["extraData"];
+                    if (child != null)
+                    {
+                        tmpInst.extraData = child.InnerXml;
+                    }
                 }
                 catch (Exception e)
                 {
@@ -1255,6 +1261,7 @@ namespace LocationLoader
             int? rotYAxisIndex = GetIndexOpt("rotYAxis");
             int? rotZAxisIndex = GetIndexOpt("rotZAxis");
             int? heightOffsetIndex = GetIndexOpt("heightOffset");
+            int? extraDataIndex = GetIndexOpt("extraData");
 
             CultureInfo cultureInfo = new CultureInfo("en-US");
             int lineNumber = 1;
@@ -1286,6 +1293,7 @@ namespace LocationLoader
                     if (rotYAxisIndex.HasValue && !string.IsNullOrEmpty(tokens[rotYAxisIndex.Value])) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, float.Parse(tokens[rotYAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.z);
                     if (rotZAxisIndex.HasValue && !string.IsNullOrEmpty(tokens[rotZAxisIndex.Value])) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, tmpInst.rot.eulerAngles.y, float.Parse(tokens[rotZAxisIndex.Value], cultureInfo));
                     if (heightOffsetIndex.HasValue && !string.IsNullOrEmpty(tokens[heightOffsetIndex.Value])) tmpInst.heightOffset = float.Parse(tokens[heightOffsetIndex.Value], cultureInfo);
+                    if (extraDataIndex.HasValue && !string.IsNullOrEmpty(tokens[extraDataIndex.Value])) tmpInst.extraData = tokens[extraDataIndex.Value];
                 }
                 catch (Exception e)
                 {
@@ -1353,6 +1361,7 @@ namespace LocationLoader
             int? rotYAxisIndex = GetIndexOpt("rotYAxis");
             int? rotZAxisIndex = GetIndexOpt("rotZAxis");
             int? heightOffsetIndex = GetIndexOpt("heightOffset");
+            int? extraDataIndex = GetIndexOpt("extraData");
 
             CultureInfo cultureInfo = new CultureInfo("en-US");
 
@@ -1379,6 +1388,7 @@ namespace LocationLoader
                 if (rotYAxisIndex.HasValue && !string.IsNullOrEmpty(tokens[rotYAxisIndex.Value])) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, float.Parse(tokens[rotYAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.z);
                 if (rotZAxisIndex.HasValue && !string.IsNullOrEmpty(tokens[rotZAxisIndex.Value])) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, tmpInst.rot.eulerAngles.y, float.Parse(tokens[rotZAxisIndex.Value], cultureInfo));
                 if (heightOffsetIndex.HasValue && !string.IsNullOrEmpty(tokens[heightOffsetIndex.Value])) tmpInst.heightOffset = float.Parse(tokens[heightOffsetIndex.Value], cultureInfo);
+                if (extraDataIndex.HasValue && !string.IsNullOrEmpty(tokens[extraDataIndex.Value])) tmpInst.extraData = tokens[extraDataIndex.Value];
             }
             catch (Exception e)
             {
@@ -1422,6 +1432,10 @@ namespace LocationLoader
                 if(inst.heightOffset != 0f)
                 {
                     writer.WriteLine("\t\t<heightOffset>" + inst.heightOffset.ToString(cultureInfo) + "</heightOffset>");
+                }
+                if(!string.IsNullOrEmpty(inst.extraData))
+                {
+                    writer.WriteLine("\t\t<extraData>" + inst.extraData + "</extraData>");
                 }
                 writer.WriteLine("\t</locationInstance>");
             }
