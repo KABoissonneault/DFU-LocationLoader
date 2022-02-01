@@ -171,16 +171,17 @@ namespace LocationLoader
             bool foundOne = false;
             float minDistance = float.MaxValue;
             closestMarkerOut = Vector3.zero;
+            string markerName = $"199.{(int)type}";
+
             foreach (var obj in Prefab.obj)
             {
-                string markerName = $"199.{(int)type}";
                 // Exclude markers of incorrect type
                 if (obj.type != 2 || obj.name != markerName)
                     continue;
 
                 // Refine to closest marker
                 
-                Vector3 markerPos = transform.position + Location.rot * obj.pos;
+                Vector3 markerPos = transform.position + transform.rotation * obj.pos;
                 float distance = Vector3.Distance(sourcePos, markerPos);
                 if (distance < minDistance || !foundOne)
                 {

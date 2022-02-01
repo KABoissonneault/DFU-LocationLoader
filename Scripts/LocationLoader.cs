@@ -370,6 +370,8 @@ namespace LocationLoader
                     subPrefab.transform.localPosition = obj.pos;
                     subPrefab.transform.localRotation = obj.rot;
                     subPrefab.transform.localScale = obj.scale;
+                    LocationData data = subPrefab.AddComponent<LocationData>();
+                    data.Prefab = objPrefabInfo;
                 }
             }
 
