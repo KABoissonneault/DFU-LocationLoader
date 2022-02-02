@@ -1,5 +1,6 @@
 using DaggerfallConnect;
 using DaggerfallConnect.Arena2;
+using DaggerfallConnect.Utility;
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
@@ -8,6 +9,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using Wenzil.Console;
 using static DaggerfallWorkshop.Utility.ContentReader;
@@ -28,6 +30,9 @@ namespace LocationLoader
 
             ConsoleCommandsDatabase.RegisterCommand("LLDumpDockLocations", "Dumps all the type 2 locations in the game, and what city they're close to",
                 "LLDumpDockLocations --mod=<modname> --file=<modfile> --locationId=<id> --write-link", DumpDockLocations);
+
+            ConsoleCommandsDatabase.RegisterCommand("LLNameLocations", "Writes a random name for all the specified locations",
+                "LLNameDockLocations --mod=<modname> --file=<file pattern> dock|bandit", NameLocations);
         }
 
 #if UNITY_EDITOR
@@ -43,12 +48,12 @@ namespace LocationLoader
 
             StringBuilder modNameBuilder = null;
 
-            foreach(string Arg in Args)
+            foreach (string Arg in Args)
             {
-                if(parsingQuotedArg)
+                if (parsingQuotedArg)
                 {
                     string ArgValue = Arg;
-                    if(Arg.EndsWith("\""))
+                    if (Arg.EndsWith("\""))
                     {
                         parsingQuotedArg = false;
                         ArgValue = Arg.Substring(0, Arg.Length - 1);
@@ -56,7 +61,7 @@ namespace LocationLoader
 
                     quotedString.Append(" ").Append(ArgValue);
                 }
-                else if(Arg.StartsWith("--region="))
+                else if (Arg.StartsWith("--region="))
                 {
                     string regionIdStr = Arg.Replace("--region=", "");
                     if (!int.TryParse(regionIdStr, out int regionIdValue))
@@ -65,7 +70,7 @@ namespace LocationLoader
                     }
                     regionId = regionIdValue;
                 }
-                else if(Arg.StartsWith("--type="))
+                else if (Arg.StartsWith("--type="))
                 {
                     string typeStr = Arg.Replace("--type=", "");
                     if (!int.TryParse(typeStr, out int typeValue))
@@ -74,10 +79,10 @@ namespace LocationLoader
                     }
                     type = typeValue;
                 }
-                else if(Arg.StartsWith("--mod="))
+                else if (Arg.StartsWith("--mod="))
                 {
                     string value = Arg.Replace("--mod=", "");
-                    if(value.StartsWith("\""))
+                    if (value.StartsWith("\""))
                     {
                         quotedString = modNameBuilder = new StringBuilder(value.Substring(1));
                         parsingQuotedArg = true;
@@ -87,7 +92,7 @@ namespace LocationLoader
                         modName = value;
                     }
                 }
-                else if(Arg == "--prune-loc-overlap")
+                else if (Arg == "--prune-loc-overlap")
                 {
                     pruneLocOverlap = true;
                 }
@@ -97,7 +102,7 @@ namespace LocationLoader
                 }
             }
 
-            if(modNameBuilder != null && modNameBuilder.Length > 0)
+            if (modNameBuilder != null && modNameBuilder.Length > 0)
             {
                 modName = modNameBuilder.ToString();
             }
@@ -191,7 +196,7 @@ namespace LocationLoader
                             Vector2Int worldCoord = new Vector2Int(instance.worldX, instance.worldY);
 
                             List<LocationInstance> occupyingInstances;
-                            if(!occupyingInstancesPerTile.TryGetValue(worldCoord, out occupyingInstances))
+                            if (!occupyingInstancesPerTile.TryGetValue(worldCoord, out occupyingInstances))
                             {
                                 occupyingInstances = new List<LocationInstance>();
                                 occupyingInstancesPerTile.Add(worldCoord, occupyingInstances);
@@ -214,7 +219,7 @@ namespace LocationLoader
                     return false;
                 }
 
-                foreach(LocationInstance occupyingInstance in occupyingInstances)
+                foreach (LocationInstance occupyingInstance in occupyingInstances)
                 {
                     LocationPrefab prefab;
                     if (!prefabCache.TryGetValue(occupyingInstance.prefab, out prefab))
@@ -239,7 +244,7 @@ namespace LocationLoader
                     if (terrainArea.Overlaps(occupyingArea))
                         return true;
                 }
-                
+
                 return false;
             }
 
@@ -249,7 +254,7 @@ namespace LocationLoader
                 {
                     return true;
                 }
-                                
+
                 LocationPrefab prefab;
                 if (!prefabCache.TryGetValue(instance.prefab, out prefab))
                 {
@@ -278,7 +283,7 @@ namespace LocationLoader
 
                     if (instance.worldX + xOffsetMax > MapsFile.MaxMapPixelX)
                         return false;
-                    
+
                     if (instance.worldY - yOffsetMax < MapsFile.MinMapPixelY)
                         return false;
 
@@ -327,7 +332,7 @@ namespace LocationLoader
                 }
 
                 // Instance is out of bounds
-                if(LocationHelper.IsOutOfBounds(instance, prefab))
+                if (LocationHelper.IsOutOfBounds(instance, prefab))
                 {
                     return false;
                 }
@@ -391,7 +396,7 @@ namespace LocationLoader
                                 streamWriter.WriteLine(instanceLine);
                             }
                         }
-                        catch(Exception e)
+                        catch (Exception e)
                         {
                             Debug.LogError(e.Message);
                         }
@@ -417,17 +422,17 @@ namespace LocationLoader
 
             string filename = Args[2];
 
-            if(string.IsNullOrEmpty(Path.GetExtension(filename)))
+            if (string.IsNullOrEmpty(Path.GetExtension(filename)))
             {
                 filename = filename + ".csv";
             }
 
-            if(!LocationModLoader.modObject.GetComponent<LocationLoader>().TryGetTerrain(worldX, worldY, out DaggerfallTerrain daggerTerrain))
+            if (!LocationModLoader.modObject.GetComponent<LocationLoader>().TryGetTerrain(worldX, worldY, out DaggerfallTerrain daggerTerrain))
             {
                 return $"Error: Could not find loaded terrain at ({worldX},{worldY})";
             }
 
-            Directory.CreateDirectory(LocationModLoader.mod.PersistentDataDirectory);            
+            Directory.CreateDirectory(LocationModLoader.mod.PersistentDataDirectory);
             string path = Path.Combine(LocationModLoader.mod.PersistentDataDirectory, filename);
             using (StreamWriter outFile = new StreamWriter(path))
             {
@@ -589,7 +594,7 @@ namespace LocationLoader
                     {
                         foundCity = true;
 
-                        if(writeLink)
+                        if (writeLink)
                         {
                             DockExtraData locExtraData;
                             locExtraData.LinkedMapId = map.ID;
@@ -680,7 +685,7 @@ namespace LocationLoader
 
                         string[] newFields;
                         int extraDataIndex;
-                        if(originalFields.Contains("extraData"))
+                        if (originalFields.Contains("extraData"))
                         {
                             newFields = originalFields;
                             extraDataIndex = Array.IndexOf(originalFields, "extraData");
@@ -743,7 +748,7 @@ namespace LocationLoader
                                         }
                                     }
                                 }
-                                catch(Exception e)
+                                catch (Exception e)
                                 {
                                     Debug.LogError(e.Message);
                                 }
@@ -758,5 +763,194 @@ namespace LocationLoader
             return "Success";
         }
 
+        static string NameLocations(string[] Args)
+        {
+            string modName = null;
+            string filePattern = null;
+
+            bool parsingQuotedArg = false;
+            StringBuilder quotedString = null;
+
+            StringBuilder modNameBuilder = null;
+            StringBuilder filePatternBuilder = null;
+
+            if (Args.Length == 0)
+                return "Missing arguments. See usage";
+
+            for(int i = 0; i < Args.Length - 1; ++i)
+            {
+                string Arg = Args[i];
+                if (parsingQuotedArg)
+                {
+                    string ArgValue = Arg;
+                    if (Arg.EndsWith("\""))
+                    {
+                        parsingQuotedArg = false;
+                        ArgValue = Arg.Substring(0, Arg.Length - 1);
+                    }
+
+                    quotedString.Append(" ").Append(ArgValue);
+                }
+                else if (Arg.StartsWith("--mod="))
+                {
+                    string value = Arg.Replace("--mod=", "");
+                    if (value.StartsWith("\""))
+                    {
+                        quotedString = modNameBuilder = new StringBuilder(value.Substring(1));
+                        parsingQuotedArg = true;
+                    }
+                    else
+                    {
+                        modName = value;
+                    }
+                }
+                else if (Arg.StartsWith("--file="))
+                {
+                    string value = Arg.Replace("--file=", "");
+                    if (value.StartsWith("\""))
+                    {
+                        quotedString = filePatternBuilder = new StringBuilder(value.Substring(1));
+                        parsingQuotedArg = true;
+                    }
+                    else
+                    {
+                        filePattern = value;
+                    }
+                }
+                else
+                {
+                    return $"Unknown argument '{Arg}'";
+                }
+            }
+
+            if (modNameBuilder != null && modNameBuilder.Length > 0)
+            {
+                modName = modNameBuilder.ToString();
+            }
+
+            if (filePatternBuilder != null && filePatternBuilder.Length > 0)
+            {
+                filePattern = filePatternBuilder.ToString();
+            }
+
+            if(Args[Args.Length - 1].StartsWith("--"))
+            {
+                return $"Name type not speficied. See usage";
+            }
+
+            if (string.IsNullOrEmpty(modName))
+            {
+                return $"Loose files not yet supported. Specify a mod with --mod=<mod name>";
+            }
+
+            if (string.IsNullOrEmpty(filePattern))
+            {
+                return $"Need a file pattern to name. Specify it with --file=<file pattern>";
+            }
+
+            string type = Args[Args.Length - 1];
+
+            var lowerPattern = filePattern.ToLower();
+
+            var regexPattern = Regex.Escape(filePattern).Replace("\\?", ".").Replace("\\*", ".*");
+            var regex = new Regex(regexPattern.ToLower(), RegexOptions.Compiled);
+
+            Mod mod = ModManager.Instance.GetMod(modName);
+            if (mod == null)
+                return $"Mod '{modName}' not found";
+
+            string dummyFilePath = mod.ModInfo.Files[0];
+            string modFolderPrefix = dummyFilePath.Substring(17);
+            modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
+            string modFolder = Path.Combine(Application.dataPath, modFolderPrefix.Substring(7));
+
+            string locationsFolder = modFolderPrefix + "/Locations/";
+            string locationPrefabsFolder = modFolderPrefix + "/Locations/LocationPrefab";
+
+            void ForEachModFile(Action<string> Func)
+            {
+                foreach (string fileRelativePath in mod.ModInfo.Files
+                .Where(file => (file.StartsWith(locationsFolder, StringComparison.InvariantCultureIgnoreCase) && !file.StartsWith(locationPrefabsFolder, StringComparison.InvariantCultureIgnoreCase))
+                    && file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
+                .Select(file => file.Substring(locationsFolder.Length)))
+                {
+                    var filename = Path.GetFileName(fileRelativePath).ToLower();
+                    
+                    if (!regex.IsMatch(filename))
+                        continue;
+
+                    try
+                    {
+                        Func(fileRelativePath);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogError(e.Message);
+                    }
+                }
+            }
+
+            void RenameFile(string fileRelativePath)
+            {
+                string modFilename = Path.GetFileName(fileRelativePath);
+
+                TextAsset asset = mod.GetAsset<TextAsset>(modFilename);
+                TextReader assetReader = new StringReader(asset.text);
+
+                int line = 1;
+                string header = assetReader.ReadLine();
+                string[] fields = header.Split(',');
+
+                int nameIndex = Array.IndexOf(fields, "name");
+                if (nameIndex == -1)
+                    throw new Exception($"Field 'name' could not be found in file '{modFilename}'");
+
+                string fullAssetPath = Path.Combine(modFolder, "Locations", fileRelativePath);
+
+                using (StreamWriter locationFileWriter = new StreamWriter(fullAssetPath, append: false))
+                {
+                    locationFileWriter.WriteLine(header);
+                    while (assetReader.Peek() > 0)
+                    {
+                        ++line;
+                        string instanceLine = assetReader.ReadLine();
+
+                        string[] values = instanceLine.Split(',');
+
+                        try
+                        {
+                            string context = $"mod={mod.ModInfo.ModTitle}, file={modFilename}, line={line}";
+                            LocationInstance instance = LocationHelper.LoadSingleLocationInstanceCsv(instanceLine, fields, context);
+
+                            switch(type.ToLower())
+                            {
+                                case "dock":
+                                    values[nameIndex] = LocationNameGenerator.GenerateDockName(instance, context: context);
+                                    break;
+
+                                case "bandit":
+                                    values[nameIndex] = LocationNameGenerator.GenerateBanditCampName(instance, context: context);
+                                    break;
+
+                                default:
+                                    throw new Exception($"Invalid name type '{type}'");
+                            }
+
+                            
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogError(e.Message);
+                        }
+
+                        locationFileWriter.WriteLine(string.Join(",", values));
+                    }
+                }
+            }
+
+            ForEachModFile(RenameFile);
+
+            return "Success";
+        }
     }
 }
