@@ -1025,7 +1025,7 @@ namespace LocationLoader
                     }
                 }
 
-                if (GetEastNeighbor(daggerTerrain, out DaggerfallTerrain westNeighbor))
+                if (GetWestNeighbor(daggerTerrain, out DaggerfallTerrain westNeighbor))
                 {
                     if (GetTerrainSample(westNeighbor, 127, loc.terrainY) != 0)
                     {
