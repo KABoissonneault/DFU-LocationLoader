@@ -22,7 +22,7 @@ namespace LocationLoader
         {
 #if UNITY_EDITOR
             ConsoleCommandsDatabase.RegisterCommand("LLPruneInvalidInstances", "Tests location instances for validity and removes invalid ones from their package (only CSV supported)"
-                , "LLPruneInvalidInstances [flags...] --mod=<modname>\n\tFlags:\n\t\t--region=<id>\n\t\t--type=<type>\n\t\t--prune-loc-overlap", PruneInvalidInstances);
+                , "LLPruneInvalidInstances [flags...] --mod=<modname>\n\tFlags:\n\t\t--file=<file pattern>\n\t\t--region=<id>\n\t\t--type=<type>\n\t\t--prune-loc-overlap", PruneInvalidInstances);
 #endif
 
             ConsoleCommandsDatabase.RegisterCommand("LLDumpTerrainSamples", "Dumps all height samples for the specified terrain in a CSV"
@@ -36,17 +36,30 @@ namespace LocationLoader
         }
 
 #if UNITY_EDITOR
+        static Regex MakeFilePattern(string filePattern)
+        {
+            if (string.IsNullOrEmpty(filePattern))
+                return null;
+
+            var lowerPattern = filePattern.ToLower();
+
+            var regexPattern = Regex.Escape(lowerPattern).Replace("\\?", ".").Replace("\\*", ".*");
+            return new Regex(regexPattern, RegexOptions.Compiled);
+        }
+
         static string PruneInvalidInstances(string[] Args)
         {
             int? regionId = null;
             int? type = null;
             string modName = null;
+            string filePattern = null;
             bool pruneLocOverlap = false;
 
             bool parsingQuotedArg = false;
             StringBuilder quotedString = null;
 
             StringBuilder modNameBuilder = null;
+            StringBuilder filePatternBuilder = null;
 
             foreach (string Arg in Args)
             {
@@ -92,6 +105,19 @@ namespace LocationLoader
                         modName = value;
                     }
                 }
+                else if(Arg.StartsWith("--file="))
+                {
+                    string value = Arg.Replace("--file=", "");
+                    if (value.StartsWith("\""))
+                    {
+                        quotedString = filePatternBuilder = new StringBuilder(value.Substring(1));
+                        parsingQuotedArg = true;
+                    }
+                    else
+                    {
+                        filePattern = value;
+                    }
+                }
                 else if (Arg == "--prune-loc-overlap")
                 {
                     pruneLocOverlap = true;
@@ -105,6 +131,11 @@ namespace LocationLoader
             if (modNameBuilder != null && modNameBuilder.Length > 0)
             {
                 modName = modNameBuilder.ToString();
+            }
+
+            if (filePatternBuilder != null && filePatternBuilder.Length > 0)
+            {
+                filePattern = filePatternBuilder.ToString();
             }
 
             if (string.IsNullOrEmpty(modName))
@@ -135,6 +166,10 @@ namespace LocationLoader
             string locationsFolder = modFolderPrefix + "/Locations/";
             string locationPrefabsFolder = modFolderPrefix + "/Locations/LocationPrefab";
 
+            var regex = MakeFilePattern(filePattern);
+
+            int fileCount = 0;
+
             void ForEachModFile(Action<string> Func)
             {
                 if (regionId.HasValue)
@@ -149,6 +184,16 @@ namespace LocationLoader
                                 && file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
                             .Select(file => file.Substring(locationsFolder.Length)))
                     {
+                        if(!string.IsNullOrEmpty(filePattern))
+                        {
+                            var filename = Path.GetFileName(fileRelativePath).ToLower();
+
+                            if (!regex.IsMatch(filename))
+                                continue;
+                        }
+
+                        ++fileCount;
+
                         try
                         {
                             Func(fileRelativePath);
@@ -166,6 +211,16 @@ namespace LocationLoader
                         && file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
                     .Select(file => file.Substring(locationsFolder.Length)))
                     {
+                        if (!string.IsNullOrEmpty(filePattern))
+                        {
+                            var filename = Path.GetFileName(fileRelativePath).ToLower();
+
+                            if (!regex.IsMatch(filename))
+                                continue;
+                        }
+
+                        ++fileCount;
+
                         try
                         {
                             Func(fileRelativePath);
@@ -406,7 +461,7 @@ namespace LocationLoader
 
             ForEachModFile(PruneModFile);
 
-            return "Success";
+            return $"Success (visited {fileCount} files)";
         }
 #endif
         static string DumpTerrainSamples(string[] Args)
@@ -848,12 +903,9 @@ namespace LocationLoader
                 return $"Need a file pattern to name. Specify it with --file=<file pattern>";
             }
 
-            string type = Args[Args.Length - 1];
+            var type = Args[Args.Length - 1];
 
-            var lowerPattern = filePattern.ToLower();
-
-            var regexPattern = Regex.Escape(filePattern).Replace("\\?", ".").Replace("\\*", ".*");
-            var regex = new Regex(regexPattern.ToLower(), RegexOptions.Compiled);
+            var regex = MakeFilePattern(filePattern);
 
             Mod mod = ModManager.Instance.GetMod(modName);
             if (mod == null)
