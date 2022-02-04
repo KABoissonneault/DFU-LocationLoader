@@ -9,6 +9,10 @@ using System;
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Entity;
+using DaggerfallWorkshop.Utility.AssetInjection;
+using DaggerfallConnect;
+using DaggerfallConnect.Arena2;
+using DaggerfallConnect.Utility;
 
 namespace LocationLoader
 {
@@ -16,7 +20,7 @@ namespace LocationLoader
     {
         HashSet<int> visitedRegions = new HashSet<int>();
         Dictionary<Vector2Int, List<LocationInstance>> worldPixelInstances = new Dictionary<Vector2Int, List<LocationInstance>>();
-        Dictionary<int, Dictionary<string, Mod>> modRegionFiles = new Dictionary<int, Dictionary<string, Mod>>();
+        Dictionary<int, List<LocationInstance>> regionInstances = new Dictionary<int, List<LocationInstance>>();
 
         Dictionary<string, Mod> modLocationPrefabs = null;
         Dictionary<string, LocationPrefab> prefabInfos = new Dictionary<string, LocationPrefab>();
@@ -40,7 +44,86 @@ namespace LocationLoader
             LocationConsole.RegisterCommands();
             CacheGlobalInstances();
 
+            WorldDataReplacement.OnRegionNewLocations += WorldDataReplacement_OnRegionNewLocations;
+
             Debug.Log("Finished mod init: Location Loader");
+        }
+
+        private void WorldDataReplacement_OnRegionNewLocations(int regionIndex, ref List<DFLocation> locations)
+        {
+            CacheRegionInstances(regionIndex);
+
+            var instances = regionInstances[regionIndex];
+
+            var mapFileReader = DaggerfallUnity.Instance.ContentReader.MapFileReader;
+            string regionName = mapFileReader.GetRegionName(regionIndex);
+
+            foreach (LocationInstance instance in instances)
+            {
+                if (instance.type != 0 && instance.type != 2)
+                    continue;
+
+                DFLocation location = new DFLocation();
+
+                location.Loaded = true;
+                location.Name = instance.name;
+                location.RegionName = regionName;
+
+                location.HasDungeon = false; // TODO
+
+                location.Politic = mapFileReader.GetPoliticIndex(instance.worldX, instance.worldY);
+                location.RegionIndex = regionIndex;
+
+                // Map Table Data
+                var mapId = MapsFile.GetMapPixelID(instance.worldX, instance.worldY);
+                location.MapTableData.MapId = mapId;
+                location.MapTableData.LocationType = DFRegion.LocationTypes.TownCity; // TODO
+                location.MapTableData.DungeonType = DFRegion.DungeonTypes.NoDungeon;
+                location.MapTableData.Discovered = false;
+                location.MapTableData.Key = 0; // ???
+
+                DFPosition pixelCoords = MapsFile.MapPixelToLongitudeLatitude(instance.worldX, instance.worldY);
+                location.MapTableData.Longitude = pixelCoords.X + (instance.terrainX + 64);
+                location.MapTableData.Latitude = pixelCoords.Y + (instance.terrainY + 64);
+
+                // Exterior
+                ushort locationId = 0; // TODO
+
+                location.Exterior.RecordElement.Header.LocationId = locationId; 
+                location.Exterior.RecordElement.Header.IsExterior = 0x8000; // That means exterior, yes
+                location.Exterior.RecordElement.Header.IsInterior = 0;
+                location.Exterior.RecordElement.Header.LocationName = instance.name;
+
+                DFPosition worldCoord = MapsFile.MapPixelToWorldCoord(instance.worldX, instance.worldY);
+                location.Exterior.RecordElement.Header.X = worldCoord.X;
+                location.Exterior.RecordElement.Header.Y = worldCoord.Y;
+
+                location.Exterior.ExteriorData.AnotherName = instance.name;
+                location.Exterior.ExteriorData.MapId = mapId;
+                location.Exterior.ExteriorData.LocationId = locationId;
+                location.Exterior.ExteriorData.Width = 1; // TODO
+                location.Exterior.ExteriorData.Height = 1; // TODO
+                location.Exterior.ExteriorData.PortTownAndUnknown = (byte)(instance.type == 2 ? 1 : 0); // TODO?
+                location.Exterior.ExteriorData.BlockNames = new string[] { "DFBLCK07.RMG" }; // Empty grass block, todo
+
+                // Dungeon - TODO
+
+                // Climate
+                var climateIndex = mapFileReader.GetClimateIndex(instance.worldX, instance.worldY);
+
+                location.Climate.WorldClimate = climateIndex;
+
+                var climateSettings = MapsFile.GetWorldClimateSettings(climateIndex);
+                location.Climate.ClimateType = climateSettings.ClimateType;
+                location.Climate.NatureSet = climateSettings.NatureSet;
+                location.Climate.GroundArchive = climateSettings.GroundArchive;
+                location.Climate.NatureArchive = climateSettings.NatureArchive;
+                location.Climate.SkyBase = climateSettings.SkyBase;
+                location.Climate.People = climateSettings.People;
+                location.Climate.Names = climateSettings.Names;
+
+                locations.Add(location);
+            }
         }
 
         private void OnEnable()
@@ -565,12 +648,14 @@ namespace LocationLoader
 
         void CacheRegionInstances(int regionIndex)
         {
-            CacheRegionFileNames(regionIndex);
-
             if (visitedRegions.Contains(regionIndex))
                 return;
 
-            Dictionary<string, Mod> regionFiles = modRegionFiles[regionIndex];
+            Dictionary<string, Mod> regionFiles = GetRegionFileNames(regionIndex);
+
+            List<LocationInstance> currentRegionInstances = new List<LocationInstance>();
+            regionInstances.Add(regionIndex, currentRegionInstances);
+
             foreach(var kvp in regionFiles)
             {
                 string filename = kvp.Key;
@@ -584,14 +669,16 @@ namespace LocationLoader
                     foreach(LocationInstance instance in LocationHelper.LoadLocationInstance(looseFileLocation))
                     {
                         Vector2Int location = new Vector2Int(instance.worldX, instance.worldY);
-                        List<LocationInstance> instances;
-                        if(!worldPixelInstances.TryGetValue(location, out instances))
+
+                        List<LocationInstance> pixelInstances;
+                        if(!worldPixelInstances.TryGetValue(location, out pixelInstances))
                         {
-                            instances = new List<LocationInstance>();
-                            worldPixelInstances.Add(location, instances);
+                            pixelInstances = new List<LocationInstance>();
+                            worldPixelInstances.Add(location, pixelInstances);
                         }
 
-                        instances.Add(instance);
+                        pixelInstances.Add(instance);
+                        currentRegionInstances.Add(instance);
                     }
                 }
                 else
@@ -607,6 +694,7 @@ namespace LocationLoader
                         }
 
                         instances.Add(instance);
+                        currentRegionInstances.Add(instance);
                     }
                 }
             }
@@ -614,85 +702,83 @@ namespace LocationLoader
             visitedRegions.Add(regionIndex);
         }
 
-        void CacheRegionFileNames(int regionIndex)
-        {
-            if (!modRegionFiles.ContainsKey(regionIndex))
+        Dictionary<string, Mod> GetRegionFileNames(int regionIndex)
+        {            
+            Dictionary<string, Mod> regionFiles = new Dictionary<string, Mod>();
+
+            string regionName = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetRegionName(regionIndex);
+
+            foreach (Mod mod in ModManager.Instance.Mods)
             {
-                Dictionary<string, Mod> regionFiles = new Dictionary<string, Mod>();
-                modRegionFiles.Add(regionIndex, regionFiles);
+                if (!mod.Enabled)
+                    continue;
 
-                string regionName = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetRegionName(regionIndex);
-
-                foreach (Mod mod in ModManager.Instance.Mods)
+                if (mod.AssetBundle && mod.AssetBundle.GetAllAssetNames().Length > 0)
                 {
-                    if (!mod.Enabled)
-                        continue;
+                    string dummyFilePath = mod.AssetBundle.GetAllAssetNames()[0];
+                    string modFolderPrefix = dummyFilePath.Substring(17);
+                    modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
 
-                    if (mod.AssetBundle && mod.AssetBundle.GetAllAssetNames().Length > 0)
+                    string regionIndexFolder = modFolderPrefix + "/locations/" + regionIndex.ToString();                        
+                    string regionNameFolder = modFolderPrefix + "/locations/" + regionName;
+
+
+                    foreach (string filename in mod.AssetBundle.GetAllAssetNames()
+                        .Where(file => (file.StartsWith(regionIndexFolder, StringComparison.InvariantCultureIgnoreCase) || file.StartsWith(regionNameFolder, StringComparison.InvariantCultureIgnoreCase))
+                            && (file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase)))
+                        .Select(file => Path.GetFileName(file).ToLower()))
                     {
-                        string dummyFilePath = mod.AssetBundle.GetAllAssetNames()[0];
-                        string modFolderPrefix = dummyFilePath.Substring(17);
-                        modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
-
-                        string regionIndexFolder = modFolderPrefix + "/locations/" + regionIndex.ToString();                        
-                        string regionNameFolder = modFolderPrefix + "/locations/" + regionName;
-
-
-                        foreach (string filename in mod.AssetBundle.GetAllAssetNames()
-                            .Where(file => (file.StartsWith(regionIndexFolder, StringComparison.InvariantCultureIgnoreCase) || file.StartsWith(regionNameFolder, StringComparison.InvariantCultureIgnoreCase))
-                                && (file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase)))
-                            .Select(file => Path.GetFileName(file).ToLower()))
-                        {
-                            regionFiles[filename] = mod;
-                        }
+                        regionFiles[filename] = mod;
                     }
+                }
 #if UNITY_EDITOR
-                    else if (mod.IsVirtual && mod.ModInfo.Files.Count > 0)
+                else if (mod.IsVirtual && mod.ModInfo.Files.Count > 0)
+                {
+                    string dummyFilePath = mod.ModInfo.Files[0];
+                    string modFolderPrefix = dummyFilePath.Substring(17);
+                    modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
+
+                    string regionIndexFolder = modFolderPrefix + "/Locations/" + regionIndex.ToString();
+                    string regionNameFolder = modFolderPrefix + "/Locations/" + regionName;
+
+                    foreach (string filename in mod.ModInfo.Files
+                        .Where(file => (file.StartsWith(regionIndexFolder, System.StringComparison.InvariantCultureIgnoreCase) || file.StartsWith(regionNameFolder, System.StringComparison.InvariantCultureIgnoreCase))
+                            && (file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase)))
+                        .Select(file => Path.GetFileName(file).ToLower()))
                     {
-                        string dummyFilePath = mod.ModInfo.Files[0];
-                        string modFolderPrefix = dummyFilePath.Substring(17);
-                        modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
-
-                        string regionIndexFolder = modFolderPrefix + "/Locations/" + regionIndex.ToString();
-                        string regionNameFolder = modFolderPrefix + "/Locations/" + regionName;
-
-                        foreach (string filename in mod.ModInfo.Files
-                            .Where(file => (file.StartsWith(regionIndexFolder, System.StringComparison.InvariantCultureIgnoreCase) || file.StartsWith(regionNameFolder, System.StringComparison.InvariantCultureIgnoreCase))
-                                && (file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase)))
-                            .Select(file => Path.GetFileName(file).ToLower()))
-                        {
-                            regionFiles[filename] = mod;
-                        }
+                        regionFiles[filename] = mod;
                     }
+                }
 #endif                   
+            }
+
+            string looseLocationFolder = Path.Combine(Application.dataPath, LocationHelper.locationInstanceFolder);
+            string looseLocationRegionIndexFolder = Path.Combine(looseLocationFolder, regionIndex.ToString());
+            string looseLocationRegionNameFolder = Path.Combine(looseLocationFolder, regionName);
+            if(Directory.Exists(looseLocationFolder) )
+            {
+                if (Directory.Exists(looseLocationRegionIndexFolder))
+                {
+                    foreach (string filename in Directory.GetFiles(looseLocationRegionIndexFolder)
+                        .Where(file => file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
+                        .Select(file => Path.GetFileName(file).ToLower()))
+                    {
+                        regionFiles[filename] = null;
+                    }
                 }
 
-                string looseLocationFolder = Path.Combine(Application.dataPath, LocationHelper.locationInstanceFolder);
-                string looseLocationRegionIndexFolder = Path.Combine(looseLocationFolder, regionIndex.ToString());
-                string looseLocationRegionNameFolder = Path.Combine(looseLocationFolder, regionName);
-                if(Directory.Exists(looseLocationFolder) )
+                if (Directory.Exists(looseLocationRegionNameFolder))
                 {
-                    if (Directory.Exists(looseLocationRegionIndexFolder))
+                    foreach (string filename in Directory.GetFiles(looseLocationRegionNameFolder)
+                        .Where(file => file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
+                        .Select(file => Path.GetFileName(file).ToLower()))
                     {
-                        foreach (string filename in Directory.GetFiles(looseLocationRegionIndexFolder)
-                            .Where(file => file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
-                            .Select(file => Path.GetFileName(file).ToLower()))
-                        {
-                            regionFiles[filename] = null;
-                        }
-                    }
-
-                    if (Directory.Exists(looseLocationRegionNameFolder))
-                    {
-                        foreach (string filename in Directory.GetFiles(looseLocationRegionNameFolder)
-                            .Where(file => file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
-                            .Select(file => Path.GetFileName(file).ToLower()))
-                        {
-                            regionFiles[filename] = null;
-                        }
+                        regionFiles[filename] = null;
                     }
                 }
             }
+
+            return regionFiles;
         }
 
         void OnTerrainPromoted(DaggerfallTerrain daggerTerrain, TerrainData terrainData)
