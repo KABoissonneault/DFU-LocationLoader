@@ -7,6 +7,8 @@ using UnityEngine;
 using DaggerfallWorkshop;
 using System.IO;
 using DaggerfallWorkshop.Game.Serialization;
+using DaggerfallWorkshop.Game.Utility.ModSupport;
+using FullSerializer;
 
 namespace LocationLoader
 {
@@ -21,6 +23,7 @@ namespace LocationLoader
         GameObject parent, ground, areaReference, preview;
         List<GameObject> objScene = new List<GameObject>();
 
+        string workingMod;
         string searchField = "";
         string currentPrefabName;
         List<string> searchListNames = new List<string>();
@@ -37,7 +40,7 @@ namespace LocationLoader
         int setIndex = 0;
         int maxAreaLength = 128;
         Vector2 scrollPosition = Vector2.zero, scrollPosition2 = Vector2.zero, scrollPosition3 = Vector2.zero;
-        string[] listModeName = { "3D Model", "Billboard", "Editor", "Interior Parts", "Prefab" };
+        string[] listModeName = { "3D Model", "Billboard", "Editor", "Interior Parts", "Prefab", "Unity" };
         string[] modelLists = { "All", "Structure", "Clutter", "Dungeon", "Furniture", "Graveyard" };
         string[] billboardLists = { "All", "People", "Interior", "Nature", "Lights", "Treasure", "Dungeon" };
         string[] partsLists = { "All", "House", "Dungeon Rooms", "Dungeon Corridors", "Dungeon Misc", "Caves", "Dungeon Doors/Exits" };
@@ -51,6 +54,12 @@ namespace LocationLoader
 
         LocationPrefab locationPrefab;
 
+        // Object types
+        // 0 -> DFU model
+        // 1 -> DFU billboard
+        // 2 -> Editor marker
+        // 3 -> Location Loader Prefab
+        // 4 -> Unity Prefab
         int GetCurrentObjectType()
         {
             switch(listMode)
@@ -61,8 +70,14 @@ namespace LocationLoader
                 case 1: return 1;
                 case 2: return 2;
                 case 4: return 3;
+                case 5: return 4;
             }
             throw new Exception("GetCurrentObjectType called with invalid list mode");
+        }
+
+        static bool HasRotation(LocationObject obj)
+        {
+            return LocationHelper.HasRotation(obj);
         }
 
         [MenuItem("Daggerfall Tools/Location Prefab Editor")]
@@ -162,9 +177,69 @@ namespace LocationLoader
             }
         }
 
+        private static ModInfo GetModInfo(string directory)
+        {
+            string foundFile = Directory.EnumerateFiles(directory).FirstOrDefault(file => file.EndsWith(".dfmod.json"));
+            if (string.IsNullOrEmpty(foundFile))
+                return null;
+
+            ModInfo modInfo = null;
+            if (ModManager._serializer.TryDeserialize(fsJsonParser.Parse(File.ReadAllText(foundFile)), ref modInfo).Failed)
+                return null;
+
+            return modInfo;
+        }
+
+        private ModInfo GetWorkingModInfo()
+        {
+            if (string.IsNullOrEmpty(workingMod))
+                return null;
+
+            return GetModInfo(Path.Combine(Application.dataPath, "Game", "Mods", workingMod));
+        }
+
+        private static IEnumerable<string> GetDevMods()
+        {
+            string modsfolder = Path.Combine(Application.dataPath, "Game", "Mods");
+            foreach (var directory in Directory.EnumerateDirectories(modsfolder))
+            {
+                ModInfo info = GetModInfo(directory);
+                if (info != null)
+                {                    
+                    yield return Path.GetFileName(directory);
+                }
+            }
+        }
+
         private void EditLocationWindow()
         {
-            if (GUI.Button(Rect_NewFile, "New Prefab"))
+            float baseY = 0;
+
+            GUI.Label(new Rect(16, baseY + 8, 84, 16), "Active Mod: ");
+            if(EditorGUI.DropdownButton(new Rect(92, baseY + 8, 160, 16), new GUIContent(workingMod), FocusType.Passive))
+            {
+                void OnItemClicked(object mod)
+                {
+                    workingMod = (string)mod;
+                }
+
+                GenericMenu menu = new GenericMenu();
+                foreach(string mod in GetDevMods())
+                {
+                    menu.AddItem(new GUIContent(mod), workingMod == mod, OnItemClicked, mod);
+                }
+
+                menu.DropDown(new Rect(92, baseY + 8, 160, 16));
+            }
+
+            if (!string.IsNullOrEmpty(currentPrefabName))
+            {
+                GUI.Label(new Rect(260, baseY + 8, 240, 16), new GUIContent($"Current prefab: {currentPrefabName}"));
+            }
+
+            baseY += 24;
+
+            if (GUI.Button(new Rect(16, baseY+8, 96, 16), "New Prefab"))
             {
                 if (parent != null)
                     DestroyImmediate(parent);
@@ -180,7 +255,7 @@ namespace LocationLoader
                 maxAreaLength = 128;
             }
 
-            if (GUI.Button(Rect_SaveFile, "Save Prefab"))
+            if (GUI.Button(new Rect(96 + 48, baseY+8, 96, 16), "Save Prefab"))
             {
                 string path;
                 if (!string.IsNullOrEmpty(currentPrefabName))
@@ -198,7 +273,7 @@ namespace LocationLoader
                 }
             }
 
-            if (GUI.Button(Rect_LoadFile, "Load Prefab"))
+            if (GUI.Button(new Rect(96 + 96 + 80, baseY+8, 96, 16), "Load Prefab"))
             {
                 string path = EditorUtility.OpenFilePanel("Open", LocationHelper.locationPrefabFolder, "txt");
 
@@ -230,6 +305,8 @@ namespace LocationLoader
                 maxAreaLength = Math.Min(Math.Max(Math.Max(128, locationPrefab.width), locationPrefab.height), 9999);
             }
 
+            baseY += 24;
+
             if (parent != null && locationPrefab != null)
             {
                 if(lightGrayBG.normal.background == null)
@@ -237,15 +314,15 @@ namespace LocationLoader
                     CreateGUIStyles();
                 }
 
-                GUI.Box(new Rect(4, 32, 656, 56), "", lightGrayBG);
+                GUI.Box(new Rect(4, baseY + 8, 656, 56), "", lightGrayBG);
                                 
-                GUI.Label(new Rect(16, 40, 64, 16), "Area X:");
+                GUI.Label(new Rect(16, baseY + 16, 64, 16), "Area X:");
                 int previousWidth = locationPrefab.width;
-                locationPrefab.width = EditorGUI.IntSlider(new Rect(90, 40, 400, 16), previousWidth, 1, maxAreaLength);
+                locationPrefab.width = EditorGUI.IntSlider(new Rect(90, baseY + 16, 400, 16), previousWidth, 1, maxAreaLength);
 
-                GUI.Label(new Rect(16, 64, 64, 16), "Area Y:");
+                GUI.Label(new Rect(16, baseY + 40, 64, 16), "Area Y:");
                 int previousHeight = locationPrefab.height;
-                locationPrefab.height = EditorGUI.IntSlider(new Rect(90, 64, 400, 16), previousHeight, 1, maxAreaLength);
+                locationPrefab.height = EditorGUI.IntSlider(new Rect(90, baseY + 40, 400, 16), previousHeight, 1, maxAreaLength);
                                 
                 if(areaReference != null && GUI.changed)
                 {
@@ -254,8 +331,8 @@ namespace LocationLoader
                     GUI.changed = false;
                 }
 
-                GUI.Label(new Rect(498, 40, 80, 16), "Max Length:");
-                string maxAreaLengthText = GUI.TextField(new Rect(586, 40, 64, 16), maxAreaLength.ToString(), 4);
+                GUI.Label(new Rect(498, baseY + 16, 80, 16), "Max Length:");
+                string maxAreaLengthText = GUI.TextField(new Rect(586, baseY + 16, 64, 16), maxAreaLength.ToString(), 4);
                 if(GUI.changed)
                 {
                     if(int.TryParse(maxAreaLengthText, out int parsedMaxAreaLength))
@@ -273,7 +350,9 @@ namespace LocationLoader
                     GUI.changed = false;
                 }
 
-                scrollPosition = GUI.BeginScrollView(new Rect(2, 128, 532, 512), scrollPosition, new Rect(0, 0, 512, 20 + ((objScene.Count+1) * 60)),false, true);
+                baseY += 72;
+
+                scrollPosition = GUI.BeginScrollView(new Rect(2, baseY + 8, 532, 512), scrollPosition, new Rect(0, 0, 512, 20 + ((objScene.Count+1) * 60)),false, true);
 
                 for (int i = 0; i < objScene.Count; ++i)
                 {
@@ -302,7 +381,7 @@ namespace LocationLoader
                         obj.pos = new Vector3(scenePos.x, scenePos.y - (billboardHeight / 2) * sceneObj.transform.localScale.y, scenePos.z);
                     }
 
-                    if(obj.type == 0 || obj.type == 3)
+                    if(HasRotation(obj))
                         obj.rot = sceneObj.transform.rotation;
                     obj.scale = sceneObj.transform.localScale;
 
@@ -318,7 +397,7 @@ namespace LocationLoader
                     GUI.Label(new Rect(2, 36, 128, 16), "ID: " + obj.objectID);
 
                     GUI.Label(new Rect(136, 4, 256, 16), "Position : " + obj.pos);
-                    if(obj.type == 0 || obj.type == 3)
+                    if(HasRotation(obj))
                         GUI.Label(new Rect(136, 20, 256, 16), "Rotation : " + obj.rot.eulerAngles);
                     GUI.Label(new Rect(136, 36, 256, 16), "Scale    : " + obj.scale);
 
@@ -729,6 +808,20 @@ namespace LocationLoader
 
                 return newObject;
             }
+            else if(locationObject.type == 4)
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(locationObject.name);
+                if (prefab == null)
+                    return null;
+
+                var newObject = Instantiate(prefab, objectParent);
+                newObject.transform.localPosition = locationObject.pos;
+                newObject.transform.localRotation = locationObject.rot;
+                newObject.transform.localScale = locationObject.scale;
+                newObject.name = Path.GetFileNameWithoutExtension(locationObject.name);
+
+                return newObject;
+            }
             else
             {
                 var newObject = LocationHelper.LoadStaticObject(locationObject.type, locationObject.name, objectParent,
@@ -790,14 +883,17 @@ namespace LocationLoader
                 previewObject.name = searchListIDSets[objectPicker][setIndex];
 
                 preview = CreateObject(previewObject, null);
-                preview.layer = 2; // Ignore raycast 
-                preview.name = "Location Prefab Object Preview";
+                if (preview != null)
+                {
+                    preview.layer = 2; // Ignore raycast 
+                    preview.name = "Location Prefab Object Preview";
 
-                var renderer = preview.GetComponent<Renderer>();
-                if (renderer == null)
-                    renderer = preview.GetComponentInChildren<Renderer>();
+                    var renderer = preview.GetComponent<Renderer>();
+                    if (renderer == null)
+                        renderer = preview.GetComponentInChildren<Renderer>();
 
-                SceneView.lastActiveSceneView.Frame(renderer.bounds);
+                    SceneView.lastActiveSceneView.Frame(renderer.bounds);
+                }
             }
         }
 
@@ -982,6 +1078,19 @@ namespace LocationLoader
                 searchListNames.AddRange(prefabs);
                 searchListIDSets.AddRange(prefabs.Select(prefab => new string[] { prefab }));
             }
+            else if(listMode == 5)
+            {
+                ModInfo modInfo = GetWorkingModInfo();
+                if (modInfo == null)
+                    return;
+
+                foreach(string file in modInfo.Files
+                    .Where(file => file.EndsWith(".prefab")))
+                {
+                    searchListNames.Add(Path.GetFileNameWithoutExtension(file));
+                    searchListIDSets.Add(new string[] { file });
+                }
+            }
         }
 
         private void OnDisable()
@@ -992,6 +1101,8 @@ namespace LocationLoader
                 DestroyImmediate(parent);
                 parent = null;
             }
+
+            currentPrefabName = string.Empty;
         }
 
         private void OnDestroy()

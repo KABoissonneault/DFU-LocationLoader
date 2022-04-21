@@ -9,6 +9,7 @@ using System;
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Entity;
+using UnityEditor;
 
 namespace LocationLoader
 {
@@ -21,6 +22,7 @@ namespace LocationLoader
         Dictionary<string, Mod> modLocationPrefabs = null;
         Dictionary<string, LocationPrefab> prefabInfos = new Dictionary<string, LocationPrefab>();
         Dictionary<string, GameObject> prefabTemplates = new Dictionary<string, GameObject>();
+        Dictionary<string, GameObject> unityPrefabAssets = new Dictionary<string, GameObject>();
 
         Dictionary<Vector2Int, WeakReference<DaggerfallTerrain>> loadedTerrain = new Dictionary<Vector2Int, WeakReference<DaggerfallTerrain>>();
         Dictionary<Vector2Int, List<LocationData>> pendingType2Locations = new Dictionary<Vector2Int, List<LocationData>>();
@@ -369,6 +371,13 @@ namespace LocationLoader
                     LocationData data = subPrefab.AddComponent<LocationData>();
                     data.Prefab = objPrefabInfo;
                 }
+                else if (obj.type == 4)
+                {
+                    GameObject subPrefab = CreateUnityPrefab(obj.name, prefabObject.transform);
+                    subPrefab.transform.localPosition = obj.pos;
+                    subPrefab.transform.localRotation = obj.rot;
+                    subPrefab.transform.localScale = obj.scale;
+                }
             }
 
             if (topCombiner && combiner.VertexCount > 0)
@@ -401,6 +410,24 @@ namespace LocationLoader
                         
             GameObject instance = Instantiate(prefabObject, new Vector3(), Quaternion.identity, prefabParent);
             instance.name = prefabName;
+            return instance;
+        }
+
+        GameObject CreateUnityPrefab(string prefabPath, Transform prefabParent)
+        {
+            GameObject prefabTemplate;
+
+            if(!unityPrefabAssets.TryGetValue(prefabPath, out prefabTemplate))
+            {
+                prefabTemplate = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                unityPrefabAssets.Add(prefabPath, prefabTemplate);
+            }
+
+            if (prefabTemplate == null)
+                return null;
+
+            GameObject instance = Instantiate(prefabTemplate, new Vector3(), Quaternion.identity, prefabParent);
+            instance.name = Path.GetFileNameWithoutExtension(prefabPath);
             return instance;
         }
 

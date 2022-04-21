@@ -1519,7 +1519,7 @@ namespace LocationLoader
                     obj.scale.y = float.Parse(objectNode["scaleY"].InnerXml, cultureInfo);
                     obj.scale.z = float.Parse(objectNode["scaleZ"].InnerXml, cultureInfo);
 
-                    if (obj.type == 0 || obj.type == 3)
+                    if (HasRotation(obj))
                     {
                         var node = objectNode["rotW"];
                         if(node != null)
@@ -1578,6 +1578,11 @@ namespace LocationLoader
             }
         }
 
+        public static bool HasRotation(LocationObject obj)
+        {
+            return obj.type == 0 || obj.type == 3 || obj.type == 4;
+        }
+
         /// <summary>
         /// Save locationprefab to path
         /// </summary>
@@ -1614,7 +1619,7 @@ namespace LocationLoader
                     writer.WriteLine("\t\t<extraData>" + obj.extraData + "</extraData>");
                 }
 
-                if (obj.type == 0 || obj.type == 3)
+                if (HasRotation(obj))
                 {
                     writer.WriteLine("\t\t<rotW>" + obj.rot.w.ToString(cultureInfo) + "</rotW>");
                     writer.WriteLine("\t\t<rotX>" + obj.rot.x.ToString(cultureInfo) + "</rotX>");
@@ -1718,7 +1723,7 @@ namespace LocationLoader
                 Debug.LogWarning("Editor marker name format is invalid, use 199.RECORDID");
                 return false;
             }
-            else if(type == 3)
+            else if(type == 3 || type == 4)
             {
                 // Just assume valid for now
                 return true;
