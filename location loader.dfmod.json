@@ -1,9 +1,9 @@
 {
     "ModTitle": "Location Loader",
-    "ModVersion": "0.1.4",
+    "ModVersion": "0.1.6",
     "ModAuthor": "kaboissonneault",
     "ContactInfo": "@kaboissonneault",
-    "DFUnity_Version": "0.13.4",
+    "DFUnity_Version": "0.13.5",
     "ModDescription": "Utility mod allowing mods to add new locations and prefabs to the world",
     "GUID": "fc5c0fa6-e80d-4cb1-89fa-c10be8e35bf3",
     "Files": [
@@ -16,6 +16,7 @@
         "Assets/Game/Mods/LocationLoader/Scripts/Editor/LocationPrefabEditor.cs",
         "Assets/Game/Mods/LocationLoader/Scripts/LocationSaveDataInterface.cs",
         "Assets/Game/Mods/LocationLoader/Scripts/LocationConsole.cs",
-        "Assets/Game/Mods/LocationLoader/location loader.dfmod.json"
+        "Assets/Game/Mods/LocationLoader/location loader.dfmod.json",
+        "Assets/Game/Mods/LocationLoader/Scripts/LocationObjectExtraData.cs"
     ]
 }
