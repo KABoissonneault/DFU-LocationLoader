@@ -101,31 +101,7 @@ namespace LocationLoader
                 idName.Add(kvp.Key, kvp.Value);
             }
 
-            string modsfolder = Path.Combine(Application.dataPath, "Game", "Mods");
-            foreach (var directory in Directory.EnumerateDirectories(modsfolder))
-            {
-                string locationPrefabs = Path.Combine(directory, "Locations", "LocationPrefab");
-                if (!Directory.Exists(locationPrefabs))
-                    continue;
-
-                foreach (var file in Directory.EnumerateFiles(locationPrefabs, "*.txt"))
-                {
-                    LocationPrefab prefab = LocationHelper.LoadLocationPrefab(file);
-                    if (prefab != null)
-                    {
-                        try
-                        {
-                            string prefabName = Path.GetFileNameWithoutExtension(file.ToLower());
-                            prefabInfos[prefabName] = prefab;
-                        }
-                        catch (Exception e)
-                        {
-                            Debug.LogError(e.Message);
-                        }
-                    }
-                }
-            }
-
+            UpdatePrefabInfos();
             UpdateObjList();
         }
 
@@ -221,6 +197,7 @@ namespace LocationLoader
                 void OnItemClicked(object mod)
                 {
                     workingMod = (string)mod;
+                    UpdatePrefabInfos();
                 }
 
                 GenericMenu menu = new GenericMenu();
@@ -964,6 +941,39 @@ namespace LocationLoader
                             )
                 {
                     AddName(kvp.Value, new string[] { kvp.Key });
+                }
+            }
+        }
+
+        private void UpdatePrefabInfos()
+        {
+            prefabInfos.Clear();
+
+            if(string.IsNullOrEmpty(workingMod))
+                return;
+
+            string modfolder = Path.Combine(Application.dataPath, "Game", "Mods", workingMod);
+            ModInfo modInfo = GetModInfo(modfolder);
+            if (modInfo == null)
+                return;
+
+            string prefabSubpath = $"Assets/Game/Mods/{workingMod}/Locations/LocationPrefab";
+
+            foreach (var file in modInfo.Files
+                .Where(file => file.StartsWith(prefabSubpath) && file.EndsWith(".txt")))
+            {
+                LocationPrefab prefab = LocationHelper.LoadLocationPrefab(file);
+                if (prefab != null)
+                {
+                    try
+                    {
+                        string prefabName = Path.GetFileNameWithoutExtension(file.ToLower());
+                        prefabInfos[prefabName] = prefab;
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogError(e.Message);
+                    }
                 }
             }
         }
