@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
+using FullSerializer;
 
 namespace LocationLoader
 {
@@ -50,6 +51,38 @@ namespace LocationLoader
             uint first = (uint)UnityEngine.Random.Range(int.MinValue, int.MaxValue);
             uint second = (uint)UnityEngine.Random.Range(int.MinValue, int.MaxValue);
             locationID = ((ulong)first) << 32 | second;                      
+        }
+
+        public bool TryGetExtraDataAsInt64(string key, out long value)
+        {
+            fsResult parseResult = fsJsonParser.Parse(extraData, out fsData data);
+            if (parseResult.Failed || !data.IsDictionary)
+            {
+                value = 0;
+                return false;
+            }
+
+            if(!data.AsDictionary.TryGetValue(key, out fsData valueData) || !valueData.IsInt64)
+            {
+                value = 0;
+                return false;
+            }
+
+            value = valueData.AsInt64;
+            return true;            
+        }
+
+        public void SetExtraDataField(string key, long value)
+        {
+            fsResult parseResult = fsJsonParser.Parse(extraData, out fsData data);
+            if (parseResult.Failed || !data.IsDictionary)
+            {
+                data = new fsData(new Dictionary<string, fsData>());
+            }
+
+            data.AsDictionary[key] = new fsData(value);
+
+            extraData = fsJsonPrinter.CompressedJson(data);
         }
     }
 

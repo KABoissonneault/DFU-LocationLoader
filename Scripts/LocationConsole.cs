@@ -23,7 +23,6 @@ namespace LocationLoader
 #if UNITY_EDITOR
             ConsoleCommandsDatabase.RegisterCommand("LLPruneInvalidInstances", "Tests location instances for validity and removes invalid ones from their package (only CSV supported)"
                 , "LLPruneInvalidInstances [flags...] --mod=<modname>\n\tFlags:\n\t\t--file=<file pattern>\n\t\t--region=<id>\n\t\t--type=<type>\n\t\t--prune-loc-overlap", PruneInvalidInstances);
-#endif
 
             ConsoleCommandsDatabase.RegisterCommand("LLDumpTerrainSamples", "Dumps all height samples for the specified terrain in a CSV"
                 , "LLDumpTerrainSamples <worldX> <worldY> <filename>", DumpTerrainSamples);
@@ -31,8 +30,12 @@ namespace LocationLoader
             ConsoleCommandsDatabase.RegisterCommand("LLDumpDockLocations", "Dumps all the type 2 locations in the game, and what city they're close to",
                 "LLDumpDockLocations --mod=<modname> --file=<modfile> --locationId=<id> --write-link", DumpDockLocations);
 
+            ConsoleCommandsDatabase.RegisterCommand("LLDumpLocations", "Dumps all the locations in the game, and what city they're close to",
+                "LLDumpLocations --mod=<modname> --file=<file pattern> --write-link --max-link=<num>", DumpLocations);
+
             ConsoleCommandsDatabase.RegisterCommand("LLNameLocations", "Writes a random name for all the specified locations",
                 "LLNameDockLocations --mod=<modname> --file=<file pattern> dock|bandit", NameLocations);
+#endif
         }
 
 #if UNITY_EDITOR
@@ -463,7 +466,6 @@ namespace LocationLoader
 
             return $"Success (visited {fileCount} files)";
         }
-#endif
         static string DumpTerrainSamples(string[] Args)
         {
             if (Args.Length != 3)
@@ -651,9 +653,7 @@ namespace LocationLoader
 
                         if (writeLink)
                         {
-                            DockExtraData locExtraData;
-                            locExtraData.LinkedMapId = map.ID;
-                            loc.extraData = SaveLoadManager.Serialize(typeof(DockExtraData), locExtraData, pretty: false);
+                            loc.SetExtraDataField("LinkedMapId", map.ID);
                         }
 
                         var regionName = contentReader.MapFileReader.GetRegionName(map.RegionIndex);
@@ -694,6 +694,338 @@ namespace LocationLoader
                         for (int j = 0; j < i; ++j)
                         {
                             if (contentReader.HasLocation(loc.worldX + j, loc.worldY - i + j, out map))
+                            {
+                                DumpMap(i);
+                                goto endloop;
+                            }
+                        }
+                    }
+
+                    // Fallback dump
+                    int politicValue = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetPoliticIndex(loc.worldX, loc.worldY);
+                    string locRegionName;
+                    if (politicValue != 64)
+                    {
+                        int regionNumber = politicValue & 0x7F;
+                        locRegionName = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetRegionName(regionNumber);
+                    }
+                    else
+                    {
+                        locRegionName = "Unknown";
+                    }
+                    outFile.WriteLine($"{loc.prefab},{loc.locationID},{locRegionName},,,,");
+
+                    endloop: return foundCity;
+                }
+
+                void OutputFile(string fileRelativePath)
+                {
+                    string modFilename = Path.GetFileName(fileRelativePath);
+
+                    if (!writeLink)
+                    {
+                        foreach (LocationInstance loc in LocationHelper.LoadLocationInstance(mod, modFilename))
+                        {
+                            TryDumpLocation(loc);
+                        }
+                    }
+                    else
+                    {
+                        TextAsset asset = mod.GetAsset<TextAsset>(modFilename);
+                        TextReader assetReader = new StringReader(asset.text);
+
+                        int line = 1;
+                        string header = assetReader.ReadLine();
+                        string[] originalFields = header.Split(',');
+
+                        string[] newFields;
+                        int extraDataIndex;
+                        if (originalFields.Contains("extraData"))
+                        {
+                            newFields = originalFields;
+                            extraDataIndex = Array.IndexOf(originalFields, "extraData");
+                        }
+                        else
+                        {
+                            newFields = (string[])originalFields.Clone();
+                            UnityEditor.ArrayUtility.Add(ref newFields, "extraData");
+                            extraDataIndex = newFields.Length - 1;
+                        }
+
+                        string fullAssetPath = Path.Combine(modFolder, "Locations", fileRelativePath);
+
+                        using (StreamWriter locationFileWriter = new StreamWriter(fullAssetPath, append: false))
+                        {
+                            locationFileWriter.WriteLine(string.Join(",", newFields));
+                            while (assetReader.Peek() > 0)
+                            {
+                                ++line;
+                                string instanceLine = assetReader.ReadLine();
+
+                                try
+                                {
+                                    string context = $"mod={mod.ModInfo.ModTitle}, file={modFilename}, line={line}";
+                                    LocationInstance instance = LocationHelper.LoadSingleLocationInstanceCsv(instanceLine, originalFields, context);
+                                    if (instance == null)
+                                    {
+                                        Debug.LogWarning($"({context}) Instance could not be parsed. Removing");
+                                        continue;
+                                    }
+
+                                    if (TryDumpLocation(instance))
+                                    {
+                                        // Instance had a linked city written to it. Modify the line before dumping it back
+                                        string[] instanceValues = instanceLine.Split(',');
+
+                                        var serializedExtraData = instance.extraData.Replace("\"", "\\\"");
+                                        serializedExtraData = $"\"{serializedExtraData}\"";
+
+                                        if (newFields != originalFields)
+                                        {
+                                            UnityEditor.ArrayUtility.Add(ref instanceValues, serializedExtraData);
+                                        }
+                                        else
+                                        {
+                                            instanceValues[extraDataIndex] = serializedExtraData;
+                                        }
+                                        string modifiedInstanceLine = string.Join(",", instanceValues);
+                                        locationFileWriter.WriteLine(modifiedInstanceLine);
+                                    }
+                                    else
+                                    {
+                                        if (newFields == originalFields)
+                                        {
+                                            locationFileWriter.WriteLine(instanceLine);
+                                        }
+                                        else
+                                        {
+                                            locationFileWriter.WriteLine(instanceLine + ",");
+                                        }
+                                    }
+                                }
+                                catch (Exception e)
+                                {
+                                    Debug.LogError(e.Message);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                ForEachModFile(OutputFile);
+            }
+
+            return "Success";
+        }
+
+        static bool IsCityMap(in MapSummary Map)
+        {
+            return Map.LocationType == DFRegion.LocationTypes.TownCity
+                || Map.LocationType == DFRegion.LocationTypes.TownHamlet
+                || Map.LocationType == DFRegion.LocationTypes.TownVillage;
+        }
+
+        static string DumpLocations(string[] Args)
+        {
+            string modName = null;
+            string filePattern = null;
+            int? manhattanDistance = null;
+
+            bool writeLink = false;
+
+            bool parsingQuotedArg = false;
+            StringBuilder quotedString = null;
+
+            StringBuilder modNameBuilder = null;
+            StringBuilder filePatternBuilder = null;
+
+            foreach (string Arg in Args)
+            {
+                if (parsingQuotedArg)
+                {
+                    string ArgValue = Arg;
+                    if (Arg.EndsWith("\""))
+                    {
+                        parsingQuotedArg = false;
+                        ArgValue = Arg.Substring(0, Arg.Length - 1);
+                    }
+
+                    quotedString.Append(" ").Append(ArgValue);
+                }
+                else if (Arg.StartsWith("--mod="))
+                {
+                    string value = Arg.Replace("--mod=", "");
+                    if (value.StartsWith("\""))
+                    {
+                        if (value.EndsWith("\""))
+                        {
+                            modName = value.Substring(1, value.Length - 2);
+                        }
+                        else
+                        {
+                            quotedString = modNameBuilder = new StringBuilder(value.Substring(1));
+                            parsingQuotedArg = true;
+                        }
+                    }
+                    else
+                    {
+                        modName = value;
+                    }
+                }
+                else if (Arg.StartsWith("--file="))
+                {
+                    string value = Arg.Replace("--file=", "");
+                    if (value.StartsWith("\""))
+                    {
+                        if (value.EndsWith("\""))
+                        {
+                            filePattern = value.Substring(1, value.Length - 2);
+                        }
+                        else
+                        {
+                            quotedString = filePatternBuilder = new StringBuilder(value.Substring(1));
+                            parsingQuotedArg = true;
+                        }
+                    }
+                    else
+                    {
+                        filePattern = value;
+                    }
+                }
+                else if (Arg == "--write-link")
+                {
+                    writeLink = true;
+                }
+                else if (Arg.StartsWith("--max-link="))
+                {
+                    string value = Arg.Replace("--max-link=", "");
+                    if(int.TryParse(value, out int parsedValue))
+                    {
+                        manhattanDistance = parsedValue;
+                    }
+                    else
+                    {
+                        return $"Could not parse integer after '--max-link='";
+                    }
+                }
+                else
+                {
+                    return $"Unknown argument '{Arg}'";
+                }
+            }
+
+            if (modNameBuilder != null && modNameBuilder.Length > 0)
+            {
+                modName = modNameBuilder.ToString();
+            }
+
+            if (filePatternBuilder != null && filePatternBuilder.Length > 0)
+            {
+                filePattern = filePatternBuilder.ToString();
+            }
+
+            if (string.IsNullOrEmpty(modName))
+            {
+                return $"Loose files not yet supported. Specify a mod with --mod=<mod name>";
+            }
+
+            var regex = MakeFilePattern(filePattern);
+
+            Mod mod = ModManager.Instance.GetMod(modName);
+            if (mod == null)
+                return $"Mod '{modName}' not found";
+
+            string dummyFilePath = mod.ModInfo.Files[0];
+            string modFolderPrefix = dummyFilePath.Substring(17);
+            modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
+            string modFolder = Path.Combine(Application.dataPath, modFolderPrefix.Substring(7));
+
+            string locationsFolder = modFolderPrefix + "/Locations/";
+            string locationPrefabsFolder = modFolderPrefix + "/Locations/LocationPrefab";
+
+            void ForEachModFile(Action<string> Func)
+            {
+                foreach (string fileRelativePath in mod.ModInfo.Files
+                .Where(file => (file.StartsWith(locationsFolder, StringComparison.InvariantCultureIgnoreCase) && !file.StartsWith(locationPrefabsFolder, StringComparison.InvariantCultureIgnoreCase))
+                    && file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
+                .Select(file => file.Substring(locationsFolder.Length)))
+                {
+                    var filename = Path.GetFileName(fileRelativePath).ToLower();
+
+                    if (!regex.IsMatch(filename))
+                        continue;
+
+                    try
+                    {
+                        Func(fileRelativePath);
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogError(e.Message);
+                    }
+                }
+            }
+
+            Directory.CreateDirectory(LocationModLoader.mod.PersistentDataDirectory);
+            string path = Path.Combine(LocationModLoader.mod.PersistentDataDirectory, "Locations.csv");
+            using (StreamWriter outFile = new StreamWriter(path))
+            {
+                outFile.WriteLine("Dock Type,LocId,Region,City,City MapId,City Type,Distance");
+
+                bool TryDumpLocation(LocationInstance loc)
+                {
+                    bool foundCity = false;
+
+                    var contentReader = DaggerfallUnity.Instance.ContentReader;
+
+                    MapSummary map;
+                    void DumpMap(int distance)
+                    {
+                        foundCity = true;
+
+                        if (writeLink)
+                        {
+                            loc.SetExtraDataField("LinkedMapId", map.ID);
+                        }
+
+                        var regionName = contentReader.MapFileReader.GetRegionName(map.RegionIndex);
+                        DFLocation mapLocation = contentReader.MapFileReader.GetLocation(map.RegionIndex, map.MapIndex);
+                        outFile.WriteLine($"{loc.prefab},{loc.locationID},{regionName},{mapLocation.Name},{map.ID},{map.LocationType},{distance}");
+                    }
+
+                    int maxDistance = manhattanDistance.GetValueOrDefault(3);
+                    for (int i = 1; i <= maxDistance; ++i)
+                    {
+                        for (int j = 0; j < i; ++j)
+                        {
+                            if (contentReader.HasLocation(loc.worldX + i - j, loc.worldY + j, out map) && IsCityMap(map))
+                            {
+                                DumpMap(i);
+                                goto endloop;
+                            }
+                        }
+
+                        for (int j = 0; j < i; ++j)
+                        {
+                            if (contentReader.HasLocation(loc.worldX - j, loc.worldY + i - j, out map) && IsCityMap(map))
+                            {
+                                DumpMap(i);
+                                goto endloop;
+                            }
+                        }
+
+                        for (int j = 0; j < i; ++j)
+                        {
+                            if (contentReader.HasLocation(loc.worldX - i + j, loc.worldY - j, out map) && IsCityMap(map))
+                            {
+                                DumpMap(i);
+                                goto endloop;
+                            }
+                        }
+
+                        for (int j = 0; j < i; ++j)
+                        {
+                            if (contentReader.HasLocation(loc.worldX + j, loc.worldY - i + j, out map) && IsCityMap(map))
                             {
                                 DumpMap(i);
                                 goto endloop;
@@ -1004,5 +1336,6 @@ namespace LocationLoader
 
             return "Success";
         }
+#endif
     }
 }

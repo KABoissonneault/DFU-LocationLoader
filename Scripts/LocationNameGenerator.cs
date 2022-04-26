@@ -4,6 +4,7 @@ using DaggerfallConnect.Utility;
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Entity;
 using DaggerfallWorkshop.Game.Serialization;
+using FullSerializer;
 using System;
 using static DaggerfallWorkshop.Game.Utility.NameHelper;
 using static DaggerfallWorkshop.Utility.ContentReader;
@@ -39,17 +40,16 @@ namespace LocationLoader
 
         public static string GenerateDockName(LocationInstance instance, string context="")
         {
-            if (!string.IsNullOrEmpty(instance.extraData))
+            if (instance.TryGetExtraDataAsInt64("LinkedMapId", out long linkedMapId))
             {
-                var dockExtraData = (DockExtraData)SaveLoadManager.Deserialize(typeof(DockExtraData), instance.extraData);
-                DFPosition locPos = MapsFile.GetPixelFromPixelID(dockExtraData.LinkedMapId);
+                DFPosition locPos = MapsFile.GetPixelFromPixelID((int)linkedMapId);
 
                 var contentReader = DaggerfallUnity.Instance.ContentReader;
                 if (!contentReader.HasLocation(locPos.X, locPos.Y, out MapSummary mapSummary))
-                    throw new Exception($"Could not find location for mapID '{dockExtraData.LinkedMapId}' ({context})");
+                    throw new Exception($"Could not find location for mapID '{linkedMapId}' ({context})");
 
                 if (!contentReader.GetLocation(mapSummary.RegionIndex, mapSummary.MapIndex, out DFLocation locData))
-                    throw new Exception($"Could not get location data for '{dockExtraData.LinkedMapId}' ({context})");
+                    throw new Exception($"Could not get location data for '{linkedMapId}' ({context})");
 
                 return locData.Name + " Docks";
             }
@@ -234,27 +234,43 @@ namespace LocationLoader
                 "horn",
             };
 
-            switch (r4 % 2)
+            if (instance.TryGetExtraDataAsInt64("LinkedMapId", out long linkedMapId))
             {
-                case 0:
-                    string adjective = Adjectives[r1 % Adjectives.Length];
+                DFPosition locPos = MapsFile.GetPixelFromPixelID((int)linkedMapId);
 
-                    BankTypes bankType = IsInHammerfell(instance) ? BankTypes.Redguard : BankTypes.Breton;
+                var contentReader = DaggerfallUnity.Instance.ContentReader;
+                if (!contentReader.HasLocation(locPos.X, locPos.Y, out MapSummary mapSummary))
+                    throw new Exception($"Could not find location for mapID '{linkedMapId}' ({context})");
 
-                    DFRandom.Seed = (uint)r2;
-                    string name = DaggerfallUnity.Instance.NameHelper.FirstName(bankType, Genders.Male);
+                if (!contentReader.GetLocation(mapSummary.RegionIndex, mapSummary.MapIndex, out DFLocation locData))
+                    throw new Exception($"Could not get location data for '{linkedMapId}' ({context})");
 
-                    string obj = Gangs[r3 % Gangs.Length];
+                return $"{Adjectives[r1 % Adjectives.Length]} {Gangs[r2 % Gangs.Length]} of {locData.Name}";
+            }
+            else
+            {
+                switch (r4 % 2)
+                {
+                    case 0:
+                        string adjective = Adjectives[r1 % Adjectives.Length];
 
-                    return $"{adjective} {name}'s {obj}";
+                        BankTypes bankType = IsInHammerfell(instance) ? BankTypes.Redguard : BankTypes.Breton;
 
-                case 1:
-                    string namePart1 = NamePart1[r1 % NamePart1.Length];
-                    string namePart2 = NamePart2[r2 % NamePart2.Length];
+                        DFRandom.Seed = (uint)r2;
+                        string name = DaggerfallUnity.Instance.NameHelper.FirstName(bankType, Genders.Male);
 
-                    string loc = Location[r3 % Location.Length];
+                        string obj = Gangs[r3 % Gangs.Length];
 
-                    return $"{namePart1}{namePart2} {loc}";
+                        return $"{adjective} {name}'s {obj}";
+
+                    case 1:
+                        string namePart1 = NamePart1[r1 % NamePart1.Length];
+                        string namePart2 = NamePart2[r2 % NamePart2.Length];
+
+                        string loc = Location[r3 % Location.Length];
+
+                        return $"{namePart1}{namePart2} {loc}";
+                }
             }
 
             return instance.name;
