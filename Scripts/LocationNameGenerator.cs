@@ -78,7 +78,7 @@ namespace LocationLoader
                 "Dark",
                 "Violent",
                 "Bloody",
-                "Stabby",
+                "Bloodthirsty",
                 "Black",
                 "Red",
                 "Brutal",

@@ -415,11 +415,13 @@ namespace LocationLoader
 
         GameObject CreateUnityPrefab(string prefabPath, Transform prefabParent)
         {
+            string prefabName = Path.GetFileNameWithoutExtension(prefabPath);
+
             GameObject prefabTemplate;
 
             if(!unityPrefabAssets.TryGetValue(prefabPath, out prefabTemplate))
             {
-                prefabTemplate = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                ModManager.Instance.TryGetAsset(prefabName, clone: false, out prefabTemplate);
                 unityPrefabAssets.Add(prefabPath, prefabTemplate);
             }
 
@@ -427,7 +429,7 @@ namespace LocationLoader
                 return null;
 
             GameObject instance = Instantiate(prefabTemplate, new Vector3(), Quaternion.identity, prefabParent);
-            instance.name = Path.GetFileNameWithoutExtension(prefabPath);
+            instance.name = prefabName;
             return instance;
         }
 
