@@ -1540,10 +1540,9 @@ namespace LocationLoader
 
                     var extraDataNode = objectNode["extraData"];
                     if (extraDataNode != null)
-                    {
                         obj.extraData = extraDataNode.InnerXml;
-                        FixupExtraData(obj);
-                    }
+
+                    FixupLocationObjectData(obj);
 
                     if (!ValidateValue(obj.type, obj.name))
                         continue;
@@ -1559,7 +1558,7 @@ namespace LocationLoader
             return locationPrefab;
         }
 
-        static void FixupExtraData(LocationObject obj)
+        static void FixupLocationObjectData(LocationObject obj)
         {
             if(obj.type == 2)
             {
@@ -1575,6 +1574,11 @@ namespace LocationLoader
                         }
                         break;
                 }
+            }
+            else if(obj.type == 4)
+            {
+                if(!string.IsNullOrEmpty(Path.GetDirectoryName(obj.name)))
+                    obj.name = Path.GetFileNameWithoutExtension(obj.name);
             }
         }
 

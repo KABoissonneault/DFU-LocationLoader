@@ -153,14 +153,22 @@ namespace LocationLoader
             }
         }
 
-        private static ModInfo GetModInfo(string directory)
+        private static ModInfo GetPackagedModInfo(string name)
         {
-            string foundFile = Directory.EnumerateFiles(directory).FirstOrDefault(file => file.EndsWith(".dfmod.json"));
-            if (string.IsNullOrEmpty(foundFile))
+            string modPath = Path.Combine(Application.dataPath, "StreamingAssets", "Mods", $"{name}.dfmod");
+            if (!File.Exists(modPath))
                 return null;
 
+            AssetBundle modBundle = AssetBundle.LoadFromFile(modPath);
+            string dfmodJsonName = modBundle.GetAllAssetNames().FirstOrDefault(assetName => assetName.EndsWith(".dfmod.json"));
+
+            if (string.IsNullOrEmpty(dfmodJsonName))
+                return null;
+
+            TextAsset dfmodJson = modBundle.LoadAsset<TextAsset>(dfmodJsonName);
+
             ModInfo modInfo = null;
-            if (ModManager._serializer.TryDeserialize(fsJsonParser.Parse(File.ReadAllText(foundFile)), ref modInfo).Failed)
+            if(ModManager._serializer.TryDeserialize(fsJsonParser.Parse(dfmodJson.text), ref modInfo).Failed)
                 return null;
 
             return modInfo;
@@ -171,22 +179,9 @@ namespace LocationLoader
             if (string.IsNullOrEmpty(workingMod))
                 return null;
 
-            return GetModInfo(Path.Combine(Application.dataPath, "Game", "Mods", workingMod));
+            return LocationModManager.GetDevModInfo(workingMod);
         }
-
-        private static IEnumerable<string> GetDevMods()
-        {
-            string modsfolder = Path.Combine(Application.dataPath, "Game", "Mods");
-            foreach (var directory in Directory.EnumerateDirectories(modsfolder))
-            {
-                ModInfo info = GetModInfo(directory);
-                if (info != null)
-                {                    
-                    yield return Path.GetFileName(directory);
-                }
-            }
-        }
-
+        
         private void EditLocationWindow()
         {
             float baseY = 0;
@@ -201,7 +196,7 @@ namespace LocationLoader
                 }
 
                 GenericMenu menu = new GenericMenu();
-                foreach(string mod in GetDevMods())
+                foreach(string mod in LocationModManager.GetDevMods())
                 {
                     menu.AddItem(new GUIContent(mod), workingMod == mod, OnItemClicked, mod);
                 }
@@ -726,6 +721,69 @@ namespace LocationLoader
             }
         }
 
+        private GameObject LoadModUnityPrefabObjectTemplate(string modName, string prefabName)
+        {
+            if(LocationModManager.IsPackagedMod(modName))
+            {
+                AssetBundle bundle = LocationModManager.GetPackagedModBundle(modName);
+                if (bundle == null)
+                    return null;
+
+                GameObject template = bundle.LoadAsset<GameObject>(prefabName);
+                if (template != null)
+                    return template;
+            }
+            else
+            {
+                string prefabPath = LocationModManager.GetDevModAssetPath(modName, prefabName);
+
+                if (!string.IsNullOrEmpty(prefabPath))
+                {
+                    GameObject template = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                    if (template != null)
+                        return template;
+                }
+            }
+
+            ModInfo modInfo = LocationModManager.GetModInfo(modName);
+            if (modInfo.Dependencies != null)
+            {
+                foreach (ModDependency dependency in modInfo.Dependencies)
+                {
+                    GameObject go = LoadModUnityPrefabObjectTemplate(dependency.Name, prefabName);
+                    if (go != null)
+                        return go;
+                }
+            }
+
+            return null;
+        }
+
+        private GameObject LoadUnityPrefabObjectTemplate(string prefabName)
+        {            
+            string prefabPath = LocationModManager.GetDevModAssetPath(workingMod, prefabName);
+
+            if (!string.IsNullOrEmpty(prefabPath))
+            {
+                GameObject template = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+                if (template != null)
+                    return template;
+            }
+
+            ModInfo modInfo = LocationModManager.GetDevModInfo(workingMod);
+            if (modInfo.Dependencies != null)
+            {
+                foreach (ModDependency dependency in modInfo.Dependencies)
+                {
+                    GameObject template = LoadModUnityPrefabObjectTemplate(dependency.Name, prefabName);
+                    if (template != null)
+                        return template;
+                }
+            }
+
+            return null;
+        }
+
         private GameObject CreateObject(LocationObject locationObject, Transform objectParent, ModelCombiner combiner = null)
         {
             if (!LocationHelper.ValidateValue(locationObject.type, locationObject.name))
@@ -787,11 +845,11 @@ namespace LocationLoader
             }
             else if(locationObject.type == 4)
             {
-                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(locationObject.name);
-                if (prefab == null)
+                GameObject template = LoadUnityPrefabObjectTemplate(locationObject.name);
+                if (template == null)
                     return null;
 
-                var newObject = Instantiate(prefab, objectParent);
+                var newObject = Instantiate(template, objectParent);
                 newObject.transform.localPosition = locationObject.pos;
                 newObject.transform.localRotation = locationObject.rot;
                 newObject.transform.localScale = locationObject.scale;
@@ -952,8 +1010,7 @@ namespace LocationLoader
             if(string.IsNullOrEmpty(workingMod))
                 return;
 
-            string modfolder = Path.Combine(Application.dataPath, "Game", "Mods", workingMod);
-            ModInfo modInfo = GetModInfo(modfolder);
+            ModInfo modInfo = GetWorkingModInfo();
             if (modInfo == null)
                 return;
 
@@ -1090,15 +1147,43 @@ namespace LocationLoader
             }
             else if(listMode == 5)
             {
-                ModInfo modInfo = GetWorkingModInfo();
-                if (modInfo == null)
+                ModInfo workingModInfo = GetWorkingModInfo();
+                if (workingModInfo == null)
                     return;
 
-                foreach(string file in modInfo.Files
+                foreach(string file in workingModInfo.Files
                     .Where(file => file.EndsWith(".prefab")))
                 {
-                    searchListNames.Add(Path.GetFileNameWithoutExtension(file));
-                    searchListIDSets.Add(new string[] { file });
+                    string prefabName = Path.GetFileNameWithoutExtension(file);
+                    searchListNames.Add(prefabName);
+                    searchListIDSets.Add(new string[] { prefabName });
+                }
+
+                void GatherModPrefabs(string modName)
+                {
+                    ModInfo recurseModInfo = LocationModManager.GetModInfo(modName);
+                    if (recurseModInfo == null)
+                        return;
+
+                    foreach (string file in recurseModInfo.Files.Where(file => file.EndsWith(".prefab")))
+                    {
+                        string prefabName = Path.GetFileNameWithoutExtension(file);
+                        searchListNames.Add(prefabName);
+                        searchListIDSets.Add(new string[] { prefabName });
+                    }
+
+                    if (recurseModInfo.Dependencies != null)
+                    {
+                        foreach (ModDependency dependency in recurseModInfo.Dependencies)
+                        {
+                            GatherModPrefabs(dependency.Name);
+                        }
+                    }
+                }
+
+                foreach(ModDependency dependency in workingModInfo.Dependencies)
+                {
+                    GatherModPrefabs(dependency.Name);
                 }
             }
         }
