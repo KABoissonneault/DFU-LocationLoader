@@ -450,6 +450,7 @@ namespace LocationLoader
             Vector3 terrainOffset = GetLocationPosition(loc, daggerTerrain);
             instance.transform.localPosition = terrainOffset;
             instance.transform.localRotation = loc.rot;
+            instance.transform.localScale = new Vector3(loc.scale, loc.scale, loc.scale);
 
             LocationData data = instance.AddComponent<LocationData>();
             data.Location = loc;
