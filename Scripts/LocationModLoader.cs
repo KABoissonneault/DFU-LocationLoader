@@ -18,6 +18,7 @@ namespace LocationLoader
             modObject = new GameObject("LocationLoader");
             modObject.AddComponent<LocationLoader>();
             mod.SaveDataInterface = modObject.AddComponent<LocationSaveDataInterface>();
+            modObject.AddComponent<LocationResourceManager>();
             mod.IsReady = true;
 
             const int ladderModelId = 41409;
