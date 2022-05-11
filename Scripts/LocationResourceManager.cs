@@ -476,6 +476,11 @@ namespace LocationLoader
                 else if (obj.type == 4)
                 {
                     GameObject subPrefab = InstantiateUnityPrefab(obj.name, prefabObject.transform);
+                    if(subPrefab == null)
+                    {
+                        Debug.LogError($"Could not find Unity prefab '{obj.name}' while instanciating prefab '{prefabName}'");
+                        continue;
+                    }
                     subPrefab.transform.localPosition = obj.pos;
                     subPrefab.transform.localRotation = obj.rot;
                     subPrefab.transform.localScale = obj.scale;

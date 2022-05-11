@@ -1,15 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
-using System.IO;
-using System.Linq;
-using DaggerfallWorkshop.Game.Utility.ModSupport;
 using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Utility;
 using System;
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Entity;
-using UnityEditor;
 
 namespace LocationLoader
 {
