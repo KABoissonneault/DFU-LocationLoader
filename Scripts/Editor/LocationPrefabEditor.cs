@@ -9,6 +9,7 @@ using System.IO;
 using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
 using FullSerializer;
+using System.Text.RegularExpressions;
 
 namespace LocationLoader
 {
@@ -30,6 +31,8 @@ namespace LocationLoader
         List<string[]> searchListIDSets = new List<string[]>();
         Dictionary<string, string> idName = new Dictionary<string, string>();
         Dictionary<string, LocationPrefab> prefabInfos = new Dictionary<string, LocationPrefab>();
+        List<string> customModels;
+        List<string> customBillboards;
 
         HashSet<int> usedIds = new HashSet<int>();
 
@@ -41,8 +44,8 @@ namespace LocationLoader
         int maxAreaLength = 128;
         Vector2 scrollPosition = Vector2.zero, scrollPosition2 = Vector2.zero, scrollPosition3 = Vector2.zero;
         string[] listModeName = { "3D Model", "Billboard", "Editor", "Interior Parts", "Prefab", "Unity" };
-        string[] modelLists = { "All", "Structure", "Clutter", "Dungeon", "Furniture", "Graveyard" };
-        string[] billboardLists = { "All", "People", "Interior", "Nature", "Lights", "Treasure", "Dungeon" };
+        string[] modelLists = { "All", "Structure", "Clutter", "Dungeon", "Furniture", "Graveyard", "Custom" };
+        string[] billboardLists = { "All", "People", "Interior", "Nature", "Lights", "Treasure", "Dungeon", "Custom" };
         string[] partsLists = { "All", "House", "Dungeon Rooms", "Dungeon Corridors", "Dungeon Misc", "Caves", "Dungeon Doors/Exits" };
         Vector3 locationCameraPivot;
         Quaternion locationCameraRotation = Quaternion.identity;
@@ -873,6 +876,26 @@ namespace LocationLoader
                         newObject.GetComponent<DaggerfallBillboard>().AlignToBase();
                         newObject.transform.position = new Vector3(newObject.transform.position.x, tempY + ((newObject.transform.position.y - tempY) * newObject.transform.localScale.y), newObject.transform.position.z);
                     }
+                    else
+                    {
+                        // We can't get custom models or billboards at Editor time.
+                        // Load them as raw Unity prefabs
+                        MeshFilter meshFilter = newObject.GetComponent<MeshFilter>();
+                        if(meshFilter == null || meshFilter.sharedMesh == null)
+                        {
+                            DestroyImmediate(newObject);
+
+                            GameObject template = LoadUnityPrefabObjectTemplate(locationObject.name);
+                            if (template == null)
+                                return null;
+
+                            newObject = Instantiate(template, objectParent);
+                            newObject.transform.localPosition = locationObject.pos;
+                            newObject.transform.localRotation = locationObject.rot;
+                            newObject.transform.localScale = locationObject.scale;
+                            newObject.name = Path.GetFileNameWithoutExtension(locationObject.name);
+                        }
+                    }
 
                     if (locationObject.type == 0)
                     {
@@ -882,7 +905,7 @@ namespace LocationLoader
                         }
                         else
                         {
-                            newObject.name = $"Unknown model ({locationObject.name})";
+                            newObject.name = locationObject.name;
                         }
                     }
                     else if (locationObject.type == 1)
@@ -893,7 +916,7 @@ namespace LocationLoader
                         }
                         else
                         {
-                            newObject.name = $"Unknown billboard ({locationObject.name})";
+                            newObject.name = locationObject.name;
                         }
                     }
                 }
@@ -1003,6 +1026,26 @@ namespace LocationLoader
             }
         }
 
+        void AddNames(IEnumerable<string> customIdList)
+        {
+            if (string.IsNullOrEmpty(searchField))
+            {
+                foreach (string id in customIdList)
+                {
+                    AddName(id, new string[] { id });
+                }
+            }
+            else
+            {
+                foreach (var id in customIdList
+                            .Where(i => i.IndexOf(searchField, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                            )
+                {
+                    AddName(id, new string[] { id });
+                }
+            }
+        }
+
         private void UpdatePrefabInfos()
         {
             prefabInfos.Clear();
@@ -1033,6 +1076,18 @@ namespace LocationLoader
                     }
                 }
             }
+        }
+
+        private bool IsCustomModel(string filePath)
+        {
+            return filePath.EndsWith(".prefab") && int.TryParse(Path.GetFileNameWithoutExtension(filePath), out int _);
+        }
+
+        static Regex billboardRegex = new Regex("[0-9]+_[0-9]+", RegexOptions.Compiled);
+
+        private bool IsCustomBillboard(string filePath)
+        {
+            return billboardRegex.IsMatch(filePath);
         }
 
         private void UpdateObjList()
@@ -1067,6 +1122,43 @@ namespace LocationLoader
                     case 5:
                         AddNames(LocationHelper.modelsGraveyard);
                         break;
+
+                    case 6:
+                        if(customModels == null)
+                        {
+                            void AddCustomModels(ModInfo modInfo)
+                            {
+                                customModels.AddRange(
+                                    modInfo.Files
+                                    .Where(file => IsCustomModel(file))
+                                    .Select(file => Path.GetFileNameWithoutExtension(file))
+                                );
+
+                                if (modInfo.Dependencies != null)
+                                {
+                                    foreach (var dependency in modInfo.Dependencies)
+                                    {
+                                        ModInfo dependencyInfo = LocationModManager.GetModInfo(dependency.Name);
+                                        if (dependencyInfo != null)
+                                        {
+                                            AddCustomModels(dependencyInfo);
+                                        }
+                                    }
+                                }
+                            }
+
+                            customModels = new List<string>();
+
+                            ModInfo workingModInfo = GetWorkingModInfo();
+                            if (workingModInfo == null)
+                                return;
+
+                            AddCustomModels(workingModInfo);
+
+                        }
+
+                        AddNames(customModels);
+                        break;
                 }
             }
             else if (listMode == 1)
@@ -1099,6 +1191,42 @@ namespace LocationLoader
 
                     case 6:
                         AddNames(LocationHelper.billboardsDungeon);
+                        break;
+
+                    case 7:
+                        if(customBillboards == null)
+                        {
+                            void AddCustomBillboards(ModInfo modInfo)
+                            {
+                                customModels.AddRange(
+                                    modInfo.Files
+                                    .Where(file => IsCustomBillboard(file))
+                                    .Select(file => Path.GetFileNameWithoutExtension(file))
+                                );
+
+                                if (modInfo.Dependencies != null)
+                                {
+                                    foreach (var dependency in modInfo.Dependencies)
+                                    {
+                                        ModInfo dependencyInfo = LocationModManager.GetModInfo(dependency.Name);
+                                        if (dependencyInfo != null)
+                                        {
+                                            AddCustomBillboards(dependencyInfo);
+                                        }
+                                    }
+                                }
+                            }
+
+                            customBillboards = new List<string>();
+
+                            ModInfo workingModInfo = GetWorkingModInfo();
+                            if (workingModInfo == null)
+                                return;
+
+                            AddCustomBillboards(workingModInfo);
+                        }
+
+                        AddNames(customBillboards);
                         break;
                 }
             }
@@ -1147,44 +1275,35 @@ namespace LocationLoader
             }
             else if(listMode == 5)
             {
-                ModInfo workingModInfo = GetWorkingModInfo();
-                if (workingModInfo == null)
-                    return;
-
-                foreach(string file in workingModInfo.Files
-                    .Where(file => file.EndsWith(".prefab")))
+                void GatherModPrefabs(ModInfo modInfo)
                 {
-                    string prefabName = Path.GetFileNameWithoutExtension(file);
-                    searchListNames.Add(prefabName);
-                    searchListIDSets.Add(new string[] { prefabName });
-                }
-
-                void GatherModPrefabs(string modName)
-                {
-                    ModInfo recurseModInfo = LocationModManager.GetModInfo(modName);
-                    if (recurseModInfo == null)
-                        return;
-
-                    foreach (string file in recurseModInfo.Files.Where(file => file.EndsWith(".prefab")))
+                    foreach (string file in modInfo.Files
+                        .Where(file => file.EndsWith(".prefab") && !IsCustomModel(file) && !IsCustomBillboard(file))
+                        )
                     {
                         string prefabName = Path.GetFileNameWithoutExtension(file);
                         searchListNames.Add(prefabName);
                         searchListIDSets.Add(new string[] { prefabName });
                     }
 
-                    if (recurseModInfo.Dependencies != null)
+                    if (modInfo.Dependencies != null)
                     {
-                        foreach (ModDependency dependency in recurseModInfo.Dependencies)
+                        foreach (ModDependency dependency in modInfo.Dependencies)
                         {
-                            GatherModPrefabs(dependency.Name);
+                            ModInfo dependencyInfo = LocationModManager.GetModInfo(dependency.Name);
+                            if (dependencyInfo != null)
+                            {
+                                GatherModPrefabs(dependencyInfo);
+                            }
                         }
                     }
                 }
 
-                foreach(ModDependency dependency in workingModInfo.Dependencies)
-                {
-                    GatherModPrefabs(dependency.Name);
-                }
+                ModInfo workingModInfo = GetWorkingModInfo();
+                if (workingModInfo == null)
+                    return;
+
+                GatherModPrefabs(workingModInfo);
             }
         }
 

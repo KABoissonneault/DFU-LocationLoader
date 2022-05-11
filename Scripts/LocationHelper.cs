@@ -1587,6 +1587,10 @@ namespace LocationLoader
             {
                 if(!string.IsNullOrEmpty(Path.GetDirectoryName(obj.name)))
                     obj.name = Path.GetFileNameWithoutExtension(obj.name);
+
+                // Treat numeric names as custom models
+                if (int.TryParse(obj.name, out int _))
+                    obj.type = 0;
             }
         }
 
