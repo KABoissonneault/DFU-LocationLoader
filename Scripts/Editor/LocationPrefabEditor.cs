@@ -1250,21 +1250,31 @@ namespace LocationLoader
             }
             else if(listMode == 4)
             {
-                var prefabs = prefabInfos.Keys.Where(prefab => prefab != currentPrefabName.ToLower());
+                var prefabs = prefabInfos.Keys.Where(
+                    prefab => prefab != currentPrefabName.ToLower()
+                    && (string.IsNullOrEmpty(searchField) || prefab.IndexOf(searchField, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                    );
                 searchListNames.AddRange(prefabs);
                 searchListIDSets.AddRange(prefabs.Select(prefab => new string[] { prefab }));
+
+                searchListNames.Sort();
+                searchListIDSets.Sort((set1, set2) => set1[0].CompareTo(set2[0]));
             }
             else if(listMode == 5)
             {
                 void GatherModPrefabs(ModInfo modInfo)
                 {
                     foreach (string file in modInfo.Files
-                        .Where(file => file.EndsWith(".prefab") && !IsCustomModel(file) && !IsCustomBillboard(file))
+                        .Where(
+                        file => file.EndsWith(".prefab") && !IsCustomModel(file) && !IsCustomBillboard(file))
                         )
                     {
                         string prefabName = Path.GetFileNameWithoutExtension(file);
-                        searchListNames.Add(prefabName);
-                        searchListIDSets.Add(new string[] { prefabName });
+                        if (string.IsNullOrEmpty(searchField) || prefabName.IndexOf(searchField, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                        {
+                            searchListNames.Add(prefabName);
+                            searchListIDSets.Add(new string[] { prefabName });
+                        }
                     }
 
                     if (modInfo.Dependencies != null)
@@ -1285,6 +1295,9 @@ namespace LocationLoader
                     return;
 
                 GatherModPrefabs(workingModInfo);
+
+                searchListNames.Sort();
+                searchListIDSets.Sort((set1, set2) => set1[0].CompareTo(set2[0]));
             }
         }
 
