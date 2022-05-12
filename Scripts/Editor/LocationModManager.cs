@@ -47,6 +47,12 @@ namespace LocationLoader
             return DevModInfo[modName];
         }
 
+        public static string GetDevModDirectory(string modName)
+        {
+            LoadDevModInfos();
+            return DevModNameToDirectory[modName];
+        }
+
         public static IEnumerable<string> GetDevMods()
         {
             LoadDevModInfos();

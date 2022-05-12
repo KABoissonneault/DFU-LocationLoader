@@ -156,27 +156,6 @@ namespace LocationLoader
             }
         }
 
-        private static ModInfo GetPackagedModInfo(string name)
-        {
-            string modPath = Path.Combine(Application.dataPath, "StreamingAssets", "Mods", $"{name}.dfmod");
-            if (!File.Exists(modPath))
-                return null;
-
-            AssetBundle modBundle = AssetBundle.LoadFromFile(modPath);
-            string dfmodJsonName = modBundle.GetAllAssetNames().FirstOrDefault(assetName => assetName.EndsWith(".dfmod.json"));
-
-            if (string.IsNullOrEmpty(dfmodJsonName))
-                return null;
-
-            TextAsset dfmodJson = modBundle.LoadAsset<TextAsset>(dfmodJsonName);
-
-            ModInfo modInfo = null;
-            if(ModManager._serializer.TryDeserialize(fsJsonParser.Parse(dfmodJson.text), ref modInfo).Failed)
-                return null;
-
-            return modInfo;
-        }
-
         private ModInfo GetWorkingModInfo()
         {
             if (string.IsNullOrEmpty(workingMod))
@@ -1057,7 +1036,9 @@ namespace LocationLoader
             if (modInfo == null)
                 return;
 
-            string prefabSubpath = $"Assets/Game/Mods/{workingMod}/Locations/LocationPrefab";
+            string modDirectory = Path.GetFileName(LocationModManager.GetDevModDirectory(workingMod));
+
+            string prefabSubpath = $"Assets/Game/Mods/{modDirectory}/Locations/LocationPrefab";
 
             foreach (var file in modInfo.Files
                 .Where(file => file.StartsWith(prefabSubpath) && file.EndsWith(".txt")))
