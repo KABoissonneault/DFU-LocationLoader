@@ -42,6 +42,7 @@ namespace LocationLoader
         int sublistMode;
         int setIndex = 0;
         int maxAreaLength = 128;
+        bool bReferenceGrid = false;
         Vector2 scrollPosition = Vector2.zero, scrollPosition2 = Vector2.zero, scrollPosition3 = Vector2.zero;
         string[] listModeName = { "3D Model", "Billboard", "Editor", "Interior Parts", "Prefab", "Unity" };
         string[] modelLists = { "All", "Structure", "Clutter", "Dungeon", "Furniture", "Graveyard", "Custom" };
@@ -304,6 +305,16 @@ namespace LocationLoader
                     GUI.changed = false;
                 }
 
+                GUILayout.BeginArea(new Rect(498, baseY + 40, 80, 16));
+                bReferenceGrid = EditorGUILayout.ToggleLeft("Ref. Grid", bReferenceGrid);
+                if(GUI.changed)
+                {
+                    DestroyImmediate(ground);
+                    ground = null;
+                    GUI.changed = false;
+                }
+                GUILayout.EndArea();
+
                 baseY += 72;
 
                 scrollPosition = GUI.BeginScrollView(new Rect(2, baseY + 8, 532, 512), scrollPosition, new Rect(0, 0, 512, 20 + ((objScene.Count+1) * 60)),false, true);
@@ -477,8 +488,17 @@ namespace LocationLoader
                     ground.name = "Surface";
                     ground.transform.localScale = new Vector3(mapPixelSize / 10.0f, 0, mapPixelSize / 10.0f);
                     var meshRenderer = ground.GetComponent<MeshRenderer>();
-                    string terrainGridPath = AssetDatabase.GUIDToAssetPath(AssetDatabase.FindAssets("TerrainGrid t:material")[0]);
-                    meshRenderer.sharedMaterial = AssetDatabase.LoadMainAssetAtPath(terrainGridPath) as Material;
+
+                    if (bReferenceGrid)
+                    {
+                        string terrainGridPath = AssetDatabase.GUIDToAssetPath(AssetDatabase.FindAssets("TerrainGrid t:material")[0]);
+                        meshRenderer.sharedMaterial = AssetDatabase.LoadMainAssetAtPath(terrainGridPath) as Material;
+                    }
+                    else
+                    {
+                        string terrainGridPath = AssetDatabase.GUIDToAssetPath(AssetDatabase.FindAssets("LLPrefabTerrain t:material")[0]);
+                        meshRenderer.sharedMaterial = AssetDatabase.LoadMainAssetAtPath(terrainGridPath) as Material;
+                    }
                 }
 
                 // Make sure we always have our area reference too
