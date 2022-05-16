@@ -967,7 +967,7 @@ namespace LocationLoader
             }
             else
             {
-                Debug.LogError("Failed to load object " + name);
+                Debug.LogError("Failed to load object " + locationObject.name);
             }
         }
 
