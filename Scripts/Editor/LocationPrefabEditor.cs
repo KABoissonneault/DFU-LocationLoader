@@ -89,6 +89,12 @@ namespace LocationLoader
         {
             LocationPrefabEditor window = (LocationPrefabEditor)GetWindow(typeof(LocationPrefabEditor));
             window.titleContent = new GUIContent("Location Prefab Editor");
+
+            if(!DaggerfallUnity.HasInstance)
+            {
+                EditorUtility.DisplayDialog("DaggerfallUnity object not found!", "Open the DaggerfallUnityStartup scene before opening the editor", "Okay");
+                window.Close();
+            }
         }
 
         private void OnEnable()
