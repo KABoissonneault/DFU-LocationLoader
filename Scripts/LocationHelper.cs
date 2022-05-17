@@ -569,12 +569,26 @@ namespace LocationLoader
             new ObjectSet { Name = "Underwater - Animated", Ids = new string[] { "106.0", "106.1", "106.2", "106.3", "106.4", "106.5", "106.6" } },
         };
 
+        public static ObjectSet[] billboardsCorpses = new ObjectSet[]
+        {
+            new ObjectSet { Name = "Corpse - Animal", Ids = new string[] { "401.0", "401.1", "401.2", "401.3", "401.4", "401.5" } },
+            new ObjectSet { Name = "Corpse - Aquatic Monster", Ids = new string[] { "305.0", "305.1", "305.2" } },
+            new ObjectSet { Name = "Corpse - Atronach", Ids = new string[] { "405.0", "405.1", "405.2", "405.3" } },
+            new ObjectSet { Name = "Corpse - Daedra", Ids = new string[] { "400.0", "400.1", "400.2", "400.3", "400.4", "400.5", "400.6" } },
+            new ObjectSet { Name = "Corpse - Diurnal Monster", Ids = new string[] { "406.0", "406.1", "406.2", "406.3", "406.4", "406.5" } },
+            new ObjectSet { Name = "Corpse - Human", Ids = new string[] { "380.1" } },
+            new ObjectSet { Name = "Corpse - Shadow Monster", Ids = new string[] { "96.0", "96.1", "96.2", "96.3", "96.4", "96.5" } },
+            new ObjectSet { Name = "Corpse - Undead", Ids = new string[] { "306.0", "306.1", "306.2", "306.3", "306.4", "306.5" } },
+        };
+
+
         public static ObjectSet[] billboards = billboardsPeople
             .Concat(billboardsInterior)
             .Concat(billboardsNature)
             .Concat(billboardsLights)
             .Concat(billboardsTreasure)
             .Concat(billboardsDungeon)
+            .Concat(billboardsCorpses)
             .OrderBy(set => set.Name)
             .ToArray();
 
@@ -1839,8 +1853,6 @@ namespace LocationLoader
         /// <param name="parent"></param>
         public static void AddLight(int textureRecord, Transform parent)
         {
-            Debug.Log("Add Light");
-
             GameObject go = GameObjectHelper.InstantiatePrefab(DaggerfallUnity.Instance.Option_InteriorLightPrefab.gameObject, string.Empty, parent, parent.position);
             Vector2 size = DaggerfallUnity.Instance.MeshReader.GetScaledBillboardSize(210, textureRecord) * MeshReader.GlobalScale;
             Light light = go.GetComponent<Light>();

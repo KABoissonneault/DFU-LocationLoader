@@ -46,7 +46,7 @@ namespace LocationLoader
         Vector2 scrollPosition = Vector2.zero, scrollPosition2 = Vector2.zero, scrollPosition3 = Vector2.zero;
         string[] listModeName = { "3D Model", "Billboard", "Editor", "Interior Parts", "Prefab", "Unity" };
         string[] modelLists = { "All", "Structure", "Clutter", "Dungeon", "Furniture", "Graveyard", "Custom" };
-        string[] billboardLists = { "All", "People", "Interior", "Nature", "Lights", "Treasure", "Dungeon", "Custom" };
+        string[] billboardLists = { "All", "People", "Interior", "Nature", "Lights", "Treasure", "Dungeon", "Corpses", "Custom" };
         string[] partsLists = { "All", "House", "Dungeon Rooms", "Dungeon Corridors", "Dungeon Misc", "Caves", "Dungeon Doors/Exits" };
         Vector3 locationCameraPivot;
         Quaternion locationCameraRotation = Quaternion.identity;
@@ -1195,6 +1195,10 @@ namespace LocationLoader
                         break;
 
                     case 7:
+                        AddNames(LocationHelper.billboardsCorpses);
+                        break;
+
+                    case 8:
                         if(customBillboards == null)
                         {
                             void AddCustomBillboards(ModInfo modInfo)
