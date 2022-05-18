@@ -1795,11 +1795,10 @@ namespace LocationLoader
 
                 if (go == null) //if no mesh replacment exist
                 {
-                    if (modelCombiner != null && !PlayerActivate.HasCustomActivation(modelId))
+                    if (modelCombiner != null
+                        && !PlayerActivate.HasCustomActivation(modelId)
+                        && DaggerfallUnity.Instance.MeshReader.GetModelData(modelId, out ModelData modelData))
                     {
-                        ModelData modelData;
-                        DaggerfallUnity.Instance.MeshReader.GetModelData(modelId, out modelData);
-
                         modelCombiner.Add(ref modelData, mat);
                     }
                     else
