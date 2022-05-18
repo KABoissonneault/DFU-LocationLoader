@@ -13,6 +13,7 @@ using DaggerfallWorkshop.Utility.AssetInjection;
 using DaggerfallWorkshop.Game.Items;
 using System.Globalization;
 using DaggerfallWorkshop.Game.Serialization;
+using DaggerfallConnect.Arena2;
 
 namespace LocationLoader
 {
@@ -2314,7 +2315,7 @@ namespace LocationLoader
 
         public static bool IsOutOfBounds(LocationInstance loc, LocationPrefab prefab)
         {
-            if (loc.type == 1)
+            if (loc.type == 1 || loc.type == 3)
                 return false;
 
             float rot = Mathf.Deg2Rad * loc.rot.eulerAngles.y;
@@ -2347,6 +2348,96 @@ namespace LocationLoader
                 || loc.terrainX - halfWidth < 0
                 || loc.terrainY + halfHeight > 128
                 || loc.terrainY - halfHeight < 0;
+        }
+
+        public struct TerrainSection
+        {
+            public Vector2Int WorldCoord;
+            public RectInt Section;
+
+            public void Deconstruct(out Vector2Int coord, out RectInt section)
+            {
+                coord = WorldCoord;
+                section = Section;
+            }
+        };
+
+        public static List<TerrainSection> GetOverlappingTerrainSections(LocationInstance loc, LocationPrefab locationPrefab, out bool overflow)
+        {
+            overflow = false;
+
+            int halfWidth = (locationPrefab.width + 1) / 2;
+            int halfHeight = (locationPrefab.height + 1) / 2;
+
+            List<TerrainSection> overlappingCoordinates = new List<TerrainSection>();
+            // Type 0 and type 2 instances only fit within their own map pixel, but type 1 can go out of bounds
+            if (loc.type == 1 || loc.type == 3)
+            {
+                int xOffsetMin = (int)Math.Floor((loc.terrainX - halfWidth) / (float)LocationLoader.TERRAIN_SIZE);
+                int yOffsetMin = (int)Math.Floor((loc.terrainY - halfHeight) / (float)LocationLoader.TERRAIN_SIZE);
+                int xOffsetMax = (loc.terrainX + halfWidth) / LocationLoader.TERRAIN_SIZE;
+                int yOffsetMax = (loc.terrainY + halfHeight) / LocationLoader.TERRAIN_SIZE;
+
+                // Check for instance overflow from the bounds of the world
+                if (loc.worldX + xOffsetMin < MapsFile.MinMapPixelX)
+                {
+                    overflow = true;
+                    xOffsetMin = MapsFile.MinMapPixelX - loc.worldX;
+                }
+
+                if (loc.worldX + xOffsetMax > MapsFile.MaxMapPixelX)
+                {
+                    overflow = true;
+                    xOffsetMax = MapsFile.MaxMapPixelX - loc.worldX;
+                }
+
+                if (loc.worldY - yOffsetMax < MapsFile.MinMapPixelY)
+                {
+                    overflow = true;
+                    yOffsetMax = loc.worldY - MapsFile.MinMapPixelY;
+                }
+
+                if (loc.worldY - yOffsetMin > MapsFile.MaxMapPixelY)
+                {
+                    overflow = true;
+                    yOffsetMin = loc.worldY - MapsFile.MaxMapPixelY;
+                }
+
+                // Find all overlapping coordinates and their overlap rectangle
+                for (int xOffset = xOffsetMin; xOffset <= xOffsetMax; ++xOffset)
+                {
+                    for (int yOffset = yOffsetMin; yOffset <= yOffsetMax; ++yOffset)
+                    {
+                        int xMin = Math.Max(loc.terrainX - halfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 0);
+                        int xMax = Math.Min(loc.terrainX + halfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 128);
+                        int yMin = Math.Max(loc.terrainY - halfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 0);
+                        int yMax = Math.Min(loc.terrainY + halfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 128);
+
+                        overlappingCoordinates.Add(
+                            new TerrainSection
+                            {
+                                WorldCoord = new Vector2Int(loc.worldX + xOffset, loc.worldY - yOffset),
+                                Section = new RectInt(xMin, yMin, xMax - xMin, yMax - yMin)
+                            });
+                    }
+                }
+            }
+            else
+            {
+                overlappingCoordinates.Add(
+                    new TerrainSection
+                    {
+                        WorldCoord = new Vector2Int(loc.worldX, loc.worldY),
+                        Section = new RectInt(loc.terrainX - halfWidth, loc.terrainY - halfHeight, halfWidth * 2, halfHeight * 2)
+                    });
+            }
+
+            return overlappingCoordinates;
+        }
+
+        public static List<TerrainSection> GetOverlappingTerrainSections(LocationInstance loc, LocationPrefab locationPrefab)
+        {
+            return GetOverlappingTerrainSections(loc, locationPrefab, out bool _);
         }
     }
 }

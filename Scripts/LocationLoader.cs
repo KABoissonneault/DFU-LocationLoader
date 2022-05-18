@@ -12,8 +12,8 @@ namespace LocationLoader
     public class LocationLoader : MonoBehaviour
     {           
         Dictionary<Vector2Int, WeakReference<DaggerfallTerrain>> loadedTerrain = new Dictionary<Vector2Int, WeakReference<DaggerfallTerrain>>();
-        Dictionary<Vector2Int, List<LocationData>> pendingType2Locations = new Dictionary<Vector2Int, List<LocationData>>();
-        Dictionary<ulong, List<Vector2Int>> type2InstancePendingTerrains = new Dictionary<ulong, List<Vector2Int>>();
+        Dictionary<Vector2Int, List<LocationData>> pendingIncompleteLocations = new Dictionary<Vector2Int, List<LocationData>>();
+        Dictionary<ulong, List<Vector2Int>> instancePendingTerrains = new Dictionary<ulong, List<Vector2Int>>();
 
         LocationResourceManager resourceManager;
 
@@ -244,17 +244,17 @@ namespace LocationLoader
             data.Prefab = locationPrefab;
 
             // Now that we have the LocationData, add it to "pending instances" if needed
-            if(loc.type == 2 && type2InstancePendingTerrains.TryGetValue(loc.locationID, out List<Vector2Int> pendingTerrains))
+            if(instancePendingTerrains.TryGetValue(loc.locationID, out List<Vector2Int> pendingTerrains))
             {
                 foreach (Vector2Int terrainCoord in pendingTerrains)
                 {
-                    if(!pendingType2Locations.TryGetValue(terrainCoord, out List<LocationData> pendingLocations))
+                    if(!pendingIncompleteLocations.TryGetValue(terrainCoord, out List<LocationData> terrainPendingLocations))
                     {
-                        pendingLocations = new List<LocationData>();
-                        pendingType2Locations.Add(terrainCoord, pendingLocations);
+                        terrainPendingLocations = new List<LocationData>();
+                        pendingIncompleteLocations.Add(terrainCoord, terrainPendingLocations);
                     }
 
-                    pendingLocations.Add(data);
+                    terrainPendingLocations.Add(data);
                 }
             }
 
@@ -338,6 +338,12 @@ namespace LocationLoader
                         loc.terrainY = coastTileCoord.y;
                     }
                 }
+                else if(loc.type == 3)
+                {
+                    // Compute the height offset relative to the lowest point on overlapping terrain
+                    // Even if a full answer could not be found, the returned height is the best approximation
+                    FindAdjustedHeightOffset(loc, locationPrefab);
+                }
 
                 //Smooth the terrain
                 int count = 0;
@@ -392,7 +398,7 @@ namespace LocationLoader
             }
 
             // Check for pending instances waiting on this terrain
-            if(pendingType2Locations.TryGetValue(worldLocation, out List<LocationData> pendingLocations))
+            if(pendingIncompleteLocations.TryGetValue(worldLocation, out List<LocationData> pendingLocations))
             {
                 for(int i = 0; i < pendingLocations.Count; ++i)
                 {
@@ -404,7 +410,7 @@ namespace LocationLoader
                         continue;
                     }
 
-                    if(!type2InstancePendingTerrains.TryGetValue(pendingLoc.Location.locationID, out List<Vector2Int> pendingTerrains))
+                    if(!instancePendingTerrains.TryGetValue(pendingLoc.Location.locationID, out List<Vector2Int> pendingTerrains))
                     {
                         // Invalid locations?
                         continue;
@@ -418,15 +424,15 @@ namespace LocationLoader
                             if (pendingTerrainCoord == worldLocation)
                                 continue;
 
-                            if(pendingType2Locations.TryGetValue(pendingTerrainCoord, out List<LocationData> pendingTerrainPendingInstances))
+                            if(pendingIncompleteLocations.TryGetValue(pendingTerrainCoord, out List<LocationData> pendingTerrainPendingInstances))
                             {
                                 pendingTerrainPendingInstances.Remove(pendingLoc);
                                 if (pendingTerrainPendingInstances.Count == 0)
-                                    pendingType2Locations.Remove(pendingTerrainCoord);
+                                    pendingIncompleteLocations.Remove(pendingTerrainCoord);
                             }
                         }
 
-                        type2InstancePendingTerrains.Remove(pendingLoc.Location.locationID);
+                        instancePendingTerrains.Remove(pendingLoc.Location.locationID);
                     }
 
                     if(!TryGetTerrain(pendingLoc.WorldX, pendingLoc.WorldY, out DaggerfallTerrain pendingLocTerrain))
@@ -436,22 +442,41 @@ namespace LocationLoader
                         continue;
                     }
 
-                    if(FindNearestCoast(pendingLoc.Location, pendingLocTerrain, out Vector2Int coastCoord))
+                    // Type 2 location try to see if they found a coast to snap to
+                    if (pendingLoc.Location.type == 2)
                     {
-                        pendingLoc.Location.terrainX = coastCoord.x;
-                        pendingLoc.Location.terrainY = coastCoord.y;
-                        pendingLoc.gameObject.transform.localPosition = GetLocationPosition(pendingLoc.Location, pendingLocTerrain);
+                        if (FindNearestCoast(pendingLoc.Location, pendingLocTerrain, out Vector2Int coastCoord))
+                        {
+                            pendingLoc.Location.terrainX = coastCoord.x;
+                            pendingLoc.Location.terrainY = coastCoord.y;
+                            pendingLoc.gameObject.transform.localPosition = GetLocationPosition(pendingLoc.Location, pendingLocTerrain);
 
-                        // Instance is not pending anymore
-                        ClearPendingInstance();
-                        continue;
+                            // Instance is not pending anymore
+                            ClearPendingInstance();
+                            continue;
+                        }
+                    }
+                    // Adjust type 3 location height
+                    else if(pendingLoc.Location.type == 3)
+                    {
+                        if (FindAdjustedHeightOffset(pendingLoc.Location, pendingLoc.Prefab))
+                        {
+                            pendingLoc.gameObject.transform.localPosition = GetLocationPosition(pendingLoc.Location, pendingLocTerrain);
+                            // Instance is not pending anymore
+                            ClearPendingInstance();
+                            continue;
+                        }
+                        else
+                        {
+                            pendingLoc.gameObject.transform.localPosition = GetLocationPosition(pendingLoc.Location, pendingLocTerrain);
+                        }
                     }
 
                     // Remove this terrain from the location's pending terrains
                     pendingTerrains.Remove(worldLocation);
                 }
 
-                pendingType2Locations.Remove(worldLocation);
+                pendingIncompleteLocations.Remove(worldLocation);
             }
         }
 
@@ -472,6 +497,9 @@ namespace LocationLoader
             return Mathf.Sqrt(squared_dist);
         }
 
+        // Takes a type 2 Location instance and searches for the nearest coast it can snap to
+        // Returns true if an answer was found
+        // If false, and any surrounding terrains weren't loaded, it will be added to the list of instances waiting on terrain
         bool FindNearestCoast(LocationInstance loc, DaggerfallTerrain daggerTerrain, out Vector2Int tileCoord)
         {
             byte GetTerrainSample(DaggerfallTerrain terrain, int x, int y)
@@ -604,7 +632,7 @@ namespace LocationLoader
                 {
                     Debug.Log($"Location {loc.locationID} waiting for pending terrain");
 
-                    type2InstancePendingTerrains[loc.locationID] = pendingTerrain;
+                    instancePendingTerrains[loc.locationID] = pendingTerrain;
                 }
             }
             else
@@ -733,6 +761,43 @@ namespace LocationLoader
             }
 
             return TryGetTerrain(daggerTerrain.MapPixelX - 1, daggerTerrain.MapPixelY, out westNeighbor);
+        }
+        
+        bool FindAdjustedHeightOffset(LocationInstance loc, LocationPrefab locationPrefab)
+        {
+            List<Vector2Int> pendingTerrain = new List<Vector2Int>();
+
+            foreach (LocationHelper.TerrainSection terrainSection in LocationHelper.GetOverlappingTerrainSections(loc, locationPrefab))
+            {
+                if(!TryGetTerrain(terrainSection.WorldCoord.x, terrainSection.WorldCoord.y, out DaggerfallTerrain sectionTerrain))
+                {
+                    pendingTerrain.Add(terrainSection.WorldCoord);
+                    continue;
+                }
+
+                for(int i = terrainSection.Section.min.x; i <= terrainSection.Section.max.x; i++)
+                {
+                    for(int j = terrainSection.Section.min.y; j <= terrainSection.Section.max.y; j++)
+                    {
+                        float sampleHeight = sectionTerrain.MapData.heightmapSamples[j, i];
+                        if(sampleHeight < loc.heightOffset)
+                        {
+                            loc.heightOffset = sampleHeight;
+                        }
+                    }
+                }
+            }
+
+            if(pendingTerrain.Count > 0)
+            {
+                Debug.Log($"Location {loc.locationID} waiting for pending terrain");
+
+                instancePendingTerrains[loc.locationID] = pendingTerrain;
+
+                return false;
+            }
+
+            return true;
         }
     }
 }
