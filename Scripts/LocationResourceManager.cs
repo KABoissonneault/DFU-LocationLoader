@@ -54,7 +54,7 @@ namespace LocationLoader
             if (!prefabInfos.TryGetValue(assetName, out prefabInfo))
             {
                 Mod mod;
-                if (!modLocationPrefabs.TryGetValue(assetName.ToLower(), out mod))
+                if (!modLocationPrefabs.TryGetValue(assetName, out mod))
                 {
                     Debug.LogWarning($"Can't find location prefab '{prefabName}'");
                     return null;
@@ -92,7 +92,7 @@ namespace LocationLoader
 
         Dictionary<string, Mod> GetModGlobalFiles()
         {
-            Dictionary<string, Mod> modGlobalFiles = new Dictionary<string, Mod>();
+            Dictionary<string, Mod> modGlobalFiles = new Dictionary<string, Mod>(StringComparer.InvariantCultureIgnoreCase);
 
             foreach (Mod mod in ModManager.Instance.Mods)
             {
@@ -110,13 +110,13 @@ namespace LocationLoader
                     foreach (string filename in mod.AssetBundle.GetAllAssetNames())
                     {
                         string directoryName = Path.GetDirectoryName(filename).Replace('\\', '/');
-                        if (!string.Equals(directoryName, globalFolder, System.StringComparison.InvariantCultureIgnoreCase))
+                        if (!string.Equals(directoryName, globalFolder, StringComparison.InvariantCultureIgnoreCase))
                             continue;
 
-                        if (!filename.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) && !filename.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
+                        if (!filename.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) && !filename.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
                             continue;
 
-                        string file = Path.GetFileName(filename).ToLower();
+                        string file = Path.GetFileName(filename);
                         modGlobalFiles[file] = mod;
                     }
                 }
@@ -132,13 +132,13 @@ namespace LocationLoader
                     foreach (string filename in mod.ModInfo.Files)
                     {
                         string directoryName = Path.GetDirectoryName(filename).Replace('\\', '/');
-                        if (!string.Equals(directoryName, globalFolder, System.StringComparison.InvariantCultureIgnoreCase))
+                        if (!string.Equals(directoryName, globalFolder, StringComparison.InvariantCultureIgnoreCase))
                             continue;
 
-                        if (!filename.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) && !filename.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
+                        if (!filename.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) && !filename.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
                             continue;
 
-                        string file = Path.GetFileName(filename).ToLower();
+                        string file = Path.GetFileName(filename);
                         modGlobalFiles[file] = mod;
                     }
                 }
@@ -149,8 +149,8 @@ namespace LocationLoader
             if (Directory.Exists(looseLocationFolder))
             {
                 foreach (string filename in Directory.GetFiles(looseLocationFolder)
-                    .Where(file => file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
-                    .Select(file => Path.GetFileName(file).ToLower()))
+                    .Where(file => file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
+                    .Select(file => Path.GetFileName(file)))
                 {
                     modGlobalFiles[filename] = null;
                 }
@@ -259,7 +259,7 @@ namespace LocationLoader
         {
             if (!modRegionFiles.ContainsKey(regionIndex))
             {
-                Dictionary<string, Mod> regionFiles = new Dictionary<string, Mod>();
+                Dictionary<string, Mod> regionFiles = new Dictionary<string, Mod>(StringComparer.InvariantCultureIgnoreCase);
                 modRegionFiles.Add(regionIndex, regionFiles);
 
                 string regionName = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetRegionName(regionIndex);
@@ -275,14 +275,14 @@ namespace LocationLoader
                         string modFolderPrefix = dummyFilePath.Substring(17);
                         modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
 
-                        string regionIndexFolder = modFolderPrefix + "/locations/" + regionIndex.ToString();
-                        string regionNameFolder = modFolderPrefix + "/locations/" + regionName;
+                        string regionIndexFolder = modFolderPrefix + "/Locations/" + regionIndex.ToString();
+                        string regionNameFolder = modFolderPrefix + "/Locations/" + regionName;
 
 
                         foreach (string filename in mod.AssetBundle.GetAllAssetNames()
                             .Where(file => (file.StartsWith(regionIndexFolder, StringComparison.InvariantCultureIgnoreCase) || file.StartsWith(regionNameFolder, StringComparison.InvariantCultureIgnoreCase))
-                                && (file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase)))
-                            .Select(file => Path.GetFileName(file).ToLower()))
+                                && (file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase)))
+                            .Select(file => Path.GetFileName(file)))
                         {
                             regionFiles[filename] = mod;
                         }
@@ -298,9 +298,9 @@ namespace LocationLoader
                         string regionNameFolder = modFolderPrefix + "/Locations/" + regionName;
 
                         foreach (string filename in mod.ModInfo.Files
-                            .Where(file => (file.StartsWith(regionIndexFolder, System.StringComparison.InvariantCultureIgnoreCase) || file.StartsWith(regionNameFolder, System.StringComparison.InvariantCultureIgnoreCase))
-                                && (file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase)))
-                            .Select(file => Path.GetFileName(file).ToLower()))
+                            .Where(file => (file.StartsWith(regionIndexFolder, StringComparison.InvariantCultureIgnoreCase) || file.StartsWith(regionNameFolder, StringComparison.InvariantCultureIgnoreCase))
+                                && (file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase)))
+                            .Select(file => Path.GetFileName(file)))
                         {
                             regionFiles[filename] = mod;
                         }
@@ -316,8 +316,8 @@ namespace LocationLoader
                     if (Directory.Exists(looseLocationRegionIndexFolder))
                     {
                         foreach (string filename in Directory.GetFiles(looseLocationRegionIndexFolder)
-                            .Where(file => file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
-                            .Select(file => Path.GetFileName(file).ToLower()))
+                            .Where(file => file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
+                            .Select(file => Path.GetFileName(file)))
                         {
                             regionFiles[filename] = null;
                         }
@@ -326,8 +326,8 @@ namespace LocationLoader
                     if (Directory.Exists(looseLocationRegionNameFolder))
                     {
                         foreach (string filename in Directory.GetFiles(looseLocationRegionNameFolder)
-                            .Where(file => file.EndsWith(".txt", System.StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", System.StringComparison.InvariantCultureIgnoreCase))
-                            .Select(file => Path.GetFileName(file).ToLower()))
+                            .Where(file => file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase) || file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
+                            .Select(file => Path.GetFileName(file)))
                         {
                             regionFiles[filename] = null;
                         }
@@ -358,7 +358,7 @@ namespace LocationLoader
             if (modLocationPrefabs != null)
                 return;
 
-            modLocationPrefabs = new Dictionary<string, Mod>();
+            modLocationPrefabs = new Dictionary<string, Mod>(StringComparer.InvariantCultureIgnoreCase);
 
             foreach (Mod mod in ModManager.Instance.Mods)
             {
@@ -371,12 +371,12 @@ namespace LocationLoader
                     string modFolderPrefix = dummyFilePath.Substring(17);
                     modFolderPrefix = dummyFilePath.Substring(0, 17 + modFolderPrefix.IndexOf('/'));
 
-                    string prefabFolder = modFolderPrefix + "/locations/locationprefab/";
+                    string prefabFolder = modFolderPrefix + "/Locations/LocationPrefab/";
 
                     foreach (string filename in mod.AssetBundle.GetAllAssetNames()
                         .Where(file => file.StartsWith(prefabFolder, StringComparison.InvariantCultureIgnoreCase)
                         && (file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase)))
-                        .Select(file => Path.GetFileName(file).ToLower()))
+                        .Select(file => Path.GetFileName(file)))
                     {
                         modLocationPrefabs[filename] = mod;
                     }
@@ -393,7 +393,7 @@ namespace LocationLoader
                     foreach (string filename in mod.ModInfo.Files
                         .Where(file => file.StartsWith(prefabFolder, StringComparison.InvariantCultureIgnoreCase)
                         && (file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase)))
-                        .Select(file => Path.GetFileName(file).ToLower()))
+                        .Select(file => Path.GetFileName(file)))
                     {
                         modLocationPrefabs[filename] = mod;
                     }
@@ -408,7 +408,7 @@ namespace LocationLoader
             {
                 foreach (string filename in Directory.GetFiles(looseLocationFolder)
                     .Where(file => file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase))
-                    .Select(file => Path.GetFileName(file).ToLower()))
+                    .Select(file => Path.GetFileName(file)))
                 {
                     modLocationPrefabs[filename] = null;
                 }

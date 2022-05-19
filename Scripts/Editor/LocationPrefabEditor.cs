@@ -29,8 +29,8 @@ namespace LocationLoader
         string currentPrefabName;
         List<string> searchListNames = new List<string>();
         List<string[]> searchListIDSets = new List<string[]>();
-        Dictionary<string, string> idName = new Dictionary<string, string>();
-        Dictionary<string, LocationPrefab> prefabInfos = new Dictionary<string, LocationPrefab>();
+        Dictionary<string, string> idName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, LocationPrefab> prefabInfos = new Dictionary<string, LocationPrefab>(StringComparer.OrdinalIgnoreCase);
         List<string> customModels;
         List<string> customBillboards;
 
@@ -821,7 +821,7 @@ namespace LocationLoader
                 newObject.transform.localRotation = locationObject.rot;
                 newObject.transform.localScale = locationObject.scale;
 
-                if (!prefabInfos.TryGetValue(locationObject.name.ToLower(), out LocationPrefab prefabInfo))
+                if (!prefabInfos.TryGetValue(locationObject.name, out LocationPrefab prefabInfo))
                 {
                     newObject.name = $"Unknown prefab ({locationObject.name})";
                 }
@@ -880,26 +880,6 @@ namespace LocationLoader
                         float tempY = newObject.transform.position.y;
                         newObject.GetComponent<DaggerfallBillboard>().AlignToBase();
                         newObject.transform.position = new Vector3(newObject.transform.position.x, tempY + ((newObject.transform.position.y - tempY) * newObject.transform.localScale.y), newObject.transform.position.z);
-                    }
-                    else
-                    {
-                        // We can't get custom models or billboards at Editor time.
-                        // Load them as raw Unity prefabs
-                        MeshFilter meshFilter = newObject.GetComponent<MeshFilter>();
-                        if(meshFilter == null || meshFilter.sharedMesh == null)
-                        {
-                            DestroyImmediate(newObject);
-
-                            GameObject template = LoadUnityPrefabObjectTemplate(locationObject.name);
-                            if (template == null)
-                                return null;
-
-                            newObject = Instantiate(template, objectParent);
-                            newObject.transform.localPosition = locationObject.pos;
-                            newObject.transform.localRotation = locationObject.rot;
-                            newObject.transform.localScale = locationObject.scale;
-                            newObject.name = Path.GetFileNameWithoutExtension(locationObject.name);
-                        }
                     }
 
                     if (locationObject.type == 0)
@@ -1074,7 +1054,7 @@ namespace LocationLoader
                 {
                     try
                     {
-                        string prefabName = Path.GetFileNameWithoutExtension(file.ToLower());
+                        string prefabName = Path.GetFileNameWithoutExtension(file);
                         prefabInfos[prefabName] = prefab;
                     }
                     catch (Exception e)
@@ -1281,7 +1261,7 @@ namespace LocationLoader
             else if(listMode == 4)
             {
                 var prefabs = prefabInfos.Keys.Where(
-                    prefab => prefab != currentPrefabName.ToLower()
+                    prefab => !string.Equals(prefab, currentPrefabName, StringComparison.OrdinalIgnoreCase)
                     && (string.IsNullOrEmpty(searchField) || prefab.IndexOf(searchField, StringComparison.InvariantCultureIgnoreCase) >= 0)
                     );
                 searchListNames.AddRange(prefabs);
