@@ -338,12 +338,6 @@ namespace LocationLoader
                         loc.terrainY = coastTileCoord.y;
                     }
                 }
-                else if(loc.type == 3)
-                {
-                    // Compute the height offset relative to the lowest point on overlapping terrain
-                    // Even if a full answer could not be found, the returned height is the best approximation
-                    FindAdjustedHeightOffset(loc, locationPrefab);
-                }
 
                 //Smooth the terrain
                 int count = 0;
@@ -390,6 +384,12 @@ namespace LocationLoader
                             daggerTerrain.MapData.heightmapSamples[y, x] = Mathf.Lerp(daggerTerrain.MapData.heightmapSamples[y, x], daggerTerrain.MapData.averageHeight, 1 / (GetDistanceFromRect(daggerTerrain.MapData.locationRect, new Vector2(x, y)) + 1));
                         }
                     }
+                }
+                else if (loc.type == 3)
+                {
+                    // Compute the height offset relative to the lowest point on overlapping terrain
+                    // Even if a full answer could not be found, the returned height is the best approximation
+                    FindAdjustedHeightOffset(loc, locationPrefab);
                 }
 
                 terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples);
@@ -765,6 +765,14 @@ namespace LocationLoader
         
         bool FindAdjustedHeightOffset(LocationInstance loc, LocationPrefab locationPrefab)
         {
+            if (!TryGetTerrain(loc.worldX, loc.worldY, out DaggerfallTerrain locBaseTerrain))
+            {
+                return false;
+            }
+
+            float baseHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * locBaseTerrain.TerrainScale;
+            float baseHeightAverage = locBaseTerrain.MapData.averageHeight * baseHeightMax;
+
             List<Vector2Int> pendingTerrain = new List<Vector2Int>();
 
             foreach (LocationHelper.TerrainSection terrainSection in LocationHelper.GetOverlappingTerrainSections(loc, locationPrefab))
@@ -775,14 +783,20 @@ namespace LocationLoader
                     continue;
                 }
 
-                for(int i = terrainSection.Section.min.x; i <= terrainSection.Section.max.x; i++)
+                float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * sectionTerrain.TerrainScale;
+
+                for (int i = terrainSection.Section.min.x; i <= terrainSection.Section.max.x; i++)
                 {
                     for(int j = terrainSection.Section.min.y; j <= terrainSection.Section.max.y; j++)
                     {
                         float sampleHeight = sectionTerrain.MapData.heightmapSamples[j, i];
-                        if(sampleHeight < loc.heightOffset)
+                        float unitHeight = sampleHeight * terrainHeightMax;
+
+                        float currentHeight = baseHeightAverage + loc.heightOffset;
+
+                        if (unitHeight < currentHeight)
                         {
-                            loc.heightOffset = sampleHeight;
+                            loc.heightOffset = unitHeight - baseHeightAverage;
                         }
                     }
                 }
