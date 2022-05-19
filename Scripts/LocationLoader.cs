@@ -68,6 +68,10 @@ namespace LocationLoader
             var instances = FindObjectsOfType<LocationData>();
             foreach (var instance in instances)
             {
+                // Ignores embedded prefabs
+                if (instance.Location == null)
+                    continue;
+
                 InstantiateInstanceDynamicObjects(instance.gameObject, instance.Location, instance.Prefab);
             }
 
@@ -104,6 +108,8 @@ namespace LocationLoader
         
         void InstantiateInstanceDynamicObjects(GameObject instance, LocationInstance loc, LocationPrefab locationPrefab)
         {
+            var saveInterface = LocationModLoader.modObject.GetComponent<LocationSaveDataInterface>();
+
             foreach (LocationObject obj in locationPrefab.obj)
             {
                 GameObject go = null;
@@ -123,6 +129,12 @@ namespace LocationLoader
                 {
                     string[] arg = obj.name.Split('.');
 
+                    if (arg.Length != 2)
+                    {
+                        Debug.Log($"Invalid type 2 obj name '{obj.name}' in prefab '{loc.prefab}'");
+                        continue;
+                    }
+
                     if (arg[0] == "199")
                     {
                         switch (arg[1])
@@ -140,7 +152,8 @@ namespace LocationLoader
                                 ulong loadId = (loc.locationID << 16) | v;
 
                                 // Enemy is dead, don't spawn anything
-                                if (LocationModLoader.modObject.GetComponent<LocationSaveDataInterface>().IsEnemyDead(loadId))
+                                
+                                if (saveInterface.IsEnemyDead(loadId))
                                 {
                                     break;
                                 }
