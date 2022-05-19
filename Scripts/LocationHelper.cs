@@ -1592,7 +1592,7 @@ namespace LocationLoader
                             EnemyMarkerExtraData enemyExtraData;
                             enemyExtraData.EnemyId = parsedValue;
 
-                            obj.extraData = SaveLoadManager.Serialize(typeof(EnemyMarkerExtraData), enemyExtraData);
+                            obj.extraData = SaveLoadManager.Serialize(typeof(EnemyMarkerExtraData), enemyExtraData, pretty: false);
                         }
                         break;
                 }
