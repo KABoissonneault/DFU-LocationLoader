@@ -22,7 +22,7 @@ namespace LocationLoader
         {
 #if UNITY_EDITOR
             ConsoleCommandsDatabase.RegisterCommand("LLPruneInvalidInstances", "Tests location instances for validity and removes invalid ones from their package (only CSV supported)"
-                , "LLPruneInvalidInstances [flags...] --mod=<modname>\n\tFlags:\n\t\t--file=<file pattern>\n\t\t--region=<id>\n\t\t--type=<type>\n\t\t--prune-loc-overlap", PruneInvalidInstances);
+                , "LLPruneInvalidInstances [flags...] --mod=<modname>\n\tFlags:\n\t\t--file=<file pattern>\n\t\t--region=<id>\n\t\t--type=<type>\n\t\t--prune-loc-overlap\n\t\t--nudge-oob", PruneInvalidInstances);
 
             ConsoleCommandsDatabase.RegisterCommand("LLDumpTerrainSamples", "Dumps all height samples for the specified terrain in a CSV"
                 , "LLDumpTerrainSamples <worldX> <worldY> <filename>", DumpTerrainSamples);
@@ -57,6 +57,7 @@ namespace LocationLoader
             string modName = null;
             string filePattern = null;
             bool pruneLocOverlap = false;
+            bool nudgeOutOfBounds = false;
 
             bool parsingQuotedArg = false;
             StringBuilder quotedString = null;
@@ -124,6 +125,10 @@ namespace LocationLoader
                 else if (Arg == "--prune-loc-overlap")
                 {
                     pruneLocOverlap = true;
+                }
+                else if(Arg == "--nudge-oob")
+                {
+                    nudgeOutOfBounds = true;
                 }
                 else
                 {
@@ -322,8 +327,57 @@ namespace LocationLoader
                     prefabCache.Add(instance.prefab, prefab);
                 }
 
-                int halfWidth = (prefab.width + 1) / 2;
-                int halfHeight = (prefab.height + 1) / 2;
+                // Instance is out of bounds
+                if (LocationHelper.IsOutOfBounds(instance, prefab))
+                {
+                    if (nudgeOutOfBounds)
+                    {                        
+                        if (prefab.width > LocationLoader.TERRAIN_SIZE || prefab.height > LocationLoader.TERRAIN_SIZE)
+                            return false; // No way to make this fit
+
+                        float rot = Mathf.Deg2Rad * instance.rot.eulerAngles.y;
+                        float cosRot = Mathf.Cos(rot);
+                        float sinRot = Mathf.Sin(rot);
+                        cosRot = Mathf.Abs(cosRot);
+                        sinRot = Mathf.Abs(sinRot);
+
+                        // These functions tend to return 1E-8 values for the usual 90 degree rotations 
+                        // Mathf.Approximately and float.Epsilon won't do for these, so let's do this by hand
+                        if (cosRot < 0.01f)
+                            cosRot = 0.0f;
+
+                        if (sinRot < 0.01f)
+                            sinRot = 0.0f;
+
+                        if (Mathf.Abs(cosRot - 1.0f) < 0.01f)
+                            cosRot = 1.0f;
+
+                        if (Mathf.Abs(sinRot - 1.0f) < 0.01f)
+                            sinRot = 1.0f;
+
+                        int width = Mathf.CeilToInt(cosRot * prefab.width + sinRot * prefab.height);
+                        int height = Mathf.CeilToInt(sinRot * prefab.width + cosRot * prefab.height);
+
+                        int halfWidth = (width + 1) / 2;
+                        int halfHeight = (height + 1) / 2;
+
+                        if (instance.terrainX - halfWidth < 0)
+                            instance.terrainX = halfWidth;
+
+                        if(instance.terrainX + halfWidth > LocationLoader.TERRAIN_SIZE)
+                            instance.terrainX = LocationLoader.TERRAIN_SIZE - halfWidth;
+
+                        if(instance.terrainY - halfHeight < 0)
+                            instance.terrainY = halfHeight;
+
+                        if(instance.terrainY + halfHeight > LocationLoader.TERRAIN_SIZE)
+                            instance.terrainY = LocationLoader.TERRAIN_SIZE - halfHeight;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
 
                 // Get all world locations it overlaps
                 // Type 0 and type 2 instances only fit within their own map pixel, but type 1 can go out of bounds
@@ -346,12 +400,6 @@ namespace LocationLoader
                     // Instance overlaps another loaded location
                     if (HasLocOverlap(coordinate, terrainArea))
                         return false;
-                }
-
-                // Instance is out of bounds
-                if (LocationHelper.IsOutOfBounds(instance, prefab))
-                {
-                    return false;
                 }
 
                 // Instance is on road
@@ -410,7 +458,9 @@ namespace LocationLoader
 
                             if (LocationPasses(instance))
                             {
-                                streamWriter.WriteLine(instanceLine);
+                                string[] originalValues = instanceLine.Split(',');
+                                string newLine = LocationHelper.SaveSingleLocationInstanceCsv(instance, fields, originalValues);
+                                streamWriter.WriteLine(newLine);
                             }
                         }
                         catch (Exception e)

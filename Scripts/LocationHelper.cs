@@ -14,6 +14,7 @@ using DaggerfallWorkshop.Game.Items;
 using System.Globalization;
 using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallConnect.Arena2;
+using System.Text;
 
 namespace LocationLoader
 {
@@ -1464,6 +1465,101 @@ namespace LocationLoader
 
             writer.WriteLine("</locations>");
             writer.Close();
+        }
+
+        public static string SaveSingleLocationInstanceCsv(LocationInstance instance, string[] fields, string[] originalValues)
+        {
+            StringBuilder result = new StringBuilder();
+
+            bool first = true;
+            foreach(var pair in fields.Zip(originalValues, Tuple.Create))
+            {
+                if (!first)
+                    result.Append(",");
+                else
+                    first = false;
+
+                switch(pair.Item1)
+                {
+                    case "name":
+                        result.Append(instance.name);
+                        break;
+
+                    case "type":
+                        result.Append(instance.type);
+                        break;
+
+                    case "prefab":
+                        result.Append(instance.prefab);
+                        break;
+
+                    case "worldX":
+                        result.Append(instance.worldX);
+                        break;
+
+                    case "worldY":
+                        result.Append(instance.worldY);
+                        break;
+
+                    case "terrainX":
+                        result.Append(instance.terrainX);
+                        break;
+
+                    case "terrainY":
+                        result.Append(instance.terrainY);
+                        break;
+
+                    case "locationID":
+                        result.Append(instance.locationID);
+                        break;
+
+                    case "rotW":
+                        result.Append(instance.rot.w);
+                        break;
+
+                    case "rotX":
+                        result.Append(instance.rot.x);
+                        break;
+
+                    case "rotY":
+                        result.Append(instance.rot.y);
+                        break;
+
+                    case "rotZ":
+                        result.Append(instance.rot.z);
+                        break;
+
+                    case "rotXAxis":
+                        result.Append(instance.rot.eulerAngles.x);
+                        break;
+
+                    case "rotYAxis":
+                        result.Append(instance.rot.eulerAngles.y);
+                        break;
+
+                    case "rotZAxis":
+                        result.Append(instance.rot.eulerAngles.z);
+                        break;
+
+                    case "heightOffset":
+                        result.Append(instance.heightOffset);
+                        break;
+
+                    case "scale":
+                        result.Append(instance.scale);
+                        break;
+
+                    case "extraData":
+                        result.Append($"\"instance.extraData\"");
+                        break;
+
+                    default:
+                        result.Append(pair.Item2);
+                        break;
+                }
+            }
+
+            return result.ToString();
         }
 
         /// <summary>
