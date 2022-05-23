@@ -1616,6 +1616,10 @@ namespace LocationLoader
                 return null;
             }
 
+            var winterPrefabNode = prefabNode["winterPrefab"];
+            if (winterPrefabNode != null)
+                locationPrefab.winterPrefab = winterPrefabNode.InnerText;
+
             var objects = xmlDoc.GetElementsByTagName("object");
             for (int i = 0; i < objects.Count; i++)
             {
@@ -1756,6 +1760,9 @@ namespace LocationLoader
 
                 writer.WriteLine("\t</object>");
             }
+
+            if (!string.IsNullOrEmpty(locationPrefab.winterPrefab))
+                writer.WriteLine($"\t<winterPrefab>{locationPrefab.winterPrefab}</winterPrefab>");
 
             writer.WriteLine("</locationPrefab>");
             writer.Close();

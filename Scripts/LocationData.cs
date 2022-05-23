@@ -27,6 +27,7 @@ namespace LocationLoader
         public int height = 8;
         public int width = 8;
         public List<LocationObject> obj = new List<LocationObject>();
+        public string winterPrefab = "";
     }
     /// <summary>
     /// Holds data for locationInstances

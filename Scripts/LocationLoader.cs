@@ -318,7 +318,17 @@ namespace LocationLoader
                 LocationPrefab locationPrefab = resourceManager.GetPrefabInfo(loc.prefab);
                 if (locationPrefab == null)
                     continue;
-                    
+
+                if(DaggerfallUnity.Instance.WorldTime.Now.SeasonValue == DaggerfallDateTime.Seasons.Winter
+                    && !string.IsNullOrEmpty(locationPrefab.winterPrefab))
+                {
+                    var winterPrefab = resourceManager.GetPrefabInfo(locationPrefab.winterPrefab);
+                    if (winterPrefab == null)
+                        Debug.LogError($"Winter prefab '{locationPrefab.winterPrefab}' could not be loaded");
+                    else
+                        locationPrefab = winterPrefab;
+                }
+
                 if (LocationHelper.IsOutOfBounds(loc, locationPrefab))
                 {
                     Debug.LogWarning($"Out-of-bounds location at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");

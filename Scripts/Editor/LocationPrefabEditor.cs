@@ -323,166 +323,193 @@ namespace LocationLoader
 
                 baseY += 72;
 
-                scrollPosition = GUI.BeginScrollView(new Rect(2, baseY + 8, 532, 512), scrollPosition, new Rect(0, 0, 512, 20 + ((objScene.Count+1) * 60)),false, true);
-
-                for (int i = 0; i < objScene.Count; ++i)
                 {
-                    GameObject sceneObj = objScene[i];
-                    LocationObject obj = locationPrefab.obj[i];
+                    scrollPosition = GUI.BeginScrollView(new Rect(2, baseY + 8, 532, 512), scrollPosition, new Rect(0, 0, 512, 20 + ((objScene.Count + 1) * 60)), false, true);
 
-                    if (sceneObj == null)
-                    {                        
-                        usedIds.Remove(obj.objectID);
-                        objScene.RemoveAt(i);
-                        locationPrefab.obj.RemoveAt(i);
-                        --i;
-                        continue;
-                    }
-
-                    if (obj.type != 1)
+                    for (int i = 0; i < objScene.Count; ++i)
                     {
-                        obj.pos = sceneObj.transform.localPosition;
-                    }
-                    else
-                    {
-                        Vector3 scenePos = sceneObj.transform.localPosition;
+                        GameObject sceneObj = objScene[i];
+                        LocationObject obj = locationPrefab.obj[i];
 
-                        // Reverse base alignment
-                        float billboardHeight = sceneObj.GetComponent<DaggerfallBillboard>().Summary.Size.y;
-                        obj.pos = new Vector3(scenePos.x, scenePos.y - (billboardHeight / 2) * sceneObj.transform.localScale.y, scenePos.z);
-                    }
-
-                    if(HasRotation(obj))
-                        obj.rot = sceneObj.transform.rotation;
-                    obj.scale = sceneObj.transform.localScale;
-
-                    if (Selection.Contains(sceneObj))
-                    {
-                        GUI.BeginGroup(new Rect(6, 10 + (i * 60), 496, 52), lightGreenBG);
-                    }
-                    else
-                        GUI.BeginGroup(new Rect(6, 10 + (i * 60), 496, 52), lightGrayBG);
-
-                    GUI.Label(new Rect(2, 4, 128, 16), "" + sceneObj.name);
-                    GUI.Label(new Rect(2, 20, 128, 16), "Name: " + obj.name);
-                    GUI.Label(new Rect(2, 36, 128, 16), "ID: " + obj.objectID);
-
-                    GUI.Label(new Rect(136, 4, 256, 16), "Position : " + obj.pos);
-                    if(HasRotation(obj))
-                        GUI.Label(new Rect(136, 20, 256, 16), "Rotation : " + obj.rot.eulerAngles);
-                    GUI.Label(new Rect(136, 36, 256, 16), "Scale    : " + obj.scale);
-
-                    GuiDrawExtraData(obj);
-
-                    if (GUI.Button(new Rect(392, 4, 64, 16), "Duplicate"))
-                    {
-                        int newID = 0;
-
-                        while(true)
+                        if (sceneObj == null)
                         {
-                            if (!usedIds.Contains(newID))
-                                break;
-                            ++newID;
+                            usedIds.Remove(obj.objectID);
+                            objScene.RemoveAt(i);
+                            locationPrefab.obj.RemoveAt(i);
+                            --i;
+                            continue;
                         }
 
-                        usedIds.Add(newID);
-
-                        var duplicatedObj = new LocationObject();
-                        duplicatedObj.type = obj.type;
-                        duplicatedObj.name = obj.name;
-                        duplicatedObj.objectID = newID;
-                        duplicatedObj.extraData = obj.extraData;
-                        duplicatedObj.pos = obj.pos;
-                        duplicatedObj.rot = obj.rot;
-                        duplicatedObj.scale = obj.scale;
-                        locationPrefab.obj.Add(duplicatedObj);
-                        AddObject(duplicatedObj, selectNew: true);
-                        //locationPrefab.obj.Sort((a, b) => a.objectID.CompareTo(b.objectID));
-                    }
-
-                    if(Selection.Contains(sceneObj))
-                    {
-                        if(TryGetObjectSet(sceneObj.name, obj.name, obj.type, out string[] objectSet))
+                        if (obj.type != 1)
                         {
-                            if (objectSet.Length > 1)
+                            obj.pos = sceneObj.transform.localPosition;
+                        }
+                        else
+                        {
+                            Vector3 scenePos = sceneObj.transform.localPosition;
+
+                            // Reverse base alignment
+                            float billboardHeight = sceneObj.GetComponent<DaggerfallBillboard>().Summary.Size.y;
+                            obj.pos = new Vector3(scenePos.x, scenePos.y - (billboardHeight / 2) * sceneObj.transform.localScale.y, scenePos.z);
+                        }
+
+                        if (HasRotation(obj))
+                            obj.rot = sceneObj.transform.rotation;
+                        obj.scale = sceneObj.transform.localScale;
+
+                        if (Selection.Contains(sceneObj))
+                        {
+                            GUI.BeginGroup(new Rect(6, 10 + (i * 60), 496, 52), lightGreenBG);
+                        }
+                        else
+                            GUI.BeginGroup(new Rect(6, 10 + (i * 60), 496, 52), lightGrayBG);
+
+                        GUI.Label(new Rect(2, 4, 128, 16), "" + sceneObj.name);
+                        GUI.Label(new Rect(2, 20, 128, 16), "Name: " + obj.name);
+                        GUI.Label(new Rect(2, 36, 128, 16), "ID: " + obj.objectID);
+
+                        GUI.Label(new Rect(136, 4, 256, 16), "Position : " + obj.pos);
+                        if (HasRotation(obj))
+                            GUI.Label(new Rect(136, 20, 256, 16), "Rotation : " + obj.rot.eulerAngles);
+                        GUI.Label(new Rect(136, 36, 256, 16), "Scale    : " + obj.scale);
+
+                        GuiDrawExtraData(obj);
+
+                        if (GUI.Button(new Rect(392, 4, 64, 16), "Duplicate"))
+                        {
+                            int newID = 0;
+
+                            while (true)
                             {
-                                int setIndex = Array.FindIndex(objectSet, id => id == obj.name);
-                                if (setIndex != -1)
+                                if (!usedIds.Contains(newID))
+                                    break;
+                                ++newID;
+                            }
+
+                            usedIds.Add(newID);
+
+                            var duplicatedObj = new LocationObject();
+                            duplicatedObj.type = obj.type;
+                            duplicatedObj.name = obj.name;
+                            duplicatedObj.objectID = newID;
+                            duplicatedObj.extraData = obj.extraData;
+                            duplicatedObj.pos = obj.pos;
+                            duplicatedObj.rot = obj.rot;
+                            duplicatedObj.scale = obj.scale;
+                            locationPrefab.obj.Add(duplicatedObj);
+                            AddObject(duplicatedObj, selectNew: true);
+                            //locationPrefab.obj.Sort((a, b) => a.objectID.CompareTo(b.objectID));
+                        }
+
+                        if (Selection.Contains(sceneObj))
+                        {
+                            if (TryGetObjectSet(sceneObj.name, obj.name, obj.type, out string[] objectSet))
+                            {
+                                if (objectSet.Length > 1)
                                 {
-                                    if (GUI.Button(new Rect(320, 36, 16, 16), "<"))
+                                    int setIndex = Array.FindIndex(objectSet, id => id == obj.name);
+                                    if (setIndex != -1)
                                     {
-                                        if (setIndex == 0)
-                                            setIndex = objectSet.Length - 1;
+                                        if (GUI.Button(new Rect(320, 36, 16, 16), "<"))
+                                        {
+                                            if (setIndex == 0)
+                                                setIndex = objectSet.Length - 1;
+                                            else
+                                                setIndex = setIndex - 1;
+
+                                            obj.name = objectSet[setIndex];
+
+                                            // Replace object
+                                            DestroyImmediate(sceneObj);
+                                            sceneObj = objScene[i] = CreateObject(obj, parent.transform);
+                                            Selection.activeGameObject = sceneObj;
+                                        }
+
+                                        if (setIndex + 1 < 10)
+                                            GUI.Label(new Rect(346, 36, 12, 16), (setIndex + 1).ToString());
                                         else
-                                            setIndex = setIndex - 1;
+                                            GUI.Label(new Rect(340, 36, 24, 16), (setIndex + 1).ToString());
 
-                                        obj.name = objectSet[setIndex];
+                                        GUI.Label(new Rect(358, 36, 12, 16), "/");
+                                        GUI.Label(new Rect(368, 36, 24, 16), objectSet.Length.ToString());
 
-                                        // Replace object
-                                        DestroyImmediate(sceneObj);
-                                        sceneObj = objScene[i] = CreateObject(obj, parent.transform);
-                                        Selection.activeGameObject = sceneObj;
-                                    }
+                                        if (GUI.Button(new Rect(388, 36, 16, 16), ">"))
+                                        {
+                                            if (setIndex == objectSet.Length - 1)
+                                                setIndex = 0;
+                                            else
+                                                setIndex = setIndex + 1;
 
-                                    if (setIndex + 1 < 10)
-                                        GUI.Label(new Rect(346, 36, 12, 16), (setIndex + 1).ToString());
-                                    else
-                                        GUI.Label(new Rect(340, 36, 24, 16), (setIndex + 1).ToString());
+                                            obj.name = objectSet[setIndex];
 
-                                    GUI.Label(new Rect(358, 36, 12, 16), "/");
-                                    GUI.Label(new Rect(368, 36, 24, 16), objectSet.Length.ToString());
-
-                                    if (GUI.Button(new Rect(388, 36, 16, 16), ">"))
-                                    {
-                                        if (setIndex == objectSet.Length - 1)
-                                            setIndex = 0;
-                                        else
-                                            setIndex = setIndex + 1;
-
-                                        obj.name = objectSet[setIndex];
-
-                                        // Replace object
-                                        DestroyImmediate(sceneObj);
-                                        sceneObj = objScene[i] = CreateObject(obj, parent.transform);
-                                        Selection.activeGameObject = sceneObj;
+                                            // Replace object
+                                            DestroyImmediate(sceneObj);
+                                            sceneObj = objScene[i] = CreateObject(obj, parent.transform);
+                                            Selection.activeGameObject = sceneObj;
+                                        }
                                     }
                                 }
                             }
                         }
+
+                        GUI.color = new Color(0.9f, 0.5f, 0.5f);
+                        if (GUI.Button(new Rect(476, 0, 20, 20), "X") || (Event.current.Equals(Event.KeyboardEvent("Delete")) && Selection.Contains(sceneObj)))
+                        {
+                            usedIds.Remove(obj.objectID);
+                            DestroyImmediate(sceneObj);
+                            objScene.RemoveAt(i);
+                            locationPrefab.obj.RemoveAt(i);
+                        }
+                        GUI.color = Color.white;
+
+                        if (GUI.Button(new Rect(0, 0, 758, 64), "", emptyBG))
+                        {
+                            Selection.activeGameObject = sceneObj;
+                        }
+
+                        GUI.EndGroup();
                     }
 
-                    GUI.color = new Color(0.9f, 0.5f, 0.5f);
-                    if (GUI.Button(new Rect(476, 0, 20, 20), "X") || (Event.current.Equals(Event.KeyboardEvent("Delete")) && Selection.Contains(sceneObj)))
+                    if (GUI.Button(new Rect(6, 10 + (objScene.Count * 60), 496, 52), "Add New Object"))
                     {
-                        usedIds.Remove(obj.objectID);
-                        DestroyImmediate(sceneObj);
-                        objScene.RemoveAt(i);
-                        locationPrefab.obj.RemoveAt(i);
-                    }
-                    GUI.color = Color.white;
+                        var camera = SceneView.lastActiveSceneView.camera;
 
-                    if (GUI.Button(new Rect(0, 0, 758, 64), "", emptyBG))
-                    {
-                        Selection.activeGameObject = sceneObj;
+                        // Store current camera
+                        locationCameraPivot = SceneView.lastActiveSceneView.pivot;
+                        locationCameraRotation = SceneView.lastActiveSceneView.rotation;
+                        locationCameraSize = SceneView.lastActiveSceneView.size;
+                        locationTargetPosition = locationCameraPivot;
+
+                        editMode = EditMode.ObjectPicker;
                     }
 
-                    GUI.EndGroup();
+                    GUI.EndScrollView();
                 }
 
-                if (GUI.Button(new Rect(6, 10 + (objScene.Count * 60), 496, 52), "Add New Object"))
+                // Extra prefab properties
+                GUI.Label(new Rect(554, baseY + 8, 256, 16), "Winter variant");
+                locationPrefab.winterPrefab = GUI.TextField(new Rect(554, baseY + 32, 256, 16), locationPrefab.winterPrefab);
+                if(EditorGUI.DropdownButton(new Rect(818, baseY + 32, 16, 16), new GUIContent(), FocusType.Passive))
                 {
-                    var camera = SceneView.lastActiveSceneView.camera;
+                    void OnItemClicked(object prefab)
+                    {
+                        locationPrefab.winterPrefab = (string)prefab;
+                    }
 
-                    // Store current camera
-                    locationCameraPivot = SceneView.lastActiveSceneView.pivot;
-                    locationCameraRotation = SceneView.lastActiveSceneView.rotation;
-                    locationCameraSize = SceneView.lastActiveSceneView.size;
-                    locationTargetPosition = locationCameraPivot;
-                                       
-                    editMode = EditMode.ObjectPicker;
+                    GenericMenu menu = new GenericMenu();
+
+                    var prefabs = prefabInfos.Keys.Where(
+                        prefab => !string.Equals(prefab, currentPrefabName, StringComparison.OrdinalIgnoreCase)
+                        && (string.IsNullOrEmpty(locationPrefab.winterPrefab) || prefab.IndexOf(locationPrefab.winterPrefab, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                        );
+
+                    foreach (string prefab in prefabs)
+                    {
+                        menu.AddItem(new GUIContent(prefab), false, OnItemClicked, prefab);
+                    }
+
+                    menu.DropDown(new Rect(818, baseY + 40, 160, 16));
                 }
-
-                GUI.EndScrollView();
 
                 // Make sure we always have a ground
                 if (ground == null)
