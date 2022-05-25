@@ -6,6 +6,7 @@ using System;
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Entity;
+using DaggerfallConnect.Arena2;
 
 namespace LocationLoader
 {
@@ -265,6 +266,19 @@ namespace LocationLoader
                 InstantiateInstanceDynamicObjects(instance, loc, locationPrefab);
             }
         }
+
+        bool IsInDesertClimate(DaggerfallTerrain daggerTerrain)
+        {
+            int climateIndex = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetClimateIndex(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
+            switch(climateIndex)
+            {
+                case (int)MapsFile.Climates.Desert:
+                case (int)MapsFile.Climates.Desert2:
+                    return true;
+            }
+
+            return false;
+        }
         
         void OnTerrainPromoted(DaggerfallTerrain daggerTerrain, TerrainData terrainData)
         {
@@ -320,6 +334,7 @@ namespace LocationLoader
                     continue;
 
                 if(DaggerfallUnity.Instance.WorldTime.Now.SeasonValue == DaggerfallDateTime.Seasons.Winter
+                    && !IsInDesertClimate()
                     && !string.IsNullOrEmpty(locationPrefab.winterPrefab))
                 {
                     var winterPrefab = resourceManager.GetPrefabInfo(locationPrefab.winterPrefab);
