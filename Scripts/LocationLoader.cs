@@ -334,7 +334,7 @@ namespace LocationLoader
                     continue;
 
                 if(DaggerfallUnity.Instance.WorldTime.Now.SeasonValue == DaggerfallDateTime.Seasons.Winter
-                    && !IsInDesertClimate()
+                    && !IsInDesertClimate(daggerTerrain)
                     && !string.IsNullOrEmpty(locationPrefab.winterPrefab))
                 {
                     var winterPrefab = resourceManager.GetPrefabInfo(locationPrefab.winterPrefab);
