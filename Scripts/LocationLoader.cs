@@ -267,17 +267,10 @@ namespace LocationLoader
             }
         }
 
-        bool IsInDesertClimate(DaggerfallTerrain daggerTerrain)
+        bool IsInSnowFreeClimate(DaggerfallTerrain daggerTerrain)
         {
             int climateIndex = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetClimateIndex(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
-            switch(climateIndex)
-            {
-                case (int)MapsFile.Climates.Desert:
-                case (int)MapsFile.Climates.Desert2:
-                    return true;
-            }
-
-            return false;
+            return WeatherManager.IsSnowFreeClimate(climateIndex);
         }
         
         void OnTerrainPromoted(DaggerfallTerrain daggerTerrain, TerrainData terrainData)
@@ -334,7 +327,7 @@ namespace LocationLoader
                     continue;
 
                 if(DaggerfallUnity.Instance.WorldTime.Now.SeasonValue == DaggerfallDateTime.Seasons.Winter
-                    && !IsInDesertClimate(daggerTerrain)
+                    && !IsInSnowFreeClimate(daggerTerrain)
                     && !string.IsNullOrEmpty(locationPrefab.winterPrefab))
                 {
                     var winterPrefab = resourceManager.GetPrefabInfo(locationPrefab.winterPrefab);
