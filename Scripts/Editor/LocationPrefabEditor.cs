@@ -902,6 +902,22 @@ namespace LocationLoader
 
                 if (newObject != null)
                 {
+                    // DFU creates an empty object for custom models during Editor time
+                    MeshFilter meshFilter = newObject.GetComponent<MeshFilter>();
+                    if(meshFilter != null && meshFilter.sharedMesh == null)
+                    {
+                        // Recreate the object using the prefab instead
+                        GameObject template = LoadUnityPrefabObjectTemplate(locationObject.name);
+                        if (template != null)
+                        {
+                            DestroyImmediate(newObject);
+                            newObject = Instantiate(template, objectParent);
+                            newObject.transform.localPosition = locationObject.pos;
+                            newObject.transform.localRotation = locationObject.rot;
+                            newObject.transform.localScale = locationObject.scale;
+                        }
+                    }
+
                     if (newObject.GetComponent<DaggerfallBillboard>())
                     {
                         float tempY = newObject.transform.position.y;
@@ -1097,11 +1113,81 @@ namespace LocationLoader
             return filePath.EndsWith(".prefab") && int.TryParse(Path.GetFileNameWithoutExtension(filePath), out int _);
         }
 
+        void LoadCustomModels()
+        {
+            if (customModels == null)
+            {
+                void AddCustomModels(ModInfo modInfo)
+                {
+                    customModels.AddRange(
+                        modInfo.Files
+                        .Where(file => IsCustomModel(file))
+                        .Select(file => Path.GetFileNameWithoutExtension(file))
+                    );
+
+                    if (modInfo.Dependencies != null)
+                    {
+                        foreach (var dependency in modInfo.Dependencies)
+                        {
+                            ModInfo dependencyInfo = LocationModManager.GetModInfo(dependency.Name);
+                            if (dependencyInfo != null)
+                            {
+                                AddCustomModels(dependencyInfo);
+                            }
+                        }
+                    }
+                }
+
+                customModels = new List<string>();
+
+                ModInfo workingModInfo = GetWorkingModInfo();
+                if (workingModInfo == null)
+                    return;
+
+                AddCustomModels(workingModInfo);
+            }
+        }
+
         static Regex billboardRegex = new Regex("[0-9]+_[0-9]+", RegexOptions.Compiled);
 
         private bool IsCustomBillboard(string filePath)
         {
             return billboardRegex.IsMatch(filePath);
+        }
+
+        void LoadCustomBillboards()
+        {
+            if (customBillboards == null)
+            {
+                void AddCustomBillboards(ModInfo modInfo)
+                {
+                    customModels.AddRange(
+                        modInfo.Files
+                        .Where(file => IsCustomBillboard(file))
+                        .Select(file => Path.GetFileNameWithoutExtension(file))
+                    );
+
+                    if (modInfo.Dependencies != null)
+                    {
+                        foreach (var dependency in modInfo.Dependencies)
+                        {
+                            ModInfo dependencyInfo = LocationModManager.GetModInfo(dependency.Name);
+                            if (dependencyInfo != null)
+                            {
+                                AddCustomBillboards(dependencyInfo);
+                            }
+                        }
+                    }
+                }
+
+                customBillboards = new List<string>();
+
+                ModInfo workingModInfo = GetWorkingModInfo();
+                if (workingModInfo == null)
+                    return;
+
+                AddCustomBillboards(workingModInfo);
+            }
         }
 
         private void UpdateObjList()
@@ -1138,38 +1224,7 @@ namespace LocationLoader
                         break;
 
                     case 6:
-                        if(customModels == null)
-                        {
-                            void AddCustomModels(ModInfo modInfo)
-                            {
-                                customModels.AddRange(
-                                    modInfo.Files
-                                    .Where(file => IsCustomModel(file))
-                                    .Select(file => Path.GetFileNameWithoutExtension(file))
-                                );
-
-                                if (modInfo.Dependencies != null)
-                                {
-                                    foreach (var dependency in modInfo.Dependencies)
-                                    {
-                                        ModInfo dependencyInfo = LocationModManager.GetModInfo(dependency.Name);
-                                        if (dependencyInfo != null)
-                                        {
-                                            AddCustomModels(dependencyInfo);
-                                        }
-                                    }
-                                }
-                            }
-
-                            customModels = new List<string>();
-
-                            ModInfo workingModInfo = GetWorkingModInfo();
-                            if (workingModInfo == null)
-                                return;
-
-                            AddCustomModels(workingModInfo);
-
-                        }
+                        LoadCustomModels();
 
                         AddNames(customModels);
                         break;
@@ -1212,37 +1267,7 @@ namespace LocationLoader
                         break;
 
                     case 8:
-                        if(customBillboards == null)
-                        {
-                            void AddCustomBillboards(ModInfo modInfo)
-                            {
-                                customModels.AddRange(
-                                    modInfo.Files
-                                    .Where(file => IsCustomBillboard(file))
-                                    .Select(file => Path.GetFileNameWithoutExtension(file))
-                                );
-
-                                if (modInfo.Dependencies != null)
-                                {
-                                    foreach (var dependency in modInfo.Dependencies)
-                                    {
-                                        ModInfo dependencyInfo = LocationModManager.GetModInfo(dependency.Name);
-                                        if (dependencyInfo != null)
-                                        {
-                                            AddCustomBillboards(dependencyInfo);
-                                        }
-                                    }
-                                }
-                            }
-
-                            customBillboards = new List<string>();
-
-                            ModInfo workingModInfo = GetWorkingModInfo();
-                            if (workingModInfo == null)
-                                return;
-
-                            AddCustomBillboards(workingModInfo);
-                        }
+                        LoadCustomBillboards();
 
                         AddNames(customBillboards);
                         break;
