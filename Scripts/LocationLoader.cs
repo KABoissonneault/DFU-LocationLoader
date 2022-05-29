@@ -209,8 +209,10 @@ namespace LocationLoader
             }
         }
 
-        Vector3 GetLocationPosition(LocationInstance loc, DaggerfallTerrain daggerTerrain)
-        {            
+        Vector3 GetLocationPosition(LocationData locationData, DaggerfallTerrain daggerTerrain)
+        {
+            var loc = locationData.Location;
+
             if (loc.type == 2)
             {
                 return new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, DaggerfallUnity.Instance.TerrainSampler.OceanElevation * daggerTerrain.TerrainScale, loc.terrainY * TERRAIN_SIZE_MULTI);
@@ -218,7 +220,8 @@ namespace LocationLoader
             else
             {
                 float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * daggerTerrain.TerrainScale;
-                return new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax + loc.heightOffset, loc.terrainY * TERRAIN_SIZE_MULTI);
+                float sinkOffset = Mathf.Lerp(0, locationData.HeightOffset, loc.sink);
+                return new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax + sinkOffset, loc.terrainY * TERRAIN_SIZE_MULTI);
             }
         }
         
@@ -235,15 +238,20 @@ namespace LocationLoader
         {
             GameObject instance = resourceManager.InstantiateLocationPrefab(prefabName, locationPrefab, daggerTerrain.transform);
 
-            Vector3 terrainOffset = GetLocationPosition(loc, daggerTerrain);
-            instance.transform.localPosition = terrainOffset;
-            instance.transform.localRotation = loc.rot;
-            instance.transform.localScale = new Vector3(loc.scale, loc.scale, loc.scale);
-
             LocationData data = instance.AddComponent<LocationData>();
             data.Location = loc;
             data.Prefab = locationPrefab;
 
+            if(loc.type == 1 && loc.sink > 0.0f)
+            {
+                FindAdjustedHeightOffset(data);
+            }
+
+            Vector3 terrainOffset = GetLocationPosition(data, daggerTerrain);
+            instance.transform.localPosition = terrainOffset;
+            instance.transform.localRotation = loc.rot;
+            instance.transform.localScale = new Vector3(loc.scale, loc.scale, loc.scale);
+            
             // Now that we have the LocationData, add it to "pending instances" if needed
             if(instancePendingTerrains.TryGetValue(loc.locationID, out List<Vector2Int> pendingTerrains))
             {
@@ -403,12 +411,6 @@ namespace LocationLoader
                         }
                     }
                 }
-                else if (loc.type == 3)
-                {
-                    // Compute the height offset relative to the lowest point on overlapping terrain
-                    // Even if a full answer could not be found, the returned height is the best approximation
-                    FindAdjustedHeightOffset(loc, locationPrefab);
-                }
 
                 terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples);
 
@@ -467,26 +469,26 @@ namespace LocationLoader
                         {
                             pendingLoc.Location.terrainX = coastCoord.x;
                             pendingLoc.Location.terrainY = coastCoord.y;
-                            pendingLoc.gameObject.transform.localPosition = GetLocationPosition(pendingLoc.Location, pendingLocTerrain);
+                            pendingLoc.gameObject.transform.localPosition = GetLocationPosition(pendingLoc, pendingLocTerrain);
 
                             // Instance is not pending anymore
                             ClearPendingInstance();
                             continue;
                         }
                     }
-                    // Adjust type 3 location height
-                    else if(pendingLoc.Location.type == 3)
+                    // Adjust type 1 location height sink
+                    else if(pendingLoc.Location.type == 1)
                     {
-                        if (FindAdjustedHeightOffset(pendingLoc.Location, pendingLoc.Prefab))
+                        if (FindAdjustedHeightOffset(pendingLoc))
                         {
-                            pendingLoc.gameObject.transform.localPosition = GetLocationPosition(pendingLoc.Location, pendingLocTerrain);
+                            pendingLoc.gameObject.transform.localPosition = GetLocationPosition(pendingLoc, pendingLocTerrain);
                             // Instance is not pending anymore
                             ClearPendingInstance();
                             continue;
                         }
                         else
                         {
-                            pendingLoc.gameObject.transform.localPosition = GetLocationPosition(pendingLoc.Location, pendingLocTerrain);
+                            pendingLoc.gameObject.transform.localPosition = GetLocationPosition(pendingLoc, pendingLocTerrain);
                         }
                     }
 
@@ -780,12 +782,16 @@ namespace LocationLoader
 
             return TryGetTerrain(daggerTerrain.MapPixelX - 1, daggerTerrain.MapPixelY, out westNeighbor);
         }
-        
-        bool FindAdjustedHeightOffset(LocationInstance loc, LocationPrefab locationPrefab)
+
+        // Returns true if the loc is done adjusting
+        bool FindAdjustedHeightOffset(LocationData locationData)
         {
+            var loc = locationData.Location;
+            var locationPrefab = locationData.Prefab;
+
             if (!TryGetTerrain(loc.worldX, loc.worldY, out DaggerfallTerrain locBaseTerrain))
             {
-                return false;
+                return true;
             }
 
             float baseHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * locBaseTerrain.TerrainScale;
@@ -810,11 +816,11 @@ namespace LocationLoader
                         float sampleHeight = sectionTerrain.MapData.heightmapSamples[j, i];
                         float unitHeight = sampleHeight * terrainHeightMax;
 
-                        float currentHeight = baseHeightAverage + loc.heightOffset;
+                        float currentHeight = baseHeightAverage + locationData.HeightOffset;
 
                         if (unitHeight < currentHeight)
                         {
-                            loc.heightOffset = unitHeight - baseHeightAverage;
+                            locationData.HeightOffset = unitHeight - baseHeightAverage;
                         }
                     }
                 }

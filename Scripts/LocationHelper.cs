@@ -1171,10 +1171,10 @@ namespace LocationLoader
                         }
                     }
 
-                    child = node["heightOffset"];
+                    child = node["sink"];
                     if (child != null)
                     {
-                        tmpInst.heightOffset = float.Parse(child.InnerXml, cultureInfo);
+                        tmpInst.sink = float.Parse(child.InnerXml, cultureInfo);
                     }
 
                     child = node["extraData"];
@@ -1275,7 +1275,7 @@ namespace LocationLoader
             int? rotXAxisIndex = GetIndexOpt("rotXAxis");
             int? rotYAxisIndex = GetIndexOpt("rotYAxis");
             int? rotZAxisIndex = GetIndexOpt("rotZAxis");
-            int? heightOffsetIndex = GetIndexOpt("heightOffset");
+            int? sinkIndex = GetIndexOpt("sink");
             int? scaleIndex = GetIndexOpt("scale");
             int? extraDataIndex = GetIndexOpt("extraData");
 
@@ -1308,7 +1308,7 @@ namespace LocationLoader
                     if (rotXAxisIndex.HasValue && !string.IsNullOrEmpty(tokens[rotXAxisIndex.Value])) tmpInst.rot.eulerAngles = new Vector3(float.Parse(tokens[rotXAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.y, tmpInst.rot.eulerAngles.z);
                     if (rotYAxisIndex.HasValue && !string.IsNullOrEmpty(tokens[rotYAxisIndex.Value])) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, float.Parse(tokens[rotYAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.z);
                     if (rotZAxisIndex.HasValue && !string.IsNullOrEmpty(tokens[rotZAxisIndex.Value])) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, tmpInst.rot.eulerAngles.y, float.Parse(tokens[rotZAxisIndex.Value], cultureInfo));
-                    if (heightOffsetIndex.HasValue && !string.IsNullOrEmpty(tokens[heightOffsetIndex.Value])) tmpInst.heightOffset = float.Parse(tokens[heightOffsetIndex.Value], cultureInfo);
+                    if (sinkIndex.HasValue && !string.IsNullOrEmpty(tokens[sinkIndex.Value])) tmpInst.sink = float.Parse(tokens[sinkIndex.Value], cultureInfo);
                     if (scaleIndex.HasValue && !string.IsNullOrEmpty(tokens[scaleIndex.Value])) tmpInst.scale = float.Parse(tokens[scaleIndex.Value], cultureInfo);
                     if (extraDataIndex.HasValue && !string.IsNullOrEmpty(tokens[extraDataIndex.Value])) tmpInst.extraData = tokens[extraDataIndex.Value];
                 }
@@ -1377,7 +1377,7 @@ namespace LocationLoader
             int? rotXAxisIndex = GetIndexOpt("rotXAxis");
             int? rotYAxisIndex = GetIndexOpt("rotYAxis");
             int? rotZAxisIndex = GetIndexOpt("rotZAxis");
-            int? heightOffsetIndex = GetIndexOpt("heightOffset");
+            int? sinkIndex = GetIndexOpt("sink");
             int? scaleIndex = GetIndexOpt("scale");
             int? extraDataIndex = GetIndexOpt("extraData");
 
@@ -1405,7 +1405,7 @@ namespace LocationLoader
                 if (rotXAxisIndex.HasValue && !string.IsNullOrEmpty(tokens[rotXAxisIndex.Value])) tmpInst.rot.eulerAngles = new Vector3(float.Parse(tokens[rotXAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.y, tmpInst.rot.eulerAngles.z);
                 if (rotYAxisIndex.HasValue && !string.IsNullOrEmpty(tokens[rotYAxisIndex.Value])) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, float.Parse(tokens[rotYAxisIndex.Value], cultureInfo), tmpInst.rot.eulerAngles.z);
                 if (rotZAxisIndex.HasValue && !string.IsNullOrEmpty(tokens[rotZAxisIndex.Value])) tmpInst.rot.eulerAngles = new Vector3(tmpInst.rot.eulerAngles.x, tmpInst.rot.eulerAngles.y, float.Parse(tokens[rotZAxisIndex.Value], cultureInfo));
-                if (heightOffsetIndex.HasValue && !string.IsNullOrEmpty(tokens[heightOffsetIndex.Value])) tmpInst.heightOffset = float.Parse(tokens[heightOffsetIndex.Value], cultureInfo);
+                if (sinkIndex.HasValue && !string.IsNullOrEmpty(tokens[sinkIndex.Value])) tmpInst.sink = float.Parse(tokens[sinkIndex.Value], cultureInfo);
                 if (scaleIndex.HasValue && !string.IsNullOrEmpty(tokens[scaleIndex.Value])) tmpInst.scale = float.Parse(tokens[scaleIndex.Value], cultureInfo);
                 if (extraDataIndex.HasValue && !string.IsNullOrEmpty(tokens[extraDataIndex.Value])) tmpInst.extraData = tokens[extraDataIndex.Value];
             }
@@ -1448,9 +1448,9 @@ namespace LocationLoader
                     writer.WriteLine("\t\t<rotY>" + inst.rot.y.ToString(cultureInfo) + "</rotY>");
                     writer.WriteLine("\t\t<rotZ>" + inst.rot.z.ToString(cultureInfo) + "</rotZ>");
                 }
-                if(inst.heightOffset != 0f)
+                if(inst.sink != 0f)
                 {
-                    writer.WriteLine("\t\t<heightOffset>" + inst.heightOffset.ToString(cultureInfo) + "</heightOffset>");
+                    writer.WriteLine("\t\t<sink>" + inst.sink.ToString(cultureInfo) + "</sink>");
                 }
                 if(inst.scale != 1f)
                 {
@@ -1541,8 +1541,8 @@ namespace LocationLoader
                         result.Append(instance.rot.eulerAngles.z);
                         break;
 
-                    case "heightOffset":
-                        result.Append(instance.heightOffset);
+                    case "sink":
+                        result.Append(instance.sink);
                         break;
 
                     case "scale":
@@ -2418,7 +2418,7 @@ namespace LocationLoader
 
         public static bool IsOutOfBounds(LocationInstance loc, LocationPrefab prefab)
         {
-            if (loc.type == 1 || loc.type == 3)
+            if (loc.type == 1)
                 return false;
 
             float rot = Mathf.Deg2Rad * loc.rot.eulerAngles.y;
@@ -2474,7 +2474,7 @@ namespace LocationLoader
 
             List<TerrainSection> overlappingCoordinates = new List<TerrainSection>();
             // Type 0 and type 2 instances only fit within their own map pixel, but type 1 can go out of bounds
-            if (loc.type == 1 || loc.type == 3)
+            if (loc.type == 1)
             {
                 int xOffsetMin = (int)Math.Floor((loc.terrainX - halfWidth) / (float)LocationLoader.TERRAIN_SIZE);
                 int yOffsetMin = (int)Math.Floor((loc.terrainY - halfHeight) / (float)LocationLoader.TERRAIN_SIZE);
