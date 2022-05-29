@@ -22,7 +22,7 @@ namespace LocationLoader
         {
 #if UNITY_EDITOR
             ConsoleCommandsDatabase.RegisterCommand("LLPruneInvalidInstances", "Tests location instances for validity and removes invalid ones from their package (only CSV supported)"
-                , "LLPruneInvalidInstances [flags...] --mod=<modname>\n\tFlags:\n\t\t--file=<file pattern>\n\t\t--region=<id>\n\t\t--type=<type>\n\t\t--prune-loc-overlap\n\t\t--nudge-oob", PruneInvalidInstances);
+                , "LLPruneInvalidInstances [flags...] --mod=<modname>\n\tFlags:\n\t\t--file=<file pattern>\n\t\t--region=<id>\n\t\t--type=<type>\n\t\t--prune-loc-overlap\n\t\t--nudge-oob\n\t\t--verbose", PruneInvalidInstances);
 
             ConsoleCommandsDatabase.RegisterCommand("LLDumpTerrainSamples", "Dumps all height samples for the specified terrain in a CSV"
                 , "LLDumpTerrainSamples <worldX> <worldY> <filename>", DumpTerrainSamples);
@@ -58,6 +58,7 @@ namespace LocationLoader
             string filePattern = null;
             bool pruneLocOverlap = false;
             bool nudgeOutOfBounds = false;
+            bool verbose = false;
 
             bool parsingQuotedArg = false;
             StringBuilder quotedString = null;
@@ -109,7 +110,7 @@ namespace LocationLoader
                         modName = value;
                     }
                 }
-                else if(Arg.StartsWith("--file="))
+                else if (Arg.StartsWith("--file="))
                 {
                     string value = Arg.Replace("--file=", "");
                     if (value.StartsWith("\""))
@@ -126,13 +127,25 @@ namespace LocationLoader
                 {
                     pruneLocOverlap = true;
                 }
-                else if(Arg == "--nudge-oob")
+                else if (Arg == "--nudge-oob")
                 {
                     nudgeOutOfBounds = true;
+                }
+                else if(Arg == "--verbose")
+                {
+                    verbose = true;
                 }
                 else
                 {
                     return $"Unknown argument '{Arg}'";
+                }
+            }
+
+            void Log(string msg)
+            {
+                if(verbose)
+                {
+                    Debug.Log(msg);
                 }
             }
 
@@ -179,7 +192,7 @@ namespace LocationLoader
             int fileCount = 0;
 
             void ForEachModFile(Action<string> Func)
-            {
+            {                
                 if (regionId.HasValue)
                 {
                     string regionName = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetRegionName(regionId.Value);
@@ -192,10 +205,10 @@ namespace LocationLoader
                                 && file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
                             .Select(file => file.Substring(locationsFolder.Length)))
                     {
-                        if(!string.IsNullOrEmpty(filePattern))
-                        {
-                            var filename = Path.GetFileName(fileRelativePath).ToLower();
+                        var filename = Path.GetFileName(fileRelativePath).ToLower();
 
+                        if (!string.IsNullOrEmpty(filePattern))
+                        {                            
                             if (!regex.IsMatch(filename))
                                 continue;
                         }
@@ -204,6 +217,7 @@ namespace LocationLoader
 
                         try
                         {
+                            Log($"Pruning {filename}");
                             Func(fileRelativePath);
                         }
                         catch (Exception e)
@@ -219,10 +233,10 @@ namespace LocationLoader
                         && file.EndsWith(".csv", StringComparison.InvariantCultureIgnoreCase))
                     .Select(file => file.Substring(locationsFolder.Length)))
                     {
+                        var filename = Path.GetFileName(fileRelativePath).ToLower();
+
                         if (!string.IsNullOrEmpty(filePattern))
                         {
-                            var filename = Path.GetFileName(fileRelativePath).ToLower();
-
                             if (!regex.IsMatch(filename))
                                 continue;
                         }
@@ -231,6 +245,7 @@ namespace LocationLoader
 
                         try
                         {
+                            Log($"Pruning {filename}");
                             Func(fileRelativePath);
                         }
                         catch (Exception e)
@@ -323,7 +338,10 @@ namespace LocationLoader
                 {
                     prefab = LocationHelper.LoadLocationPrefab(mod, instance.prefab);
                     if (prefab == null)
+                    {
+                        Log($"Prefab {instance.prefab} could not be found");
                         return false; // couldn't find prefab
+                    }
                     prefabCache.Add(instance.prefab, prefab);
                 }
 
@@ -331,9 +349,12 @@ namespace LocationLoader
                 if (LocationHelper.IsOutOfBounds(instance, prefab))
                 {
                     if (nudgeOutOfBounds)
-                    {                        
+                    {
                         if (prefab.width > LocationLoader.TERRAIN_SIZE || prefab.height > LocationLoader.TERRAIN_SIZE)
+                        {
+                            Log($"Prefab {instance.prefab} is too big to nudge (must be 128x128 max)");
                             return false; // No way to make this fit
+                        }
 
                         float rot = Mathf.Deg2Rad * instance.rot.eulerAngles.y;
                         float cosRot = Mathf.Cos(rot);
@@ -375,6 +396,7 @@ namespace LocationLoader
                     }
                     else
                     {
+                        Log($"Instance is out of map pixel bounds");
                         return false;
                     }
                 }
@@ -384,6 +406,7 @@ namespace LocationLoader
                 IEnumerable<LocationHelper.TerrainSection> overlappingCoordinates = LocationHelper.GetOverlappingTerrainSections(instance, prefab, out bool instanceOverflow);
                 if (instanceOverflow)
                 {
+                    Log($"Instance is out of world bounds");
                     return false;
                 }
 
@@ -391,15 +414,24 @@ namespace LocationLoader
                 {
                     // Instance is on existing Daggerfall location
                     if (DaggerfallUnity.Instance.ContentReader.HasLocation(coordinate.x, coordinate.y))
+                    {
+                        Log($"Map pixel ({coordinate.x}, {coordinate.y}) already has DF location");
                         return false;
+                    }
 
                     // Instance is on the ocean
                     if (DaggerfallUnity.Instance.ContentReader.MapFileReader.GetClimateIndex(coordinate.x, coordinate.y) == (int)MapsFile.Climates.Ocean)
+                    {
+                        Log($"Map pixel ({coordinate.x},{coordinate.y}) is ocean climate");
                         return false;
+                    }
 
                     // Instance overlaps another loaded location
                     if (HasLocOverlap(coordinate, terrainArea))
+                    {
+                        Log($"Map pixel ({coordinate.x},{coordinate.y}) already has LL location");
                         return false;
+                    }
                 }
 
                 // Instance is on road
@@ -431,7 +463,10 @@ namespace LocationLoader
                         if (pathsDataPoint != 0)
                         {
                             if (LocationHelper.OverlapsRoad(rectangle, pathsDataPoint))
+                            {
+                                Log($"Instance overlaps road");
                                 return false;
+                            }
                         }
                     }
                 }
