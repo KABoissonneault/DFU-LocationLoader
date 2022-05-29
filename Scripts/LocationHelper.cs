@@ -2488,10 +2488,10 @@ namespace LocationLoader
                     xOffsetMin = MapsFile.MinMapPixelX - loc.worldX;
                 }
 
-                if (loc.worldX + xOffsetMax > MapsFile.MaxMapPixelX)
+                if (loc.worldX + xOffsetMax >= MapsFile.MaxMapPixelX)
                 {
                     overflow = true;
-                    xOffsetMax = MapsFile.MaxMapPixelX - loc.worldX;
+                    xOffsetMax = MapsFile.MaxMapPixelX - loc.worldX - 1;
                 }
 
                 if (loc.worldY - yOffsetMax < MapsFile.MinMapPixelY)
@@ -2500,10 +2500,10 @@ namespace LocationLoader
                     yOffsetMax = loc.worldY - MapsFile.MinMapPixelY;
                 }
 
-                if (loc.worldY - yOffsetMin > MapsFile.MaxMapPixelY)
+                if (loc.worldY - yOffsetMin >= MapsFile.MaxMapPixelY)
                 {
                     overflow = true;
-                    yOffsetMin = loc.worldY - MapsFile.MaxMapPixelY;
+                    yOffsetMin = loc.worldY - MapsFile.MaxMapPixelY - 1;
                 }
 
                 // Find all overlapping coordinates and their overlap rectangle
