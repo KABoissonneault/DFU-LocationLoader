@@ -407,11 +407,26 @@ namespace LocationLoader
                 {
                     foreach (var (coordinate, rectangle) in overlappingCoordinates)
                     {
+                        bool error = false;
                         byte pathsDataPoint = 0;
                         Vector2Int coords = new Vector2Int(coordinate.x, coordinate.y);
-                        ModManager.Instance.SendModMessage("BasicRoads", "getPathsPoint", coords,
-                            (string message, object data) => { pathsDataPoint = (byte)data; }
-                            );
+                        ModManager.Instance.SendModMessage("BasicRoads", "getPathsPoint", coords, (string message, object data) =>
+                        {
+                            if (message == "getPathsPoint")
+                            {
+                                pathsDataPoint = (byte)data;
+                            }
+                            else if(message == "error")
+                            {
+                                error = true;
+                            }
+                        });
+
+                        if(error)
+                        {
+                            Debug.LogError($"Error while checking road overlap (instance={instance.locationID}, coords={coordinate.x}, {coordinate.y})");
+                            return false;
+                        }
 
                         if (pathsDataPoint != 0)
                         {
