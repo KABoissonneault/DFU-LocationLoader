@@ -188,8 +188,9 @@ namespace LocationLoader
 
                             case "19":
                                 {
-                                    int record = UnityEngine.Random.Range(0, 48);
-                                    go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, 216, record, instance.transform);
+                                    int iconIndex = UnityEngine.Random.Range(0, DaggerfallLootDataTables.randomTreasureIconIndices.Length);
+                                    int iconRecord = DaggerfallLootDataTables.randomTreasureIconIndices[iconIndex];
+                                    go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, 216, iconRecord, instance.transform);
                                     go.transform.localPosition = obj.pos;
                                     break;
                                 }
