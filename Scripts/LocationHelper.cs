@@ -2441,8 +2441,8 @@ namespace LocationLoader
             if (Mathf.Abs(sinRot - 1.0f) < 0.01f)
                 sinRot = 1.0f;
 
-            int width = Mathf.CeilToInt(cosRot * prefab.width + sinRot * prefab.height);
-            int height = Mathf.CeilToInt(sinRot * prefab.width + cosRot * prefab.height);
+            int width = Mathf.CeilToInt(cosRot * loc.scale * prefab.width + sinRot * loc.scale * prefab.height);
+            int height = Mathf.CeilToInt(sinRot * loc.scale * prefab.width + cosRot * loc.scale * prefab.height);
 
             int halfWidth = (width+1) / 2;
             int halfHeight = (height+1) / 2;
@@ -2469,8 +2469,31 @@ namespace LocationLoader
         {
             overflow = false;
 
-            int halfWidth = (locationPrefab.width + 1) / 2;
-            int halfHeight = (locationPrefab.height + 1) / 2;
+            float rot = Mathf.Deg2Rad * loc.rot.eulerAngles.y;
+            float cosRot = Mathf.Cos(rot);
+            float sinRot = Mathf.Sin(rot);
+            cosRot = Mathf.Abs(cosRot);
+            sinRot = Mathf.Abs(sinRot);
+
+            // These functions tend to return 1E-8 values for the usual 90 degree rotations 
+            // Mathf.Approximately and float.Epsilon won't do for these, so let's do this by hand
+            if (cosRot < 0.01f)
+                cosRot = 0.0f;
+
+            if (sinRot < 0.01f)
+                sinRot = 0.0f;
+
+            if (Mathf.Abs(cosRot - 1.0f) < 0.01f)
+                cosRot = 1.0f;
+
+            if (Mathf.Abs(sinRot - 1.0f) < 0.01f)
+                sinRot = 1.0f;
+
+            int width = Mathf.CeilToInt(cosRot * loc.scale * locationPrefab.width + sinRot * loc.scale * locationPrefab.height);
+            int height = Mathf.CeilToInt(sinRot * loc.scale * locationPrefab.width + cosRot * loc.scale * locationPrefab.height);
+
+            int halfWidth = (width + 1) / 2;
+            int halfHeight = (height + 1) / 2;
 
             List<TerrainSection> overlappingCoordinates = new List<TerrainSection>();
             // Type 0 and type 2 instances only fit within their own map pixel, but type 1 can go out of bounds
