@@ -318,19 +318,6 @@ namespace LocationLoader
                     }
                 }
 
-                if ((daggerTerrain.MapData.mapRegionIndex == 31 ||
-                    daggerTerrain.MapData.mapRegionIndex == 3 ||
-                    daggerTerrain.MapData.mapRegionIndex == 29 ||
-                    daggerTerrain.MapData.mapRegionIndex == 28 ||
-                    daggerTerrain.MapData.mapRegionIndex == 30) && daggerTerrain.MapData.worldHeight <= 2)
-                {
-                    if (loc.type == 0)
-                    {
-                        Debug.LogWarning($"Location is in Ocean at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");
-                        continue;
-                    }
-                }
-
                 LocationPrefab locationPrefab = resourceManager.GetPrefabInfo(loc.prefab);
                 if (locationPrefab == null)
                     continue;
