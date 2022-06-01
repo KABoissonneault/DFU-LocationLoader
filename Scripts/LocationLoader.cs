@@ -132,7 +132,7 @@ namespace LocationLoader
 
                     if (arg.Length != 2)
                     {
-                        Debug.Log($"Invalid type 2 obj name '{obj.name}' in prefab '{loc.prefab}'");
+                        Debug.LogError($"Invalid type 2 obj name '{obj.name}' in prefab '{loc.prefab}'");
                         continue;
                     }
 
@@ -638,8 +638,6 @@ namespace LocationLoader
 
                 if (pendingTerrain.Count != 0)
                 {
-                    Debug.Log($"Location {loc.locationID} waiting for pending terrain");
-
                     instancePendingTerrains[loc.locationID] = pendingTerrain;
                 }
             }
@@ -816,8 +814,6 @@ namespace LocationLoader
 
             if(pendingTerrain.Count > 0)
             {
-                Debug.Log($"Location {loc.locationID} waiting for pending terrain");
-
                 instancePendingTerrains[loc.locationID] = pendingTerrain;
 
                 return false;
