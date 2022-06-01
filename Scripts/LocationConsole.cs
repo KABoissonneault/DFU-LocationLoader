@@ -4,6 +4,7 @@ using DaggerfallConnect.Utility;
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Utility.ModSupport;
+using DaggerfallWorkshop.Utility;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -412,15 +413,43 @@ namespace LocationLoader
 
                 foreach (var (coordinate, terrainArea) in overlappingCoordinates)
                 {
+                    var ContentReader = DaggerfallUnity.Instance.ContentReader;
+
                     // Instance is on existing Daggerfall location
-                    if (DaggerfallUnity.Instance.ContentReader.HasLocation(coordinate.x, coordinate.y))
+                    if (ContentReader.HasLocation(coordinate.x, coordinate.y, out MapSummary mapSummary))
                     {
-                        Log($"Map pixel ({coordinate.x}, {coordinate.y}) already has DF location");
-                        return false;
+                        if (ContentReader.GetLocation(mapSummary.RegionIndex, mapSummary.MapIndex, out DFLocation location))
+                        {
+                            int locationWidth = location.Exterior.ExteriorData.Width;
+                            int locationHeight = location.Exterior.ExteriorData.Height;
+
+                            // If the location doesn't take the full terrain, check for specific overlap
+                            const int blocksPerTerrain = 8;
+                            if (locationWidth == blocksPerTerrain && locationHeight == blocksPerTerrain)
+                            {
+                                Log($"Map pixel ({coordinate.x}, {coordinate.y}) already has DF location");
+                                return false;
+                            }
+
+                            int locationX = (RMBLayout.RMBTilesPerTerrain - locationWidth * RMBLayout.RMBTilesPerBlock) / 2;
+                            int locationY = (RMBLayout.RMBTilesPerTerrain - locationHeight * RMBLayout.RMBTilesPerBlock) / 2;
+
+                            RectInt locationArea = new RectInt(locationX, locationY, locationWidth, locationHeight);
+                            if (locationArea.Overlaps(terrainArea))
+                            {
+                                Log($"Overlaps with map pixel ({coordinate.x}, {coordinate.y}) DF location");
+                                return false;
+                            }
+                        }
+                        else
+                        {
+                            Log($"Map pixel ({coordinate.x}, {coordinate.y}) already has DF location");
+                            return false;
+                        }
                     }
 
                     // Instance is on the ocean
-                    if (DaggerfallUnity.Instance.ContentReader.MapFileReader.GetClimateIndex(coordinate.x, coordinate.y) == (int)MapsFile.Climates.Ocean)
+                    if (ContentReader.MapFileReader.GetClimateIndex(coordinate.x, coordinate.y) == (int)MapsFile.Climates.Ocean)
                     {
                         Log($"Map pixel ({coordinate.x},{coordinate.y}) is ocean climate");
                         return false;
