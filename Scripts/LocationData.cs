@@ -117,6 +117,8 @@ namespace LocationLoader
 
         public float HeightOffset { get; set; }
 
+        public float OverlapAverageHeight { get; set; }
+
         public int Type
         {
             get { return Location.type; }

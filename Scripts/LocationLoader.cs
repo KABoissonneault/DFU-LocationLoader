@@ -7,6 +7,7 @@ using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Entity;
 using DaggerfallConnect.Arena2;
+using System.Runtime.CompilerServices;
 
 namespace LocationLoader
 {
@@ -15,6 +16,13 @@ namespace LocationLoader
         Dictionary<Vector2Int, WeakReference<DaggerfallTerrain>> loadedTerrain = new Dictionary<Vector2Int, WeakReference<DaggerfallTerrain>>();
         Dictionary<Vector2Int, List<LocationData>> pendingIncompleteLocations = new Dictionary<Vector2Int, List<LocationData>>();
         Dictionary<ulong, List<Vector2Int>> instancePendingTerrains = new Dictionary<ulong, List<Vector2Int>>();
+
+        class LLTerrainData
+        {
+            public bool occupied = false;
+        }
+
+        ConditionalWeakTable<DaggerfallTerrain, LLTerrainData> extraTerrainData = new ConditionalWeakTable<DaggerfallTerrain, LLTerrainData>();
 
         LocationResourceManager resourceManager;
 
@@ -222,10 +230,21 @@ namespace LocationLoader
             {
                 float terrainHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * daggerTerrain.TerrainScale;
                 float sinkOffset = Mathf.Lerp(0, locationData.HeightOffset, loc.sink);
-                return new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, daggerTerrain.MapData.averageHeight * terrainHeightMax + sinkOffset, loc.terrainY * TERRAIN_SIZE_MULTI);
+                return new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, locationData.OverlapAverageHeight * terrainHeightMax + sinkOffset, loc.terrainY * TERRAIN_SIZE_MULTI);
             }
         }
-        
+
+        LLTerrainData GetLLTerrainData(DaggerfallTerrain terrain)
+        {
+            if(!extraTerrainData.TryGetValue(terrain, out LLTerrainData data))
+            {
+                data = new LLTerrainData();
+                extraTerrainData.Add(terrain, data);
+            }
+
+            return data;
+        }
+
         void SetActiveRecursively(GameObject go)
         {
             go.SetActive(true);
@@ -235,13 +254,14 @@ namespace LocationLoader
             }
         }
 
-        void InstantiateTopLocationPrefab(string prefabName, LocationPrefab locationPrefab, LocationInstance loc, DaggerfallTerrain daggerTerrain)
+        void InstantiateTopLocationPrefab(string prefabName, float overlapAverageHeight, LocationPrefab locationPrefab, LocationInstance loc, DaggerfallTerrain daggerTerrain)
         {
             GameObject instance = resourceManager.InstantiateLocationPrefab(prefabName, locationPrefab, daggerTerrain.transform);
 
             LocationData data = instance.AddComponent<LocationData>();
             data.Location = loc;
             data.Prefab = locationPrefab;
+            data.OverlapAverageHeight = overlapAverageHeight;
 
             if(loc.type == 1 && loc.sink > 0.0f)
             {
@@ -353,6 +373,16 @@ namespace LocationLoader
                     }
                 }
 
+                LLTerrainData llTerrainData = GetLLTerrainData(daggerTerrain);
+                if(loc.type == 0 || loc.type == 2)
+                {
+                    if(llTerrainData.occupied)
+                    {
+                        Debug.LogWarning($"Location instance already present at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");
+                        continue;
+                    }
+                }
+
                 //Smooth the terrain
                 int count = 0;
                 float tmpAverageHeight = 0;
@@ -376,11 +406,14 @@ namespace LocationLoader
                     }
                 }
 
-                daggerTerrain.MapData.averageHeight = tmpAverageHeight /= count;
+                var averageHeight = tmpAverageHeight /= count;
 
                 if (loc.type == 0 || loc.type == 2)
                 {
                     daggerTerrain.MapData.locationRect = new Rect(minX, minY, maxX - minX, maxY - minY);
+                    llTerrainData.occupied = true;
+
+                    var locationRect = new Rect(minX, minY, maxX - minX, maxY - minY);
 
                     for (int y = 1; y < 127; y++)
                     {
@@ -395,14 +428,14 @@ namespace LocationLoader
                                 continue;
                             }
 
-                            daggerTerrain.MapData.heightmapSamples[y, x] = Mathf.Lerp(daggerTerrain.MapData.heightmapSamples[y, x], daggerTerrain.MapData.averageHeight, 1 / (GetDistanceFromRect(daggerTerrain.MapData.locationRect, new Vector2(x, y)) + 1));
+                            daggerTerrain.MapData.heightmapSamples[y, x] = Mathf.Lerp(daggerTerrain.MapData.heightmapSamples[y, x], averageHeight, 1 / (GetDistanceFromRect(daggerTerrain.MapData.locationRect, new Vector2(x, y)) + 1));
                         }
                     }
                 }
 
                 terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples);
 
-                InstantiateTopLocationPrefab(loc.prefab, locationPrefab, loc, daggerTerrain);
+                InstantiateTopLocationPrefab(loc.prefab, averageHeight, locationPrefab, loc, daggerTerrain);
             }
 
             // Check for pending instances waiting on this terrain
@@ -781,7 +814,7 @@ namespace LocationLoader
             }
 
             float baseHeightMax = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight * locBaseTerrain.TerrainScale;
-            float baseHeightAverage = locBaseTerrain.MapData.averageHeight * baseHeightMax;
+            float baseHeightAverage = locationData.OverlapAverageHeight * baseHeightMax;
 
             List<Vector2Int> pendingTerrain = new List<Vector2Int>();
 
