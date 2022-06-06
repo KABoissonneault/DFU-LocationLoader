@@ -54,7 +54,9 @@ namespace LocationLoader
         Vector3 locationTargetPosition;
 
         string extraData = "";
-        List<string> dataIDFields = new List<string>();
+        List<int> dataIDs = new List<int>();
+        List<string> dataIdNames = new List<string>();
+        int dataIdType = 0;
 
         LocationPrefab locationPrefab;
 
@@ -640,17 +642,82 @@ namespace LocationLoader
 
             if(listMode == 2)
             {
+                // Monster marker
                 if(searchListIDSets[objectPicker][setIndex] == "199.16")
                 {
-                    var mobileIds = Enum.GetValues(typeof(MobileTypes)).Cast<MobileTypes>().ToArray();
-
-                    if (previousObjectPicker != objectPicker)
+                    dataIdType = GUI.SelectionGrid(new Rect(287, 96, 200, 20), dataIdType, new string[] { "Base", "Custom" }, 2);
+                                        
+                    if (previousObjectPicker != objectPicker || GUI.changed)
                     {
-                        dataIDFields.Clear();
-                        var mobileNames = mobileIds
-                            .Where(id => id != MobileTypes.Horse_Invalid && id != MobileTypes.Dragonling_Alternate && id != MobileTypes.Knight_CityWatch)
-                            .Select(id => string.Concat(id.ToString().Select(x => char.IsUpper(x) ? " " + x : x.ToString())));
-                        dataIDFields.AddRange(mobileNames);
+                        extraData = null;
+                        dataIDs.Clear();
+                        dataIdNames.Clear();
+
+                        if (dataIdType == 0)
+                        {
+                            var mobileIds = Enum.GetValues(typeof(MobileTypes)).Cast<MobileTypes>()
+                                .Where(id => id != MobileTypes.Horse_Invalid && id != MobileTypes.Dragonling_Alternate && id != MobileTypes.Knight_CityWatch && id != MobileTypes.None);
+
+
+                            dataIDs.AddRange(mobileIds.Select(id => (int)id));
+                            dataIdNames.AddRange(mobileIds.Select(id => string.Concat(id.ToString().Select(x => char.IsUpper(x) ? " " + x : x.ToString()))));
+                        }
+                        else if(dataIdType == 1)
+                        {
+                            HashSet<int> existingIds = new HashSet<int>();
+                            void LoadMod(string modName)
+                            {
+                                var monsterDbs = LocationModManager.FindAssets<TextAsset>(modName, "*.mdb.csv");
+                                foreach (TextAsset monsterDb in monsterDbs)
+                                {
+                                    var stream = new StreamReader(new MemoryStream(monsterDb.bytes));
+
+                                    string header = stream.ReadLine();
+
+                                    string[] fields = header.Split(';', ',');
+                                    int IdIndex = -1;
+                                    int NameIndex = -1;
+                                    for(int Index = 0; Index < fields.Length; ++Index)
+                                    {
+                                        if(string.Equals(fields[Index], "id", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            IdIndex = Index;
+                                        }
+                                        else if(string.Equals(fields[Index], "name", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            NameIndex = Index;
+                                        }
+                                    }
+                                    if (NameIndex == -1)
+                                    {
+                                        Debug.LogError($"Mod '{modName}' has invalid Monster DB");
+                                        return;
+                                    }
+
+                                    while(stream.Peek() >= 0)
+                                    {
+                                        string line = stream.ReadLine();
+                                        string[] values = SplitCsvLine(line);
+                                        int enemyId = int.Parse(values[IdIndex]);
+
+                                        if (existingIds.Contains(enemyId))
+                                            continue;
+
+                                        dataIDs.Add(enemyId);
+                                        dataIdNames.Add(values[NameIndex]);
+                                        existingIds.Add(enemyId);
+                                    }
+                                }
+
+                                var devInfo = LocationModManager.GetModInfo(modName);
+
+                                if(devInfo.Dependencies != null)
+                                    foreach (var dependency in devInfo.Dependencies)
+                                        LoadMod(dependency.Name);
+                            }
+
+                            LoadMod(workingMod);
+                        }
                     }
 
                     if(string.IsNullOrEmpty(extraData))
@@ -658,18 +725,27 @@ namespace LocationLoader
                         extraData = EnemyMarkerExtraData.DefaultData;
                     }
 
-                    EnemyMarkerExtraData currentExtraData = (EnemyMarkerExtraData)SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), extraData);
+                    if (dataIDs.Count != 0)
+                    {
+                        EnemyMarkerExtraData currentExtraData = (EnemyMarkerExtraData)SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), extraData);
 
-                    scrollPosition3 = GUI.BeginScrollView(new Rect(264, 96, 256, 472), scrollPosition3, new Rect(0, 0, 236, 20 + dataIDFields.Count * 24));
+                        scrollPosition3 = GUI.BeginScrollView(new Rect(264, 124, 256, 472), scrollPosition3, new Rect(0, 0, 236, 20 + dataIdNames.Count * 24));
 
-                    int previousSelectedIndex = Array.IndexOf(mobileIds, (MobileTypes)currentExtraData.EnemyId);
-                    int newSelectedIndex = GUI.SelectionGrid(new Rect(10, 10, 216, dataIDFields.Count * 24), previousSelectedIndex, dataIDFields.ToArray(), 1);
+                        int previousSelectedIndex = dataIDs.IndexOf(currentExtraData.EnemyId);
+                        if (previousSelectedIndex == -1)
+                        {
+                            // In case the default isn't found
+                            previousSelectedIndex = 0;
+                        }
 
-                    currentExtraData.EnemyId = (int)mobileIds[newSelectedIndex];
+                        int newSelectedIndex = GUI.SelectionGrid(new Rect(10, 10, 216, dataIdNames.Count * 24), previousSelectedIndex, dataIdNames.ToArray(), 1);
 
-                    extraData = SaveLoadManager.Serialize(typeof(EnemyMarkerExtraData), currentExtraData, pretty: false);
+                        currentExtraData.EnemyId = dataIDs[newSelectedIndex];
 
-                    GUI.EndScrollView();
+                        extraData = SaveLoadManager.Serialize(typeof(EnemyMarkerExtraData), currentExtraData, pretty: false);
+
+                        GUI.EndScrollView();
+                    }
                 }
             }
             else
@@ -1361,6 +1437,25 @@ namespace LocationLoader
                 searchListNames.Sort();
                 searchListIDSets.Sort((set1, set2) => set1[0].CompareTo(set2[0]));
             }
+        }
+
+        static Regex CsvSplit = new Regex("(?:^|,)(\"(?:\\\\\"|[^\"])*\"|[^,]*)", RegexOptions.Compiled);
+
+        static string[] SplitCsvLine(string line)
+        {
+            List<string> list = new List<string>();
+            foreach (Match match in CsvSplit.Matches(line))
+            {
+                string curr = match.Value;
+                if (0 == curr.Length)
+                {
+                    list.Add("");
+                }
+
+                list.Add(curr.TrimStart(',', ';').Replace("\\\"", "\"").Trim('\"'));
+            }
+
+            return list.ToArray();
         }
 
         private void OnDisable()

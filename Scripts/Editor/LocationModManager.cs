@@ -4,6 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
+using UnityEditor;
 using UnityEngine;
 
 namespace LocationLoader
@@ -125,7 +127,7 @@ namespace LocationLoader
 
         public static ModInfo GetModInfo(string modName)
         {
-            if(IsPackagedMod(modName))
+            if (IsPackagedMod(modName))
             {
                 return GetPackagedModInfo(modName);
             }
@@ -133,6 +135,41 @@ namespace LocationLoader
             {
                 return GetDevModInfo(modName);
             }
+        }
+
+        static Regex MakeFilePattern(string filePattern)
+        {
+            if (string.IsNullOrEmpty(filePattern))
+                return null;
+
+            var lowerPattern = filePattern.ToLower();
+
+            var regexPattern = Regex.Escape(lowerPattern).Replace("\\?", ".").Replace("\\*", ".*");
+            return new Regex(regexPattern, RegexOptions.Compiled);
+        }
+
+        public static IEnumerable<T> FindAssets<T>(string modName, Regex fileMatch) where T : UnityEngine.Object
+        {
+            var modInfo = GetModInfo(modName);
+            if(modInfo == null)
+                return Enumerable.Empty<T>();
+
+            var files = modInfo.Files.Where(file => fileMatch.IsMatch(Path.GetFileName(file)));
+
+            if(IsPackagedMod(modName))
+            {
+                AssetBundle assetBundle = GetPackagedModBundle(modName);
+                return files.Select(file => assetBundle.LoadAsset<T>(Path.GetFileName(file)));
+            }
+            else
+            {
+                return files.Select(file => AssetDatabase.LoadAssetAtPath<T>(file));
+            }
+        }
+
+        public static IEnumerable<T> FindAssets<T>(string modName, string filePattern) where T : UnityEngine.Object
+        {
+            return FindAssets<T>(modName, MakeFilePattern(filePattern));
         }
     }
 #endif
