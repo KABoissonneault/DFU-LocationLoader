@@ -8,6 +8,9 @@ using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Entity;
 using DaggerfallConnect.Arena2;
 using System.Runtime.CompilerServices;
+using static DaggerfallWorkshop.Utility.ContentReader;
+using DaggerfallWorkshop.Utility.AssetInjection;
+using DaggerfallConnect;
 
 namespace LocationLoader
 {
@@ -359,6 +362,11 @@ namespace LocationLoader
                     continue;
                 }
 
+                if(PruneInstance(loc, locationPrefab))
+                {
+                    continue;
+                }
+
                 if (loc.type == 2)
                 {
                     // We find and adjust the type 2 instance position here
@@ -519,6 +527,35 @@ namespace LocationLoader
 
                 pendingIncompleteLocations.Remove(worldLocation);
             }
+        }
+
+        bool PruneInstance(LocationInstance loc, LocationPrefab prefab)
+        {
+            foreach(var terrainSection in LocationHelper.GetOverlappingTerrainSections(loc, prefab))
+            {
+                Vector2Int worldCoord = terrainSection.WorldCoord;
+
+                if(DaggerfallUnity.Instance.ContentReader.HasLocation(worldCoord.x, worldCoord.y, out MapSummary summary))
+                {
+                    // Check World Data locations only
+                    if(WorldDataReplacement.GetDFLocationReplacementData(summary.RegionIndex, summary.MapIndex, out DFLocation wdLoc))
+                    {
+                        int locationWidth = wdLoc.Exterior.ExteriorData.Width;
+                        int locationHeight = wdLoc.Exterior.ExteriorData.Height;
+                        int locationX = (RMBLayout.RMBTilesPerTerrain - locationWidth * RMBLayout.RMBTilesPerBlock) / 2;
+                        int locationY = (RMBLayout.RMBTilesPerTerrain - locationHeight * RMBLayout.RMBTilesPerBlock) / 2;
+                        RectInt locationArea = new RectInt(locationX, locationY, locationWidth, locationHeight);
+
+                        // Instance is on a World Data location. Prune it
+                        if (locationArea.Overlaps(terrainSection.Section))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
         }
 
         private float GetDistanceFromRect(Rect rect, Vector2 point)
