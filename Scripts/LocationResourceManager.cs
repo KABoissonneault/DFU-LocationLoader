@@ -406,7 +406,7 @@ namespace LocationLoader
             bool hasLooseFiles = Directory.Exists(looseLocationFolder) && Directory.Exists(looseLocationPrefabFolder);
             if (hasLooseFiles)
             {
-                foreach (string filename in Directory.GetFiles(looseLocationFolder)
+                foreach (string filename in Directory.GetFiles(looseLocationPrefabFolder)
                     .Where(file => file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase))
                     .Select(file => Path.GetFileName(file)))
                 {
