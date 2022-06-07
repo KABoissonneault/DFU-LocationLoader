@@ -544,7 +544,7 @@ namespace LocationLoader
                         int locationHeight = wdLoc.Exterior.ExteriorData.Height;
                         int locationX = (RMBLayout.RMBTilesPerTerrain - locationWidth * RMBLayout.RMBTilesPerBlock) / 2;
                         int locationY = (RMBLayout.RMBTilesPerTerrain - locationHeight * RMBLayout.RMBTilesPerBlock) / 2;
-                        RectInt locationArea = new RectInt(locationX, locationY, locationWidth, locationHeight);
+                        RectInt locationArea = new RectInt(locationX, locationY, locationWidth * RMBLayout.RMBTilesPerBlock, locationHeight * RMBLayout.RMBTilesPerBlock);
 
                         // Instance is on a World Data location. Prune it
                         if (locationArea.Overlaps(terrainSection.Section))
