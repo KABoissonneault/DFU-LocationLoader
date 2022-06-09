@@ -270,6 +270,9 @@ namespace LocationLoader
 
             baseY += 24;
 
+            // Extra padding
+            baseY += 8;
+
             if (parent != null && locationPrefab != null)
             {
                 if(lightGrayBG.normal.background == null)
@@ -324,6 +327,37 @@ namespace LocationLoader
                 GUILayout.EndArea();
 
                 baseY += 72;
+
+                // Extra prefab properties
+                GUI.Label(new Rect(8, baseY + 8, 256, 16), "Winter variant");
+                locationPrefab.winterPrefab = GUI.TextField(new Rect(8, baseY + 32, 256, 16), locationPrefab.winterPrefab);
+                if (EditorGUI.DropdownButton(new Rect(272, baseY + 32, 16, 16), new GUIContent(), FocusType.Passive))
+                {
+                    void OnItemClicked(object prefab)
+                    {
+                        locationPrefab.winterPrefab = (string)prefab;
+                    }
+
+                    GenericMenu menu = new GenericMenu();
+
+                    var prefabs = prefabInfos.Keys.Where(
+                        prefab => !string.Equals(prefab, currentPrefabName, StringComparison.OrdinalIgnoreCase)
+                        && (string.IsNullOrEmpty(locationPrefab.winterPrefab) || prefab.IndexOf(locationPrefab.winterPrefab, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                        );
+
+                    foreach (string prefab in prefabs)
+                    {
+                        menu.AddItem(new GUIContent(prefab), false, OnItemClicked, prefab);
+                    }
+
+                    menu.DropDown(new Rect(280, baseY + 40, 160, 16));
+                }
+
+                baseY += 56;
+
+                GUI.Label(new Rect(8, baseY + 16, 160, 16), "Prefab Objects");
+
+                baseY += 24;
 
                 {
                     scrollPosition = GUI.BeginScrollView(new Rect(2, baseY + 8, 532, 512), scrollPosition, new Rect(0, 0, 512, 20 + ((objScene.Count + 1) * 60)), false, true);
@@ -482,35 +516,45 @@ namespace LocationLoader
                         locationCameraSize = SceneView.lastActiveSceneView.size;
                         locationTargetPosition = locationCameraPivot;
 
+                        dataIDs.Clear();
+                        dataIdNames.Clear();
+                        dataIdType = 0;
+
+                        extraData = null;
+
                         editMode = EditMode.ObjectPicker;
                     }
 
                     GUI.EndScrollView();
-                }
 
-                // Extra prefab properties
-                GUI.Label(new Rect(554, baseY + 8, 256, 16), "Winter variant");
-                locationPrefab.winterPrefab = GUI.TextField(new Rect(554, baseY + 32, 256, 16), locationPrefab.winterPrefab);
-                if(EditorGUI.DropdownButton(new Rect(818, baseY + 32, 16, 16), new GUIContent(), FocusType.Passive))
-                {
-                    void OnItemClicked(object prefab)
+                    GameObject selectedObject = Selection.activeGameObject;
+                    int currentObjIndex = objScene.IndexOf(selectedObject);
+                    if(currentObjIndex != -1)
                     {
-                        locationPrefab.winterPrefab = (string)prefab;
+                        LocationObject obj = locationPrefab.obj[currentObjIndex];
+
+                        if (obj.type == 2)
+                        {
+                            if(obj.name == "199.16")
+                            {
+                                extraData = obj.extraData;
+
+                                DrawEnemyTypeSelection(refresh: dataIDs.Count == 0, baseX: 554, baseY: baseY + 8, maxY: 300, out float usedX, out float _);
+
+                                void OnItemClicked(MobileTeams team)
+                                {
+                                    EnemyMarkerExtraData currentExtraData = (EnemyMarkerExtraData)SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), obj.extraData);
+
+                                    currentExtraData.TeamOverride = (int)team;
+
+                                    obj.extraData = SaveLoadManager.Serialize(typeof(EnemyMarkerExtraData), currentExtraData, pretty: false);
+                                }
+
+                                DrawEnemyTeamOverrideSelection(baseX: 554 + usedX, baseY + 8, OnItemClicked);
+                                obj.extraData = extraData;
+                            }
+                        }
                     }
-
-                    GenericMenu menu = new GenericMenu();
-
-                    var prefabs = prefabInfos.Keys.Where(
-                        prefab => !string.Equals(prefab, currentPrefabName, StringComparison.OrdinalIgnoreCase)
-                        && (string.IsNullOrEmpty(locationPrefab.winterPrefab) || prefab.IndexOf(locationPrefab.winterPrefab, StringComparison.InvariantCultureIgnoreCase) >= 0)
-                        );
-
-                    foreach (string prefab in prefabs)
-                    {
-                        menu.AddItem(new GUIContent(prefab), false, OnItemClicked, prefab);
-                    }
-
-                    menu.DropDown(new Rect(818, baseY + 40, 160, 16));
                 }
 
                 // Make sure we always have a ground
@@ -645,107 +689,7 @@ namespace LocationLoader
                 // Monster marker
                 if(searchListIDSets[objectPicker][setIndex] == "199.16")
                 {
-                    dataIdType = GUI.SelectionGrid(new Rect(287, 96, 200, 20), dataIdType, new string[] { "Base", "Custom" }, 2);
-                                        
-                    if (previousObjectPicker != objectPicker || GUI.changed)
-                    {
-                        extraData = null;
-                        dataIDs.Clear();
-                        dataIdNames.Clear();
-
-                        if (dataIdType == 0)
-                        {
-                            var mobileIds = Enum.GetValues(typeof(MobileTypes)).Cast<MobileTypes>()
-                                .Where(id => id != MobileTypes.Horse_Invalid && id != MobileTypes.Dragonling_Alternate && id != MobileTypes.Knight_CityWatch && id != MobileTypes.None);
-
-
-                            dataIDs.AddRange(mobileIds.Select(id => (int)id));
-                            dataIdNames.AddRange(mobileIds.Select(id => string.Concat(id.ToString().Select(x => char.IsUpper(x) ? " " + x : x.ToString()))));
-                        }
-                        else if(dataIdType == 1)
-                        {
-                            HashSet<int> existingIds = new HashSet<int>();
-                            void LoadMod(string modName)
-                            {
-                                var monsterDbs = LocationModManager.FindAssets<TextAsset>(modName, "*.mdb.csv");
-                                foreach (TextAsset monsterDb in monsterDbs)
-                                {
-                                    var stream = new StreamReader(new MemoryStream(monsterDb.bytes));
-
-                                    string header = stream.ReadLine();
-
-                                    string[] fields = header.Split(';', ',');
-                                    int IdIndex = -1;
-                                    int NameIndex = -1;
-                                    for(int Index = 0; Index < fields.Length; ++Index)
-                                    {
-                                        if(string.Equals(fields[Index], "id", StringComparison.OrdinalIgnoreCase))
-                                        {
-                                            IdIndex = Index;
-                                        }
-                                        else if(string.Equals(fields[Index], "name", StringComparison.OrdinalIgnoreCase))
-                                        {
-                                            NameIndex = Index;
-                                        }
-                                    }
-                                    if (NameIndex == -1)
-                                    {
-                                        Debug.LogError($"Mod '{modName}' has invalid Monster DB");
-                                        return;
-                                    }
-
-                                    while(stream.Peek() >= 0)
-                                    {
-                                        string line = stream.ReadLine();
-                                        string[] values = SplitCsvLine(line);
-                                        int enemyId = int.Parse(values[IdIndex]);
-
-                                        if (existingIds.Contains(enemyId))
-                                            continue;
-
-                                        dataIDs.Add(enemyId);
-                                        dataIdNames.Add(values[NameIndex]);
-                                        existingIds.Add(enemyId);
-                                    }
-                                }
-
-                                var devInfo = LocationModManager.GetModInfo(modName);
-
-                                if(devInfo.Dependencies != null)
-                                    foreach (var dependency in devInfo.Dependencies)
-                                        LoadMod(dependency.Name);
-                            }
-
-                            LoadMod(workingMod);
-                        }
-                    }
-
-                    if(string.IsNullOrEmpty(extraData))
-                    {
-                        extraData = EnemyMarkerExtraData.DefaultData;
-                    }
-
-                    if (dataIDs.Count != 0)
-                    {
-                        EnemyMarkerExtraData currentExtraData = (EnemyMarkerExtraData)SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), extraData);
-
-                        scrollPosition3 = GUI.BeginScrollView(new Rect(264, 124, 256, 472), scrollPosition3, new Rect(0, 0, 236, 20 + dataIdNames.Count * 24));
-
-                        int previousSelectedIndex = dataIDs.IndexOf(currentExtraData.EnemyId);
-                        if (previousSelectedIndex == -1)
-                        {
-                            // In case the default isn't found
-                            previousSelectedIndex = 0;
-                        }
-
-                        int newSelectedIndex = GUI.SelectionGrid(new Rect(10, 10, 216, dataIdNames.Count * 24), previousSelectedIndex, dataIdNames.ToArray(), 1);
-
-                        currentExtraData.EnemyId = dataIDs[newSelectedIndex];
-
-                        extraData = SaveLoadManager.Serialize(typeof(EnemyMarkerExtraData), currentExtraData, pretty: false);
-
-                        GUI.EndScrollView();
-                    }
+                    DrawMonsterExtraDataSelection(refresh: previousObjectPicker != objectPicker || GUI.changed);
                 }
             }
             else
@@ -786,6 +730,22 @@ namespace LocationLoader
                 }
             }
 
+            void ReturnToPrefab()
+            {
+                // Restore old camera
+                SceneView.lastActiveSceneView.pivot = locationCameraPivot;
+                SceneView.lastActiveSceneView.rotation = locationCameraRotation;
+                SceneView.lastActiveSceneView.size = locationCameraSize;
+
+                dataIDs.Clear();
+                dataIdNames.Clear();
+                dataIdType = 0;
+
+                extraData = null;
+
+                editMode = EditMode.EditLocation;
+            }
+
             if (GUI.Button(new Rect(16, 612, 96, 20), "OK"))
             {
                 int newID = 0;
@@ -806,11 +766,6 @@ namespace LocationLoader
 
                 obj.objectID = newID;
                 obj.extraData = extraData;
-                
-                // Restore old camera
-                SceneView.lastActiveSceneView.pivot = locationCameraPivot;
-                SceneView.lastActiveSceneView.rotation = locationCameraRotation;
-                SceneView.lastActiveSceneView.size = locationCameraSize;
 
                 // Set scene active for collision detection
                 obj.pos = locationTargetPosition;
@@ -818,17 +773,12 @@ namespace LocationLoader
                 AddObject(obj, selectNew: true);
                 //locationPrefab.obj.Sort((a, b) => a.objectID.CompareTo(b.objectID));
 
-                editMode = EditMode.EditLocation;
+                ReturnToPrefab();
             }
 
             if (GUI.Button(new Rect(128, 612, 96, 20), "Cancel"))
             {
-                // Restore old camera
-                SceneView.lastActiveSceneView.pivot = locationCameraPivot;
-                SceneView.lastActiveSceneView.rotation = locationCameraRotation;
-                SceneView.lastActiveSceneView.size = locationCameraSize;
-
-                editMode = EditMode.EditLocation;
+                ReturnToPrefab();
             }
         }
 
@@ -1026,6 +976,151 @@ namespace LocationLoader
                 }
 
                 return newObject;
+            }
+        }
+
+        void DrawMonsterExtraDataSelection(bool refresh)
+        {
+            if (string.IsNullOrEmpty(extraData))
+            {
+                extraData = EnemyMarkerExtraData.DefaultData;
+            }
+
+            DrawEnemyTypeSelection(refresh, baseX: 256, baseY: 88, maxY: 500, out float usedX, out float _);
+
+            void OnItemClicked(MobileTeams team)
+            {
+                EnemyMarkerExtraData currentExtraData = (EnemyMarkerExtraData)SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), extraData);
+
+                currentExtraData.TeamOverride = (int)team;
+
+                extraData = SaveLoadManager.Serialize(typeof(EnemyMarkerExtraData), currentExtraData, pretty: false);
+            }
+            DrawEnemyTeamOverrideSelection(baseX: 256 + usedX, baseY: 88, OnItemClicked);
+        }
+
+        void DrawEnemyTypeSelection(bool refresh, float baseX, float baseY, float maxY, out float usedX, out float usedY)
+        {
+            dataIdType = GUI.SelectionGrid(new Rect(baseX + 31, baseY + 8, 200, 20), dataIdType, new string[] { "Base", "Custom" }, 2);
+
+            if (refresh)
+            {
+                dataIDs.Clear();
+                dataIdNames.Clear();
+
+                if (dataIdType == 0)
+                {
+                    var mobileIds = Enum.GetValues(typeof(MobileTypes)).Cast<MobileTypes>()
+                        .Where(id => id != MobileTypes.Horse_Invalid && id != MobileTypes.Dragonling_Alternate && id != MobileTypes.Knight_CityWatch && id != MobileTypes.None);
+
+
+                    dataIDs.AddRange(mobileIds.Select(id => (int)id));
+                    dataIdNames.AddRange(mobileIds.Select(id => string.Concat(id.ToString().Select(x => char.IsUpper(x) ? " " + x : x.ToString()))));
+                }
+                else if (dataIdType == 1)
+                {
+                    HashSet<int> existingIds = new HashSet<int>();
+                    void LoadMod(string modName)
+                    {
+                        var monsterDbs = LocationModManager.FindAssets<TextAsset>(modName, "*.mdb.csv");
+                        foreach (TextAsset monsterDb in monsterDbs)
+                        {
+                            var stream = new StreamReader(new MemoryStream(monsterDb.bytes));
+
+                            string header = stream.ReadLine();
+
+                            string[] fields = header.Split(';', ',');
+                            int IdIndex = -1;
+                            int NameIndex = -1;
+                            for (int Index = 0; Index < fields.Length; ++Index)
+                            {
+                                if (string.Equals(fields[Index], "id", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    IdIndex = Index;
+                                }
+                                else if (string.Equals(fields[Index], "name", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    NameIndex = Index;
+                                }
+                            }
+                            if (NameIndex == -1)
+                            {
+                                Debug.LogError($"Mod '{modName}' has invalid Monster DB");
+                                return;
+                            }
+
+                            while (stream.Peek() >= 0)
+                            {
+                                string line = stream.ReadLine();
+                                string[] values = SplitCsvLine(line);
+                                int enemyId = int.Parse(values[IdIndex]);
+
+                                if (existingIds.Contains(enemyId))
+                                    continue;
+
+                                dataIDs.Add(enemyId);
+                                dataIdNames.Add(values[NameIndex]);
+                                existingIds.Add(enemyId);
+                            }
+                        }
+
+                        var devInfo = LocationModManager.GetModInfo(modName);
+
+                        if (devInfo.Dependencies != null)
+                            foreach (var dependency in devInfo.Dependencies)
+                                LoadMod(dependency.Name);
+                    }
+
+                    LoadMod(workingMod);
+                }
+            }
+
+            if (dataIDs.Count > 0)
+            {
+                EnemyMarkerExtraData currentExtraData = (EnemyMarkerExtraData)SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), extraData);
+
+                scrollPosition3 = GUI.BeginScrollView(new Rect(baseX + 8, baseY + 36, 256, maxY - 28), scrollPosition3, new Rect(0, 0, 236, 20 + dataIdNames.Count * 24));
+
+                int previousSelectedIndex = dataIDs.IndexOf(currentExtraData.EnemyId);
+                if (previousSelectedIndex == -1)
+                {
+                    // In case the default isn't found
+                    previousSelectedIndex = 0;
+                }
+
+                int newSelectedIndex = GUI.SelectionGrid(new Rect(10, 10, 216, dataIdNames.Count * 24), previousSelectedIndex, dataIdNames.ToArray(), 1);
+
+                currentExtraData.EnemyId = dataIDs[newSelectedIndex];
+
+                GUI.EndScrollView();
+
+                extraData = SaveLoadManager.Serialize(typeof(EnemyMarkerExtraData), currentExtraData, pretty: false);
+            }
+
+            usedX = 264;
+            usedY = maxY + 8;
+        }
+
+        void DrawEnemyTeamOverrideSelection(float baseX, float baseY, Action<MobileTeams> OnSelected)
+        {
+            EnemyMarkerExtraData currentExtraData = (EnemyMarkerExtraData)SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), extraData);
+
+            GUI.Label(new Rect(baseX + 8, baseY + 8, 160, 16), "Team Override");
+            GUIContent teamOverride = currentExtraData.TeamOverride != 0 ? new GUIContent(((MobileTeams)currentExtraData.TeamOverride).ToString()) : new GUIContent("None");
+            if (EditorGUI.DropdownButton(new Rect(baseX + 8, baseY + 32, 160, 16), teamOverride, FocusType.Passive))
+            {
+                void OnItemClicked(object team)
+                {
+                    OnSelected((MobileTeams)team);
+                }
+
+                GenericMenu menu = new GenericMenu();
+                foreach (MobileTeams team in Enum.GetValues(typeof(MobileTeams)).Cast<MobileTeams>().Skip(1))
+                {
+                    menu.AddItem(new GUIContent(team.ToString()), team == (MobileTeams)currentExtraData.TeamOverride, OnItemClicked, team);
+                }
+
+                menu.DropDown(new Rect(baseX + 8, baseY + 32, 160, 16));
             }
         }
 
@@ -1488,6 +1583,8 @@ namespace LocationLoader
                     case "199.16":
                         var enemyExtraData = (EnemyMarkerExtraData)SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), obj.extraData);
                         GUI.Label(new Rect(300, 4, 256, 16), "Enemy ID: " + enemyExtraData.EnemyId);
+                        if (enemyExtraData.TeamOverride != 0)
+                            GUI.Label(new Rect(300, 24, 256, 16), "Team: " + ((MobileTeams)enemyExtraData.TeamOverride).ToString());
                         break;
                 }                
             }

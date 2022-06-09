@@ -3,6 +3,7 @@ using UnityEngine;
 using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Utility;
 using System;
+using System.Linq;
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Entity;
@@ -187,6 +188,11 @@ namespace LocationLoader
                                 else if (entity.MobileEnemy.Gender == MobileGender.Female)
                                 {
                                     entity.Gender = Genders.Female;
+                                }
+
+                                if (extraData.TeamOverride != 0 && Enum.IsDefined(typeof(MobileTeams), extraData.TeamOverride))
+                                {
+                                    entity.Team = (MobileTeams)extraData.TeamOverride;
                                 }
 
                                 DaggerfallEnemy enemy = go.GetComponent<DaggerfallEnemy>();

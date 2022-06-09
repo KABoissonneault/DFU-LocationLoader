@@ -1692,6 +1692,7 @@ namespace LocationLoader
                         {
                             EnemyMarkerExtraData enemyExtraData;
                             enemyExtraData.EnemyId = parsedValue;
+                            enemyExtraData.TeamOverride = 0;
 
                             obj.extraData = SaveLoadManager.Serialize(typeof(EnemyMarkerExtraData), enemyExtraData, pretty: false);
                         }
