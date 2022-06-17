@@ -63,6 +63,8 @@ namespace LocationLoader
 
         public static string GetDevModAssetPath(string modName, string assetName)
         {
+            assetName = Path.GetFileNameWithoutExtension(assetName);
+
             ModInfo modInfo = GetDevModInfo(modName);
             if (modInfo == null)
                 return null;
