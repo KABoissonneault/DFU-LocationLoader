@@ -122,8 +122,59 @@ namespace LocationLoader
             Repaint();
         }
 
+        void HandleEvent()
+        {
+            Event e = Event.current;
+            if (e != null)
+            {
+                switch (e.type)
+                {
+                    case EventType.KeyDown:
+                        if (editMode == EditMode.ObjectPicker)
+                        {
+                            if (e.modifiers != EventModifiers.None && e.modifiers != EventModifiers.FunctionKey)
+                                break;
+
+                            if (e.keyCode == KeyCode.UpArrow)
+                            {
+                                if (objectPicker == 0)
+                                {
+                                    objectPicker = searchListNames.Count - 1;
+                                }
+                                else
+                                {
+                                    --objectPicker;
+                                }
+                                e.Use();
+
+                                setIndex = 0;
+                                UpdatePreview();
+                            }
+                            else if (e.keyCode == KeyCode.DownArrow)
+                            {
+                                if (objectPicker == searchListNames.Count - 1)
+                                {
+                                    objectPicker = 0;
+                                }
+                                else
+                                {
+                                    ++objectPicker;
+                                }
+                                e.Use();
+
+                                setIndex = 0;
+                                UpdatePreview();
+                            }
+                        }
+                        break;
+                }
+            }
+        }
+
         void OnGUI()
         {
+            HandleEvent();
+
             if (Selection.activeGameObject != null)
             {
                 while (Selection.activeGameObject.tag == DaggerfallUnity.staticGeometryTag && Selection.activeGameObject.name.EndsWith("_CombinedModels"))
@@ -1149,7 +1200,8 @@ namespace LocationLoader
                     if (renderer == null)
                         renderer = preview.GetComponentInChildren<Renderer>();
 
-                    SceneView.lastActiveSceneView.Frame(renderer.bounds);
+                    if (renderer != null)
+                        SceneView.lastActiveSceneView.Frame(renderer.bounds);
                 }
             }
         }
