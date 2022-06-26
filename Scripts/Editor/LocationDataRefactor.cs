@@ -19,6 +19,10 @@ namespace LocationLoader
 
         string factor1 = "1.0";
 
+        string shiftX = "0.0";
+        string shiftY = "0.0";
+        string shiftZ = "0.0";
+
         [MenuItem("Daggerfall Tools/Location Data Refactor")]
         static void Init()
         {
@@ -86,13 +90,45 @@ namespace LocationLoader
             baseX = 0;
             baseY += 20;
 
+            string input;
+            int digitSize;
+
             using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(prefabObjectFilter)))
             {
-                if (GUI.Button(new Rect(baseX + 4, baseY + 4, 112, 32), "Remove object"))
+                if (GUI.Button(new Rect(baseX + 4, baseY + 4, 112, 32), "Remove objects"))
                 {
                     RemoveObject();
                 }
 
+                baseY += 36;
+
+                if (GUI.Button(new Rect(baseX + 4, baseY + 4, 112, 32), "Shift Objects"))
+                {
+                    ShiftObject();
+                }
+
+                baseX += 116;
+
+                GUI.Label(new Rect(baseX + 30, baseY + 4, 38, 16), "X");
+                input = GUI.TextField(new Rect(baseX + 4, baseY + 20, 64, 16), shiftX);
+                digitSize = input.TakeWhile(c => char.IsDigit(c) || c == '.').Count();
+                shiftX = input.Substring(0, digitSize);
+
+                baseX += 68;
+
+                GUI.Label(new Rect(baseX + 30, baseY + 4, 38, 16), "Y");
+                input = GUI.TextField(new Rect(baseX + 4, baseY + 20, 64, 16), shiftY);
+                digitSize = input.TakeWhile(c => char.IsDigit(c) || c == '.').Count();
+                shiftY = input.Substring(0, digitSize);
+
+                baseX += 68;
+
+                GUI.Label(new Rect(baseX + 30, baseY + 4, 38, 16), "Z");
+                input = GUI.TextField(new Rect(baseX + 4, baseY + 20, 64, 16), shiftZ);
+                digitSize = input.TakeWhile(c => char.IsDigit(c) || c == '.').Count();
+                shiftZ = input.Substring(0, digitSize);
+
+                baseX = 0;
                 baseY += 36;
 
                 using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(targetPattern)))
@@ -108,8 +144,8 @@ namespace LocationLoader
                     baseX += 116;
 
                     GUI.Label(new Rect(baseX + 16, baseY + 4, 52, 16), "Scale");
-                    string input = GUI.TextField(new Rect(baseX + 4, baseY + 20, 64, 16), factor1);
-                    int digitSize = input.TakeWhile(c => char.IsDigit(c) || c == '.').Count();
+                    input = GUI.TextField(new Rect(baseX + 4, baseY + 20, 64, 16), factor1);
+                    digitSize = input.TakeWhile(c => char.IsDigit(c) || c == '.').Count();
                     factor1 = input.Substring(0, digitSize);
 
                     baseX = 0;
@@ -178,6 +214,37 @@ namespace LocationLoader
             EditorUtility.DisplayDialog("Operation done", $"{removedCount} objects removed in {prefabCount} prefabs.", "Ok");
         }
 
+        void ShiftObject()
+        {
+            int prefabCount = 0;
+            int shiftCount = 0;
+
+            float posX = float.Parse(shiftX);
+            float posY = float.Parse(shiftY);
+            float posZ = float.Parse(shiftZ);
+            Vector3 shift = new Vector3(posX, posY, posZ);
+
+            var objPattern = MakeFilePattern(prefabObjectFilter);
+            foreach (var (prefabPath, prefab) in GetFilteredPrefabs())
+            {
+                var targetObj = prefab.obj.Where(obj => objPattern.IsMatch(obj.name));
+
+                if (targetObj.Count() == 0)
+                    continue;
+
+                foreach (LocationObject obj in targetObj)
+                {
+                    obj.pos += shift;
+                    ++shiftCount;
+                }
+                ++prefabCount;
+
+                LocationHelper.SaveLocationPrefab(prefab, prefabPath);
+            }
+
+            EditorUtility.DisplayDialog("Operation done", $"{shiftCount} objects shifted in {prefabCount} prefabs.", "Ok");
+        }
+
         string ReplacePatternTargets(string pattern, List<string> captureValues)
         {
             StringBuilder builder = new StringBuilder();
@@ -227,6 +294,8 @@ namespace LocationLoader
             int prefabCount = 0;
             int addedCount = 0;
 
+            float scaleFactor = float.Parse(factor1);
+
             try
             {
                 var objToIcerbergPattern = MakeFilePattern(prefabObjectFilter);
@@ -258,9 +327,6 @@ namespace LocationLoader
                         }
 
                         var currentTargetPattern = ReplacePatternTargets(targetPattern, captureValues);
-
-
-                        float scaleFactor = float.Parse(factor1);
 
                         LocationObject icebergObj = new LocationObject();
                         icebergObj.type = 4; // Unity prefab
