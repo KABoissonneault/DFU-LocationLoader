@@ -130,7 +130,28 @@ namespace LocationLoader
                 switch (e.type)
                 {
                     case EventType.KeyDown:
-                        if (editMode == EditMode.ObjectPicker)
+                        if(editMode == EditMode.EditLocation)
+                        {
+                            if(e.modifiers == EventModifiers.Control)
+                            {
+                                if(e.keyCode == KeyCode.N)
+                                {
+                                    DoNew();
+                                    e.Use();
+                                }
+                                else if(e.keyCode == KeyCode.S)
+                                {
+                                    DoSave();
+                                    e.Use();
+                                }
+                                else if(e.keyCode == KeyCode.O)
+                                {
+                                    DoLoad();
+                                    e.Use();
+                                }
+                            }
+                        }
+                        else if (editMode == EditMode.ObjectPicker)
                         {
                             if (e.modifiers != EventModifiers.None && e.modifiers != EventModifiers.FunctionKey)
                                 break;
@@ -255,68 +276,17 @@ namespace LocationLoader
 
             if (GUI.Button(new Rect(16, baseY+8, 96, 16), "New Prefab"))
             {
-                if (parent != null)
-                    DestroyImmediate(parent);
-                objScene = new List<GameObject>();
-
-                locationPrefab = new LocationPrefab();
-                parent = new GameObject("Location Prefab");
-                Selection.activeGameObject = parent;
-                currentPrefabName = "";
-
-                SceneView.lastActiveSceneView.FrameSelected();
-
-                maxAreaLength = 128;
+                DoNew();
             }
 
             if (GUI.Button(new Rect(96 + 48, baseY+8, 96, 16), "Save Prefab"))
             {
-                string path;
-                if (!string.IsNullOrEmpty(currentPrefabName))
-                {
-                    path = EditorUtility.SaveFilePanel("Save as", LocationHelper.locationPrefabFolder, Path.GetFileNameWithoutExtension(currentPrefabName), Path.GetExtension(currentPrefabName).Replace(".", ""));
-                }
-                else
-                {
-                    path = EditorUtility.SaveFilePanel("Save as", LocationHelper.locationPrefabFolder, "NewLocation", "txt");
-                }
-
-                if (!string.IsNullOrEmpty(path))
-                {
-                    LocationHelper.SaveLocationPrefab(locationPrefab, path);
-                }
+                DoSave();
             }
 
             if (GUI.Button(new Rect(96 + 96 + 80, baseY+8, 96, 16), "Load Prefab"))
             {
-                string path = EditorUtility.OpenFilePanel("Open", LocationHelper.locationPrefabFolder, "txt");
-
-                if (string.IsNullOrEmpty(path))
-                    return;
-
-                objScene = new List<GameObject>();
-                locationPrefab = LocationHelper.LoadLocationPrefab(path);
-
-                if (locationPrefab == null)
-                    return;
-
-                if (parent != null)
-                    DestroyImmediate(parent);
-
-                parent = new GameObject("Location Prefab");
-
-                foreach (LocationObject obj in locationPrefab.obj)
-                {
-                    AddObject(obj, selectNew:false);
-                    usedIds.Add(obj.objectID);
-                }
-
-                Selection.activeGameObject = parent;
-                SceneView.lastActiveSceneView.FrameSelected();
-
-                currentPrefabName = Path.GetFileName(path);
-
-                maxAreaLength = Math.Min(Math.Max(Math.Max(128, locationPrefab.width), locationPrefab.height), 9999);
+                DoLoad();
             }
 
             baseY += 24;
@@ -644,6 +614,72 @@ namespace LocationLoader
             }
         }
 
+        void DoNew()
+        {
+            if (parent != null)
+                DestroyImmediate(parent);
+            objScene = new List<GameObject>();
+
+            locationPrefab = new LocationPrefab();
+            parent = new GameObject("Location Prefab");
+            Selection.activeGameObject = parent;
+            currentPrefabName = "";
+
+            SceneView.lastActiveSceneView.FrameSelected();
+
+            maxAreaLength = 128;
+        }
+
+        void DoSave()
+        {
+            string path;
+            if (!string.IsNullOrEmpty(currentPrefabName))
+            {
+                path = EditorUtility.SaveFilePanel("Save as", LocationHelper.locationPrefabFolder, Path.GetFileNameWithoutExtension(currentPrefabName), Path.GetExtension(currentPrefabName).Replace(".", ""));
+            }
+            else
+            {
+                path = EditorUtility.SaveFilePanel("Save as", LocationHelper.locationPrefabFolder, "NewLocation", "txt");
+            }
+
+            if (!string.IsNullOrEmpty(path))
+            {
+                LocationHelper.SaveLocationPrefab(locationPrefab, path);
+            }
+        }
+
+        void DoLoad()
+        {
+            string path = EditorUtility.OpenFilePanel("Open", LocationHelper.locationPrefabFolder, "txt");
+
+            if (string.IsNullOrEmpty(path))
+                return;
+
+            objScene = new List<GameObject>();
+            locationPrefab = LocationHelper.LoadLocationPrefab(path);
+
+            if (locationPrefab == null)
+                return;
+
+            if (parent != null)
+                DestroyImmediate(parent);
+
+            parent = new GameObject("Location Prefab");
+
+            foreach (LocationObject obj in locationPrefab.obj)
+            {
+                AddObject(obj, selectNew: false);
+                usedIds.Add(obj.objectID);
+            }
+
+            Selection.activeGameObject = parent;
+            SceneView.lastActiveSceneView.FrameSelected();
+
+            currentPrefabName = Path.GetFileName(path);
+
+            maxAreaLength = Math.Min(Math.Max(Math.Max(128, locationPrefab.width), locationPrefab.height), 9999);
+        }
+
         bool TryGetObjectSet(string setName, string objId, int objType, out string[] objectSet)
         {
             if(objType == 0)
@@ -722,10 +758,10 @@ namespace LocationLoader
                 GUI.changed = false;
             }
 
-            scrollPosition2 = GUI.BeginScrollView(new Rect(4, 96, 256, 472), scrollPosition2, new Rect(0, 0, 236, 20 + (searchListNames.Count * 24)));
+            scrollPosition2 = GUI.BeginScrollView(new Rect(4, 96, 400, 472), scrollPosition2, new Rect(0, 0, 380, 20 + (searchListNames.Count * 24)));
 
             int previousObjectPicker = objectPicker;
-            objectPicker = GUI.SelectionGrid(new Rect(10, 10, 216, searchListNames.Count * 24), previousObjectPicker, searchListNames.ToArray(), 1);
+            objectPicker = GUI.SelectionGrid(new Rect(10, 10, 360, searchListNames.Count * 24), previousObjectPicker, searchListNames.ToArray(), 1);
             if (GUI.changed)
             {
                 setIndex = 0;
