@@ -43,6 +43,12 @@ namespace LocationLoader
             }
         }
 
+        public static bool IsDevMod(string modName)
+        {
+            LoadDevModInfos();
+            return DevModInfo.ContainsKey(modName);
+        }
+
         public static ModInfo GetDevModInfo(string modName)
         {
             LoadDevModInfos();

@@ -881,7 +881,7 @@ namespace LocationLoader
                 if (template != null)
                     return template;
             }
-            else
+            else if(LocationModManager.IsDevMod(modName))
             {
                 string prefabPath = LocationModManager.GetDevModAssetPath(modName, prefabName);
 
@@ -891,6 +891,11 @@ namespace LocationLoader
                     if (template != null)
                         return template;
                 }
+            }
+            else
+            {
+                Debug.LogError($"Mod '{modName}' could not be found");
+                return null;
             }
 
             ModInfo modInfo = LocationModManager.GetModInfo(modName);
