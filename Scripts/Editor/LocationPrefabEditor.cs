@@ -366,6 +366,12 @@ namespace LocationLoader
                         && (string.IsNullOrEmpty(locationPrefab.winterPrefab) || prefab.IndexOf(locationPrefab.winterPrefab, StringComparison.InvariantCultureIgnoreCase) >= 0)
                         );
 
+                    // Cap it to avoid errors due to Unity limitations
+                    if(prefabs.Count() > 100)
+                    {
+                        prefabs = prefabs.Take(100);
+                    }
+
                     foreach (string prefab in prefabs)
                     {
                         menu.AddItem(new GUIContent(prefab), false, OnItemClicked, prefab);
