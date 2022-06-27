@@ -899,7 +899,7 @@ namespace LocationLoader
             }
 
             ModInfo modInfo = LocationModManager.GetModInfo(modName);
-            if (modInfo.Dependencies != null)
+            if (modInfo != null && modInfo.Dependencies != null)
             {
                 foreach (ModDependency dependency in modInfo.Dependencies)
                 {
@@ -1157,8 +1157,7 @@ namespace LocationLoader
                         }
 
                         var devInfo = LocationModManager.GetModInfo(modName);
-
-                        if (devInfo.Dependencies != null)
+                        if (devInfo != null && devInfo.Dependencies != null)
                             foreach (var dependency in devInfo.Dependencies)
                                 LoadMod(dependency.Name);
                     }

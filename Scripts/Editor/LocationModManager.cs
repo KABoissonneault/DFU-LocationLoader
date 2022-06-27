@@ -139,9 +139,14 @@ namespace LocationLoader
             {
                 return GetPackagedModInfo(modName);
             }
-            else
+            else if(IsDevMod(modName))
             {
                 return GetDevModInfo(modName);
+            }
+            else
+            {
+                Debug.LogError($"Unknown mod '{modName}'");
+                return null;
             }
         }
 
