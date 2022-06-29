@@ -62,7 +62,7 @@ namespace LocationLoader
 
                 prefabInfo = mod != null
                     ? LocationHelper.LoadLocationPrefab(mod, assetName)
-                    : LocationHelper.LoadLocationPrefab(Application.dataPath + LocationHelper.locationPrefabFolder + assetName);
+                    : LocationHelper.LoadLocationPrefab(Path.Combine(Application.dataPath, LocationHelper.locationPrefabFolder, assetName));
 
                 if (prefabInfo == null)
                 {
