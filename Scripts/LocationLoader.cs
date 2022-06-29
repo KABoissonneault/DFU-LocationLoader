@@ -6,8 +6,6 @@ using System;
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Entity;
-using DaggerfallConnect.Arena2;
-using System.Runtime.CompilerServices;
 using static DaggerfallWorkshop.Utility.ContentReader;
 using DaggerfallWorkshop.Utility.AssetInjection;
 using DaggerfallConnect;
@@ -19,13 +17,6 @@ namespace LocationLoader
         Dictionary<Vector2Int, WeakReference<DaggerfallTerrain>> loadedTerrain = new Dictionary<Vector2Int, WeakReference<DaggerfallTerrain>>();
         Dictionary<Vector2Int, List<LocationData>> pendingIncompleteLocations = new Dictionary<Vector2Int, List<LocationData>>();
         Dictionary<ulong, List<Vector2Int>> instancePendingTerrains = new Dictionary<ulong, List<Vector2Int>>();
-
-        class LLTerrainData
-        {
-            public bool occupied = false;
-        }
-
-        ConditionalWeakTable<DaggerfallTerrain, LLTerrainData> extraTerrainData = new ConditionalWeakTable<DaggerfallTerrain, LLTerrainData>();
 
         LocationResourceManager resourceManager;
 
@@ -237,17 +228,6 @@ namespace LocationLoader
             }
         }
 
-        LLTerrainData GetLLTerrainData(DaggerfallTerrain terrain)
-        {
-            if(!extraTerrainData.TryGetValue(terrain, out LLTerrainData data))
-            {
-                data = new LLTerrainData();
-                extraTerrainData.Add(terrain, data);
-            }
-
-            return data;
-        }
-
         void SetActiveRecursively(GameObject go)
         {
             go.SetActive(true);
@@ -327,6 +307,8 @@ namespace LocationLoader
                 Destroy(existingLocation.gameObject);
             }
 
+            bool terrainOccupied = false;
+
             // Spawn the terrain's instances            
             foreach (LocationInstance loc in resourceManager.GetTerrainInstances(daggerTerrain))
             {
@@ -381,10 +363,9 @@ namespace LocationLoader
                     }
                 }
 
-                LLTerrainData llTerrainData = GetLLTerrainData(daggerTerrain);
                 if(loc.type == 0 || loc.type == 2)
                 {
-                    if(llTerrainData.occupied)
+                    if(terrainOccupied)
                     {
                         Debug.LogWarning($"Location instance already present at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");
                         continue;
@@ -419,7 +400,7 @@ namespace LocationLoader
                 if (loc.type == 0 || loc.type == 2)
                 {
                     daggerTerrain.MapData.locationRect = new Rect(minX, minY, maxX - minX, maxY - minY);
-                    llTerrainData.occupied = true;
+                    terrainOccupied = true;
 
                     var locationRect = new Rect(minX, minY, maxX - minX, maxY - minY);
 
