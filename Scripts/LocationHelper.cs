@@ -1201,7 +1201,7 @@ namespace LocationLoader
 
         static Regex CsvSplit = new Regex("(?:^|,)(\"(?:\\\\\"|[^\"])*\"|[^,]*)", RegexOptions.Compiled);
 
-        static string[] SplitCsvLine(string line)
+        public static string[] SplitCsvLine(string line)
         {
             List<string> list = new List<string>();
             foreach (Match match in CsvSplit.Matches(line))
@@ -1212,7 +1212,7 @@ namespace LocationLoader
                     list.Add("");
                 }
 
-                list.Add(curr.TrimStart(',', ';').Replace("\\\"", "\"").Trim('\"'));
+                list.Add(curr.TrimStart(',', ';').Replace("\"\"", "\"").Trim('\"'));
             }
 
             return list.ToArray();
