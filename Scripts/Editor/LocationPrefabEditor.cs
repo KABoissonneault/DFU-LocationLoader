@@ -14,14 +14,29 @@ using System.Text.RegularExpressions;
 namespace LocationLoader
 {
 #if UNITY_EDITOR
+
     public class LocationPrefabEditor : LocationEditor
     {
+        class AreaReferenceGizmo : MonoBehaviour
+        {
+            public LocationPrefabEditor editor;
+
+            void OnDrawGizmos()
+            {
+                Gizmos.color = Color.green;
+
+                Vector3 pos = transform.position;
+                Vector3 size = new Vector3(editor.locationPrefab.width * terrainTileSize, 50f, editor.locationPrefab.height * terrainTileSize);
+                Gizmos.DrawWireCube(pos, size);
+            }
+        }
+
         enum EditMode { EditLocation, ObjectPicker };
 
         const float mapPixelSize = 800f;
         const float terrainTileSize = mapPixelSize / 128f;
 
-        GameObject parent, ground, areaReference, preview;
+        GameObject parent, ground, preview;
         List<GameObject> objScene = new List<GameObject>();
 
         string workingMod;
@@ -306,15 +321,18 @@ namespace LocationLoader
                 GUI.Label(new Rect(16, baseY + 16, 64, 16), "Area X:");
                 int previousWidth = locationPrefab.width;
                 locationPrefab.width = EditorGUI.IntSlider(new Rect(90, baseY + 16, 400, 16), previousWidth, 1, maxAreaLength);
+                if(GUI.changed)
+                {
+                    SceneView.RepaintAll(); // area reference gizmo
+                    GUI.changed = false;
+                }
 
                 GUI.Label(new Rect(16, baseY + 40, 64, 16), "Area Y:");
                 int previousHeight = locationPrefab.height;
                 locationPrefab.height = EditorGUI.IntSlider(new Rect(90, baseY + 40, 400, 16), previousHeight, 1, maxAreaLength);
-                                
-                if(areaReference != null && GUI.changed)
+                if (GUI.changed)
                 {
-                    BoxCollider box = areaReference.GetComponent<BoxCollider>();
-                    box.size = new Vector3(locationPrefab.width * terrainTileSize, 50f, locationPrefab.height * terrainTileSize);
+                    SceneView.RepaintAll(); // area reference gizmo
                     GUI.changed = false;
                 }
 
@@ -605,17 +623,9 @@ namespace LocationLoader
                         string terrainGridPath = AssetDatabase.GUIDToAssetPath(AssetDatabase.FindAssets("LLPrefabTerrain t:material")[0]);
                         meshRenderer.sharedMaterial = AssetDatabase.LoadMainAssetAtPath(terrainGridPath) as Material;
                     }
-                }
 
-                // Make sure we always have our area reference too
-                if(areaReference == null)
-                {
-                    areaReference = new GameObject();
-                    areaReference.name = "Area Reference";
-                    areaReference.transform.parent = parent.transform;
-
-                    BoxCollider box = areaReference.AddComponent<BoxCollider>();
-                    box.size = new Vector3(locationPrefab.width * terrainTileSize, 50f, locationPrefab.height * terrainTileSize);
+                    var areaReference = ground.AddComponent<AreaReferenceGizmo>();
+                    areaReference.editor = this;
                 }
             }
         }
