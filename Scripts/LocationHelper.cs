@@ -2419,7 +2419,7 @@ namespace LocationLoader
 
         public static bool IsOutOfBounds(LocationInstance loc, LocationPrefab prefab)
         {
-            if (loc.type == 1)
+            if (loc.type == 1 || loc.type == 2)
                 return false;
 
             float rot = Mathf.Deg2Rad * loc.rot.eulerAngles.y;
