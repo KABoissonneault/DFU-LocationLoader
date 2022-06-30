@@ -754,12 +754,6 @@ namespace LocationLoader
 
         bool GetNorthNeighbor(DaggerfallTerrain daggerTerrain, out DaggerfallTerrain northNeighbor)
         {
-            if (daggerTerrain.TopNeighbour != null)
-            {
-                northNeighbor = daggerTerrain.TopNeighbour.GetComponent<DaggerfallTerrain>();
-                return true;
-            }
-
             if(daggerTerrain.MapPixelY == 0)
             {
                 northNeighbor = null;
@@ -771,12 +765,6 @@ namespace LocationLoader
 
         bool GetEastNeighbor(DaggerfallTerrain daggerTerrain, out DaggerfallTerrain eastNeighbor)
         {
-            if (daggerTerrain.RightNeighbour != null)
-            {
-                eastNeighbor = daggerTerrain.RightNeighbour.GetComponent<DaggerfallTerrain>();
-                return true;
-            }
-
             if (daggerTerrain.MapPixelX == 1000)
             {
                 eastNeighbor = null;
@@ -788,12 +776,6 @@ namespace LocationLoader
 
         bool GetSouthNeighbor(DaggerfallTerrain daggerTerrain, out DaggerfallTerrain southNeighbor)
         {
-            if (daggerTerrain.BottomNeighbour != null)
-            {
-                southNeighbor = daggerTerrain.BottomNeighbour.GetComponent<DaggerfallTerrain>();
-                return true;
-            }
-
             if (daggerTerrain.MapPixelY == 500)
             {
                 southNeighbor = null;
@@ -805,12 +787,6 @@ namespace LocationLoader
 
         bool GetWestNeighbor(DaggerfallTerrain daggerTerrain, out DaggerfallTerrain westNeighbor)
         {
-            if (daggerTerrain.LeftNeighbour != null)
-            {
-                westNeighbor = daggerTerrain.LeftNeighbour.GetComponent<DaggerfallTerrain>();
-                return true;
-            }
-
             if (daggerTerrain.MapPixelX == 0)
             {
                 westNeighbor = null;
