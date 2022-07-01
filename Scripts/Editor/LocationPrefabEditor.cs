@@ -128,8 +128,19 @@ namespace LocationLoader
                 idName.Add(kvp.Key, kvp.Value);
             }
 
+            RestoreSettings();
+
             UpdatePrefabInfos();
             UpdateObjList();
+        }
+
+        void RestoreSettings()
+        {
+            if(EditorPrefs.HasKey("LLPE.ActiveMod"))
+            {
+                workingMod = EditorPrefs.GetString("LLPE.ActiveMod");
+                UpdatePrefabInfos();
+            }
         }
 
         void OnInspectorUpdate()
@@ -270,6 +281,7 @@ namespace LocationLoader
                 void OnItemClicked(object mod)
                 {
                     workingMod = (string)mod;
+                    EditorPrefs.SetString("LLPE.ActiveMod", workingMod);
                     UpdatePrefabInfos();
                 }
 
