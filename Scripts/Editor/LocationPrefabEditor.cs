@@ -58,6 +58,7 @@ namespace LocationLoader
         int setIndex = 0;
         int maxAreaLength = 128;
         bool bReferenceGrid = false;
+        bool bSnapToDFUnits = false;
         Vector2 scrollPosition = Vector2.zero, scrollPosition2 = Vector2.zero, scrollPosition3 = Vector2.zero;
         string[] listModeName = { "3D Model", "Billboard", "Editor", "Interior Parts", "Prefab", "Unity" };
         string[] modelLists = { "All", "Structure", "Clutter", "Dungeon", "Furniture", "Graveyard", "Custom" };
@@ -132,6 +133,8 @@ namespace LocationLoader
 
             UpdatePrefabInfos();
             UpdateObjList();
+
+            DoNew();
         }
 
         void RestoreSettings()
@@ -139,7 +142,16 @@ namespace LocationLoader
             if(EditorPrefs.HasKey("LLPE.ActiveMod"))
             {
                 workingMod = EditorPrefs.GetString("LLPE.ActiveMod");
-                UpdatePrefabInfos();
+
+                if (!LocationModManager.GetDevMods().Contains(workingMod))
+                {
+                    EditorPrefs.DeleteKey("LLPE.ActiveMod");
+                    workingMod = null;
+                }
+                else
+                {
+                    UpdatePrefabInfos();
+                }
             }
         }
 
@@ -273,6 +285,7 @@ namespace LocationLoader
         
         private void EditLocationWindow()
         {
+            float baseX = 0;
             float baseY = 0;
 
             GUI.Label(new Rect(16, baseY + 8, 84, 16), "Active Mod: ");
@@ -414,7 +427,141 @@ namespace LocationLoader
 
                 GUI.Label(new Rect(8, baseY + 16, 160, 16), "Prefab Objects");
 
-                baseY += 24;
+                baseY += 32;
+
+                // Selection options
+                {
+                    GUI.Box(new Rect(4, baseY + 4, 656, 48), "", lightGrayBG);
+
+                    baseX += 4;
+                    baseY += 4;
+
+                    var prefabObjSelection = Selection.gameObjects.Where(obj => objScene.Contains(obj)).ToList();
+                    using (new EditorGUI.DisabledScope(prefabObjSelection.Count == 0))
+                    {
+
+                        if (GUI.Button(new Rect(baseX + 8, baseY + 8, 32, 32), "-X"))
+                        {
+                            foreach (GameObject go in prefabObjSelection)
+                            {
+                                Vector3 shiftSize = GetObjectSize(go);
+
+                                go.transform.localPosition += new Vector3(-shiftSize.x, 0, 0);
+                            }
+                        }
+
+                        baseX += 40;
+
+                        if (GUI.Button(new Rect(baseX + 8, baseY + 8, 32, 32), "+X"))
+                        {
+                            foreach (GameObject go in prefabObjSelection)
+                            {
+                                Vector3 shiftSize = GetObjectSize(go);
+
+                                go.transform.localPosition += new Vector3(shiftSize.x, 0, 0);
+                            }
+                        }
+
+                        baseX += 40;
+
+                        if (GUI.Button(new Rect(baseX + 8, baseY + 8, 32, 32), "-Y"))
+                        {
+                            foreach (GameObject go in prefabObjSelection)
+                            {
+                                Vector3 shiftSize = GetObjectSize(go);
+
+                                go.transform.localPosition += new Vector3(0, -shiftSize.y, 0);
+                            }
+                        }
+
+                        baseX += 40;
+
+                        if (GUI.Button(new Rect(baseX + 8, baseY + 8, 32, 32), "+Y"))
+                        {
+                            foreach (GameObject go in prefabObjSelection)
+                            {
+                                Vector3 shiftSize = GetObjectSize(go);
+
+                                go.transform.localPosition += new Vector3(0, shiftSize.y, 0);
+                            }
+                        }
+
+                        baseX += 40;
+
+                        if (GUI.Button(new Rect(baseX + 8, baseY + 8, 32, 32), "-Z"))
+                        {
+                            foreach (GameObject go in prefabObjSelection)
+                            {
+                                Vector3 shiftSize = GetObjectSize(go);
+
+                                go.transform.localPosition += new Vector3(0, 0, -shiftSize.z);
+                            }
+                        }
+
+                        baseX += 40;
+
+                        if (GUI.Button(new Rect(baseX + 8, baseY + 8, 32, 32), "+Z"))
+                        {
+                            foreach (GameObject go in prefabObjSelection)
+                            {
+                                Vector3 shiftSize = GetObjectSize(go);
+
+                                go.transform.localPosition += new Vector3(0, 0, shiftSize.z);
+                            }
+                        }
+
+                        baseX += 40;
+
+                        // Separator
+                        baseX += 8;
+
+                        if (GUI.Button(new Rect(baseX + 8, baseY + 8, 100, 32), "Snap to floor"))
+                        {
+                            foreach (GameObject go in prefabObjSelection)
+                            {
+                                Vector3 goSize = GetObjectSize(go, getOffsetSize: true);
+
+                                //The AlignBillboardToGround fires a raycast. We need to turn off the collider if it's there so we don't hit ourselves.
+                                Collider coll = go.GetComponent<Collider>();
+
+                                bool oldEnabled = true;
+                                if (coll)
+                                {
+                                    oldEnabled = coll.enabled;
+                                    coll.enabled = false;
+                                }
+
+                                //There's already a helper function that moves things to the ground.
+                                GameObjectHelper.AlignBillboardToGround(go, new Vector2(0, goSize.y), goSize.y);
+
+                                if (coll)
+                                {
+                                    coll.enabled = oldEnabled;
+                                }
+                            }
+                        }
+
+                        baseX += 108;
+
+                    }
+
+                    // Separator
+                    baseX += 8;
+
+                    GUILayout.BeginArea(new Rect(baseX + 4, baseY + 4, 116, 16));
+                    bSnapToDFUnits = EditorGUILayout.ToggleLeft("Snap to DF units", bSnapToDFUnits);
+                    if (bSnapToDFUnits)
+                    {
+                        foreach (GameObject obj in prefabObjSelection)
+                        {
+                            obj.transform.localPosition = SnapToDFUnits(obj.transform.localPosition);
+                        }
+                    }
+                    GUILayout.EndArea();
+
+                    baseX = 0;
+                    baseY += 48;
+                }
 
                 {
                     scrollPosition = GUI.BeginScrollView(new Rect(2, baseY + 8, 532, 512), scrollPosition, new Rect(0, 0, 512, 20 + ((objScene.Count + 1) * 60)), false, true);
@@ -622,7 +769,7 @@ namespace LocationLoader
                     //Always make sure that the ground is set correctly
                     ground.transform.SetParent(parent.transform);
                     ground.name = "Surface";
-                    ground.transform.localScale = new Vector3(mapPixelSize / 10.0f, 0, mapPixelSize / 10.0f);
+                    ground.transform.localScale = new Vector3(mapPixelSize / 10.0f, 1.0f, mapPixelSize / 10.0f);
                     var meshRenderer = ground.GetComponent<MeshRenderer>();
 
                     if (bReferenceGrid)
@@ -635,6 +782,17 @@ namespace LocationLoader
                         string terrainGridPath = AssetDatabase.GUIDToAssetPath(AssetDatabase.FindAssets("LLPrefabTerrain t:material")[0]);
                         meshRenderer.sharedMaterial = AssetDatabase.LoadMainAssetAtPath(terrainGridPath) as Material;
                     }
+
+                    /*
+                    var existingCollision = ground.GetComponent<Collider>();
+                    if (existingCollision != null)
+                        DestroyImmediate(existingCollision);
+
+                    var boxCollider = ground.AddComponent<BoxCollider>();
+                    var boxHeight = 2.0f;
+                    boxCollider.center = new Vector3(0, boxHeight / 2, 0);
+                    boxCollider.size = new Vector3(ground.transform.localScale.x * 2, boxHeight, ground.transform.localScale.z * 2);
+                    */
 
                     var areaReference = ground.AddComponent<AreaReferenceGizmo>();
                     areaReference.editor = this;
@@ -1708,6 +1866,49 @@ namespace LocationLoader
                         break;
                 }                
             }
+        }
+
+        static float SnapToDFUnits(float f)
+        {
+            return Mathf.Round(f / MeshReader.GlobalScale) * MeshReader.GlobalScale;
+        }
+
+        static Vector3 SnapToDFUnits(Vector3 v)
+        {
+            return new Vector3(
+                SnapToDFUnits(v.x),
+                SnapToDFUnits(v.y),
+                SnapToDFUnits(v.z)
+                );
+        }
+
+        //Gets the size of an object, used mostly so we can put things on the ground or move them based on size.
+        //getOffsetSize can be set to true to adjust the size if the origin is not the center of the mesh
+        private Vector3 GetObjectSize(GameObject go, bool getOffsetSize = false)
+        {
+            Vector3 size = new Vector3();
+
+            Renderer objRend = go.GetComponent<Renderer>();
+            if (objRend)
+            {
+                size = objRend.bounds.size;
+
+                if (getOffsetSize)
+                {
+                    //We need to find the difference between the object's origin and the mesh's center and subtract that from the size
+                    //this way it will align properly if the origin is offset.
+                    size.y -= (objRend.bounds.center.y - go.transform.position.y) * 2;
+                }
+            }
+
+            Billboard objBill = go.GetComponent<Billboard>();
+            if (objBill)
+            {
+                size.x = objBill.Summary.Size.x;
+                size.y = objBill.Summary.Size.y;
+                size.z = objBill.Summary.Size.x; //billboards are 2d so their x and z data are basically the same
+            }
+            return size;
         }
     }
 #endif
