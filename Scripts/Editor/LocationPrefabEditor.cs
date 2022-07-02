@@ -67,7 +67,8 @@ namespace LocationLoader
         Vector3 locationCameraPivot;
         Quaternion locationCameraRotation = Quaternion.identity;
         float locationCameraSize = 10.0f;
-        Vector3 locationTargetPosition;
+        float locationCameraDistance = 10.0f;
+        GameObject placedObject;
 
         string extraData = "";
         List<int> dataIDs = new List<int>();
@@ -251,6 +252,19 @@ namespace LocationLoader
 
                 if (preview != null)
                     DestroyImmediate(preview);
+
+                if(placedObject != null)
+                {
+                    var cameraDirection = locationCameraRotation * Vector3.forward;
+                    var cameraOrigin = locationCameraPivot - cameraDirection * locationCameraDistance;
+
+                    if (Physics.Raycast(cameraOrigin, cameraDirection, out RaycastHit hitInfo, locationCameraDistance))
+                    {
+                        placedObject.transform.position = hitInfo.point;
+                    }
+
+                    placedObject = null;
+                }
                 
                 EditLocationWindow();
             }
@@ -718,7 +732,7 @@ namespace LocationLoader
                         locationCameraPivot = SceneView.lastActiveSceneView.pivot;
                         locationCameraRotation = SceneView.lastActiveSceneView.rotation;
                         locationCameraSize = SceneView.lastActiveSceneView.size;
-                        locationTargetPosition = locationCameraPivot;
+                        locationCameraDistance = SceneView.lastActiveSceneView.cameraDistance;
 
                         dataIDs.Clear();
                         dataIdNames.Clear();
@@ -1039,11 +1053,9 @@ namespace LocationLoader
 
                 obj.objectID = newID;
                 obj.extraData = extraData;
+                obj.pos = locationCameraPivot;
 
-                // Set scene active for collision detection
-                obj.pos = locationTargetPosition;
-
-                AddObject(obj, selectNew: true);
+                placedObject = AddObject(obj, selectNew: true);
                 //locationPrefab.obj.Sort((a, b) => a.objectID.CompareTo(b.objectID));
 
                 ReturnToPrefab();
@@ -1432,7 +1444,7 @@ namespace LocationLoader
             }
         }
 
-        private void AddObject(LocationObject locationObject, bool selectNew)
+        private GameObject AddObject(LocationObject locationObject, bool selectNew)
         {
             GameObject newObject = CreateObject(locationObject, parent.transform);            
 
@@ -1447,6 +1459,8 @@ namespace LocationLoader
             {
                 Debug.LogError("Failed to load object " + locationObject.name);
             }
+
+            return newObject;
         }
 
         void AddName(string name, string[] ids)
@@ -1832,7 +1846,7 @@ namespace LocationLoader
         }
 
         private void OnDisable()
-        {
+        {            
             if(parent != null)
             {
                 Selection.activeObject = null;
@@ -1840,6 +1854,7 @@ namespace LocationLoader
                 parent = null;
             }
 
+            objScene.Clear();
             currentPrefabName = string.Empty;
         }
 
