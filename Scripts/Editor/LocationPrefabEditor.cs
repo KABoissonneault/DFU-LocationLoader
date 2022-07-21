@@ -26,7 +26,7 @@ namespace LocationLoader
                 Gizmos.color = Color.green;
 
                 Vector3 pos = transform.position;
-                Vector3 size = new Vector3(editor.locationPrefab.width * terrainTileSize, 50f, editor.locationPrefab.height * terrainTileSize);
+                Vector3 size = new Vector3(editor.locationPrefab.width * terrainTileSize, 2.0f, editor.locationPrefab.height * terrainTileSize);
                 Gizmos.DrawWireCube(pos, size);
             }
         }
@@ -796,17 +796,6 @@ namespace LocationLoader
                         string terrainGridPath = AssetDatabase.GUIDToAssetPath(AssetDatabase.FindAssets("LLPrefabTerrain t:material")[0]);
                         meshRenderer.sharedMaterial = AssetDatabase.LoadMainAssetAtPath(terrainGridPath) as Material;
                     }
-
-                    /*
-                    var existingCollision = ground.GetComponent<Collider>();
-                    if (existingCollision != null)
-                        DestroyImmediate(existingCollision);
-
-                    var boxCollider = ground.AddComponent<BoxCollider>();
-                    var boxHeight = 2.0f;
-                    boxCollider.center = new Vector3(0, boxHeight / 2, 0);
-                    boxCollider.size = new Vector3(ground.transform.localScale.x * 2, boxHeight, ground.transform.localScale.z * 2);
-                    */
 
                     var areaReference = ground.AddComponent<AreaReferenceGizmo>();
                     areaReference.editor = this;
