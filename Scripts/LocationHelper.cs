@@ -1322,7 +1322,7 @@ namespace LocationLoader
             }
         }
 
-        static Regex CsvSplit = new Regex("(?:^|,)(\"(?:\\\\\"|[^\"])*\"|[^,]*)", RegexOptions.Compiled);
+        static Regex CsvSplit = new Regex("(?:^|,)(\"(?:\"\"|[^\"])*\"|[^,]*)", RegexOptions.Compiled);
 
         public static string[] SplitCsvLine(string line)
         {
@@ -1673,7 +1673,7 @@ namespace LocationLoader
                         break;
 
                     case "extraData":
-                        result.Append($"\"instance.extraData\"");
+                        result.Append($"\"{instance.extraData.Replace("\"", "\"\"")}\"");
                         break;
 
                     default:
