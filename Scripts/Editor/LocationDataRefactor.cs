@@ -111,21 +111,42 @@ namespace LocationLoader
 
                 GUI.Label(new Rect(baseX + 30, baseY + 4, 38, 16), "X");
                 input = GUI.TextField(new Rect(baseX + 4, baseY + 20, 64, 16), shiftX);
-                digitSize = input.TakeWhile(c => char.IsDigit(c) || c == '.').Count();
+                if (input.StartsWith("-"))
+                {
+                    digitSize = input.Skip(1).TakeWhile(c => char.IsDigit(c) || c == '.').Count() + 1;
+                }
+                else
+                {
+                    digitSize = input.TakeWhile(c => char.IsDigit(c) || c == '.').Count();
+                }
                 shiftX = input.Substring(0, digitSize);
 
                 baseX += 68;
 
                 GUI.Label(new Rect(baseX + 30, baseY + 4, 38, 16), "Y");
                 input = GUI.TextField(new Rect(baseX + 4, baseY + 20, 64, 16), shiftY);
-                digitSize = input.TakeWhile(c => char.IsDigit(c) || c == '.').Count();
+                if (input.StartsWith("-"))
+                {
+                    digitSize = input.Skip(1).TakeWhile(c => char.IsDigit(c) || c == '.').Count() + 1;
+                }
+                else
+                {
+                    digitSize = input.TakeWhile(c => char.IsDigit(c) || c == '.').Count();
+                }
                 shiftY = input.Substring(0, digitSize);
 
                 baseX += 68;
 
                 GUI.Label(new Rect(baseX + 30, baseY + 4, 38, 16), "Z");
                 input = GUI.TextField(new Rect(baseX + 4, baseY + 20, 64, 16), shiftZ);
-                digitSize = input.TakeWhile(c => char.IsDigit(c) || c == '.').Count();
+                if (input.StartsWith("-"))
+                {
+                    digitSize = input.Skip(1).TakeWhile(c => char.IsDigit(c) || c == '.').Count() + 1;
+                }
+                else
+                {
+                    digitSize = input.TakeWhile(c => char.IsDigit(c) || c == '.').Count();
+                }
                 shiftZ = input.Substring(0, digitSize);
 
                 baseX = 0;
