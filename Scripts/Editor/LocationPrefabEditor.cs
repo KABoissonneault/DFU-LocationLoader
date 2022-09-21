@@ -757,7 +757,7 @@ namespace LocationLoader
                             {
                                 extraData = obj.extraData;
 
-                                DrawEnemyTypeSelection(refresh: dataIDs.Count == 0, baseX: 554, baseY: baseY + 8, maxY: 300, out float usedX, out float _);
+                                DrawEnemyTypeSelection(baseX: 554, baseY: baseY + 8, maxY: 300, out float usedX, out float _);
 
                                 void OnItemClicked(MobileTeams team)
                                 {
@@ -814,7 +814,8 @@ namespace LocationLoader
             Selection.activeGameObject = parent;
             currentPrefabName = "";
 
-            SceneView.lastActiveSceneView.FrameSelected();
+            if (SceneView.lastActiveSceneView != null)
+                SceneView.lastActiveSceneView.FrameSelected();
 
             maxAreaLength = 128;
         }
@@ -965,7 +966,7 @@ namespace LocationLoader
                 // Monster marker
                 if(searchListIDSets[objectPicker][setIndex] == "199.16")
                 {
-                    DrawMonsterExtraDataSelection(refresh: previousObjectPicker != objectPicker || GUI.changed);
+                    DrawMonsterExtraDataSelection(baseX: 404, baseY: 96);
                 }
             }
             else
@@ -1258,14 +1259,14 @@ namespace LocationLoader
             }
         }
 
-        void DrawMonsterExtraDataSelection(bool refresh)
+        void DrawMonsterExtraDataSelection(float baseX, float baseY)
         {
             if (string.IsNullOrEmpty(extraData))
             {
                 extraData = EnemyMarkerExtraData.DefaultData;
             }
 
-            DrawEnemyTypeSelection(refresh, baseX: 256, baseY: 88, maxY: 500, out float usedX, out float _);
+            DrawEnemyTypeSelection(baseX: baseX, baseY: baseY, maxY: 500, out float usedX, out float _);
 
             void OnItemClicked(MobileTeams team)
             {
@@ -1275,15 +1276,17 @@ namespace LocationLoader
 
                 extraData = SaveLoadManager.Serialize(typeof(EnemyMarkerExtraData), currentExtraData, pretty: false);
             }
-            DrawEnemyTeamOverrideSelection(baseX: 256 + usedX, baseY: 88, OnItemClicked);
+            DrawEnemyTeamOverrideSelection(baseX: baseX + usedX, baseY: baseY, OnItemClicked);
         }
 
-        void DrawEnemyTypeSelection(bool refresh, float baseX, float baseY, float maxY, out float usedX, out float usedY)
+        void DrawEnemyTypeSelection(float baseX, float baseY, float maxY, out float usedX, out float usedY)
         {
             dataIdType = GUI.SelectionGrid(new Rect(baseX + 31, baseY + 8, 200, 20), dataIdType, new string[] { "Base", "Custom" }, 2);
 
-            if (refresh)
+            if (dataIDs.Count == 0 || GUI.changed)
             {
+                GUI.changed = false;
+
                 dataIDs.Clear();
                 dataIdNames.Clear();
 
@@ -1324,8 +1327,8 @@ namespace LocationLoader
                             }
                             if (NameIndex == -1)
                             {
-                                Debug.LogError($"Mod '{modName}' has invalid Monster DB");
-                                return;
+                                // Probably a replacement DB
+                                continue;
                             }
 
                             while (stream.Peek() >= 0)
