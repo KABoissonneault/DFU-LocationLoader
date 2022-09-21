@@ -73,7 +73,7 @@ namespace LocationLoader
         string extraData = "";
         List<int> dataIDs = new List<int>();
         List<string> dataIdNames = new List<string>();
-        int dataIdType = 0;
+        int? dataIdType = 0;
 
         LocationPrefab locationPrefab;
 
@@ -1016,7 +1016,7 @@ namespace LocationLoader
 
                 dataIDs.Clear();
                 dataIdNames.Clear();
-                dataIdType = 0;
+                dataIdType = null;
 
                 extraData = null;
 
@@ -1281,7 +1281,21 @@ namespace LocationLoader
 
         void DrawEnemyTypeSelection(float baseX, float baseY, float maxY, out float usedX, out float usedY)
         {
-            dataIdType = GUI.SelectionGrid(new Rect(baseX + 31, baseY + 8, 200, 20), dataIdType, new string[] { "Base", "Custom" }, 2);
+            EnemyMarkerExtraData currentExtraData = (EnemyMarkerExtraData)SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), extraData);
+
+            if (dataIdType == null)
+            {
+                if(Enum.IsDefined(typeof(MobileTypes), currentExtraData.EnemyId))
+                {
+                    dataIdType = 0;
+                }
+                else
+                {
+                    dataIdType = 1;
+                }
+            }
+
+            dataIdType = GUI.SelectionGrid(new Rect(baseX + 31, baseY + 8, 200, 20), dataIdType.Value, new string[] { "Base", "Custom" }, 2);
 
             if (dataIDs.Count == 0 || GUI.changed)
             {
@@ -1358,8 +1372,6 @@ namespace LocationLoader
 
             if (dataIDs.Count > 0)
             {
-                EnemyMarkerExtraData currentExtraData = (EnemyMarkerExtraData)SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), extraData);
-
                 scrollPosition3 = GUI.BeginScrollView(new Rect(baseX + 8, baseY + 36, 256, maxY - 28), scrollPosition3, new Rect(0, 0, 236, 20 + dataIdNames.Count * 24));
 
                 int previousSelectedIndex = dataIDs.IndexOf(currentExtraData.EnemyId);
