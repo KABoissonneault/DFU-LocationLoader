@@ -45,6 +45,9 @@ namespace LocationLoader
 
         public static bool IsDevMod(string modName)
         {
+            if (PackagedModInfo != null && PackagedModInfo.ContainsKey(modName))
+                return false;
+
             LoadDevModInfos();
             return DevModInfo.ContainsKey(modName);
         }
@@ -111,6 +114,9 @@ namespace LocationLoader
 
         public static bool IsPackagedMod(string modName)
         {
+            if (DevModInfo != null && DevModInfo.ContainsKey(modName))
+                return false;
+
             LoadPackagedMods();
             return PackagedModInfo.ContainsKey(modName);
         }
