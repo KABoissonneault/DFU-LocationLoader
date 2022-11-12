@@ -402,16 +402,26 @@ namespace LocationLoader
             }
 
             string looseLocationFolder = Path.Combine(Application.dataPath, LocationHelper.locationInstanceFolder);
-            string looseLocationPrefabFolder = Path.Combine(looseLocationFolder, "LocationPrefab");
-            bool hasLooseFiles = Directory.Exists(looseLocationFolder) && Directory.Exists(looseLocationPrefabFolder);
-            if (hasLooseFiles)
+
+            if(!Directory.Exists(looseLocationFolder))
             {
-                foreach (string filename in Directory.GetFiles(looseLocationPrefabFolder)
-                    .Where(file => file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase))
-                    .Select(file => Path.GetFileName(file)))
-                {
-                    modLocationPrefabs[filename] = null;
-                }
+                Debug.Log($"Loose locations folder '{looseLocationFolder}' did not exist");
+                return;
+            }
+
+            string looseLocationPrefabFolder = Path.Combine(looseLocationFolder, "LocationPrefab");
+            if(!Directory.Exists(looseLocationPrefabFolder))
+            {
+                Debug.Log($"Loose location prefabs folder '{looseLocationFolder}' did not exist");
+                return;
+            }
+
+            foreach (string filename in Directory.GetFiles(looseLocationPrefabFolder)
+                .Where(file => file.EndsWith(".txt", StringComparison.InvariantCultureIgnoreCase))
+                .Select(file => Path.GetFileName(file)))
+            {
+                Debug.Log($"Found loose location prefab '{filename}'");
+                modLocationPrefabs[filename] = null;
             }
         }
 
