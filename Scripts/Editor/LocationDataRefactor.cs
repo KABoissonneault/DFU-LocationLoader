@@ -23,6 +23,9 @@ namespace LocationLoader
         string shiftY = "0.0";
         string shiftZ = "0.0";
 
+        List<string> filteredPrefabs;
+        Vector2 scrollFilteredPrefabPos;
+
         [MenuItem("Daggerfall Tools/Location Data Refactor")]
         static void Init()
         {
@@ -44,6 +47,12 @@ namespace LocationLoader
                 void OnItemClicked(object mod)
                 {
                     workingMod = (string)mod;
+
+                    filteredPrefabs = new List<string>();
+                    foreach (var (prefabPath, _) in GetFilteredPrefabs())
+                    {
+                        filteredPrefabs.Add(Path.GetFileName(prefabPath));
+                    }
                 }
 
                 GenericMenu menu = new GenericMenu();
@@ -64,9 +73,34 @@ namespace LocationLoader
             availableWidth = position.width - baseX - 4;
             prefabFileFilter = GUI.TextField(new Rect(baseX + 4, baseY + 4, availableWidth - 4, 16), prefabFileFilter);
 
+            if(GUI.changed)
+            {
+                filteredPrefabs = new List<string>();
+                foreach(var (prefabPath, _) in GetFilteredPrefabs())
+                {
+                    filteredPrefabs.Add(Path.GetFileName(prefabPath));
+                }
+                GUI.changed = false;
+            }
+
             // End line
             baseX = 0;
             baseY += 20;
+
+            if (filteredPrefabs != null)
+            {
+                availableWidth = position.width - baseX - 4;
+                scrollFilteredPrefabPos = GUI.BeginScrollView(new Rect(baseX + 4, baseY + 4, availableWidth - 4, 200), scrollFilteredPrefabPos, new Rect(0, 0, availableWidth - 16, filteredPrefabs.Count * 24));
+
+                for(int i = 0; i < filteredPrefabs.Count; ++i)
+                {
+                    GUI.Label(new Rect(0, i * 24, availableWidth - 16, 24), filteredPrefabs[i]);
+                }
+
+                GUI.EndScrollView();
+
+                baseY += 200;
+            }
 
             // Separator
             baseY += 32;
@@ -92,6 +126,13 @@ namespace LocationLoader
 
             string input;
             int digitSize;
+
+            if(GUI.Button(new Rect(baseX + 4, baseY + 4, 112, 32), "Clean objects"))
+            {
+                RemoveInvalidObjects();
+            }
+
+            baseY += 36;
 
             using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(prefabObjectFilter)))
             {
@@ -180,13 +221,16 @@ namespace LocationLoader
             if (string.IsNullOrEmpty(filePattern))
                 return null;
 
-            return new Regex(filePattern, RegexOptions.Compiled);
+            var lowerPattern = filePattern.ToLower();
+
+            var regexPattern = Regex.Escape(lowerPattern).Replace("\\?", ".").Replace("\\*", ".*");
+
+            return new Regex(regexPattern, RegexOptions.Compiled);
         }
 
         IEnumerable<(string, LocationPrefab)> GetFilteredPrefabs()
         {
             ModInfo modInfo = LocationModManager.GetModInfo(workingMod);
-
 
             var filterPattern = MakeFilePattern(prefabFileFilter);
 
@@ -197,9 +241,66 @@ namespace LocationLoader
             
             return modInfo.Files.Where(file => file.StartsWith(pathPefab, StringComparison.OrdinalIgnoreCase)
                 && file.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
-            ).Where(file => filterPattern == null || filterPattern.IsMatch(Path.GetFileNameWithoutExtension(file)))
+            ).Where(file => filterPattern == null || filterPattern.IsMatch(Path.GetFileNameWithoutExtension(file).ToLower()))
             .Select(file => Path.Combine(prefabDirectory, Path.GetFileName(file)))
             .Select(prefabPath => (prefabPath, LocationHelper.LoadLocationPrefab(prefabPath)));
+        }
+
+        void RemoveInvalidObjects()
+        {
+            int prefabCount = 0;
+            int removedCount = 0;
+
+            ModInfo modInfo = LocationModManager.GetModInfo(workingMod);
+
+            foreach (var (prefabPath, prefab) in GetFilteredPrefabs())
+            {
+                if (prefab == null)
+                {
+                    Debug.LogError($"Could not load prefab at '{prefabPath}'");
+                    continue;
+                }
+
+                int initialCount = prefab.obj.Count;
+
+                List<LocationObject> previousObject = prefab.obj;
+                prefab.obj = new List<LocationObject>();
+                foreach(LocationObject obj in previousObject)
+                {
+                    if (obj.type == 3)
+                    {                        
+                        if (modInfo.Files.Any(file => file.EndsWith(".txt") && string.Equals(Path.GetFileNameWithoutExtension(file), obj.name, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            prefab.obj.Add(obj);
+                        }
+                    }
+                    else if(obj.type == 4)
+                    {
+                        var prefabName = Path.GetFileNameWithoutExtension(obj.name);
+                        if (modInfo.Files.Any(file => file.EndsWith(".prefab") && string.Equals(Path.GetFileNameWithoutExtension(file), prefabName, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            prefab.obj.Add(obj);
+                        }
+                    }
+                    else
+                    {
+                        prefab.obj.Add(obj);
+                    }                    
+                }
+                
+                if (prefab.obj.Count == initialCount)
+                {
+                    continue;
+                }
+
+                ++prefabCount;
+
+                removedCount += initialCount - prefab.obj.Count;
+
+                LocationHelper.SaveLocationPrefab(prefab, prefabPath);
+            }
+
+            EditorUtility.DisplayDialog("Operation done", $"{removedCount} objects removed in {prefabCount} prefabs.", "Ok");
         }
 
         void RemoveObject()
