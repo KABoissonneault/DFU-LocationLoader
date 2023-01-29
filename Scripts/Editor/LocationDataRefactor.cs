@@ -71,16 +71,18 @@ namespace LocationLoader
             baseX += 84;
 
             availableWidth = position.width - baseX - 4;
-            prefabFileFilter = GUI.TextField(new Rect(baseX + 4, baseY + 4, availableWidth - 4, 16), prefabFileFilter);
 
-            if(GUI.changed)
+            prefabFileFilter = GUI.TextField(new Rect(baseX + 4, baseY + 4, availableWidth - 120, 16), prefabFileFilter);
+            
+            baseX += availableWidth - 116;
+
+            if(GUI.Button(new Rect(baseX + 4, baseY + 4, 112, 16), "Refresh"))
             {
                 filteredPrefabs = new List<string>();
-                foreach(var (prefabPath, _) in GetFilteredPrefabs())
+                foreach (var (prefabPath, _) in GetFilteredPrefabs())
                 {
                     filteredPrefabs.Add(Path.GetFileName(prefabPath));
                 }
-                GUI.changed = false;
             }
 
             // End line
