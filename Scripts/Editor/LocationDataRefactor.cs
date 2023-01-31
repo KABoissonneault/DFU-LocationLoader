@@ -223,11 +223,9 @@ namespace LocationLoader
             if (string.IsNullOrEmpty(filePattern))
                 return null;
 
-            var lowerPattern = filePattern.ToLower();
+            var regexPattern = Regex.Escape(filePattern).Replace("\\?", ".").Replace("\\*", ".*");
 
-            var regexPattern = Regex.Escape(lowerPattern).Replace("\\?", ".").Replace("\\*", ".*");
-
-            return new Regex(regexPattern, RegexOptions.Compiled);
+            return new Regex(regexPattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);
         }
 
         IEnumerable<(string, LocationPrefab)> GetFilteredPrefabs()
@@ -243,7 +241,7 @@ namespace LocationLoader
             
             return modInfo.Files.Where(file => file.StartsWith(pathPefab, StringComparison.OrdinalIgnoreCase)
                 && file.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
-            ).Where(file => filterPattern == null || filterPattern.IsMatch(Path.GetFileNameWithoutExtension(file).ToLower()))
+            ).Where(file => filterPattern == null || filterPattern.IsMatch(Path.GetFileNameWithoutExtension(file)))
             .Select(file => Path.Combine(prefabDirectory, Path.GetFileName(file)))
             .Select(prefabPath => (prefabPath, LocationHelper.LoadLocationPrefab(prefabPath)));
         }
