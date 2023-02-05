@@ -302,8 +302,17 @@ namespace LocationLoader
             float baseX = 0;
             float baseY = 0;
 
-            GUI.Label(new Rect(16, baseY + 8, 84, 16), "Active Mod: ");
-            if(EditorGUI.DropdownButton(new Rect(92, baseY + 8, 160, 16), new GUIContent(workingMod), FocusType.Passive))
+            float availableWidth;
+            float availableHeight;
+
+            // Initial padding
+            baseY += 4;
+            baseX += 12;
+
+            GUI.Label(new Rect(baseX + 4, baseY + 4, 72, 16), "Active Mod: ");
+            baseX += 76;
+
+            if(EditorGUI.DropdownButton(new Rect(baseX + 4, baseY + 4, 160, 16), new GUIContent(workingMod), FocusType.Passive))
             {
                 void OnItemClicked(object mod)
                 {
@@ -318,14 +327,19 @@ namespace LocationLoader
                     menu.AddItem(new GUIContent(mod), workingMod == mod, OnItemClicked, mod);
                 }
 
-                menu.DropDown(new Rect(92, baseY + 8, 160, 16));
+                menu.DropDown(new Rect(baseX + 4, baseY + 4, 160, 16));
             }
+
+            baseX += 164;
+
+            availableWidth = position.width - baseX - 4;
 
             if (!string.IsNullOrEmpty(currentPrefabName))
             {
-                GUI.Label(new Rect(260, baseY + 8, 240, 16), new GUIContent($"Current prefab: {currentPrefabName}"));
+                GUI.Label(new Rect(baseX + 4, baseY + 4, availableWidth, 16), new GUIContent($"Current prefab: {currentPrefabName}"));
             }
 
+            baseX = 0;
             baseY += 24;
 
             if (GUI.Button(new Rect(16, baseY+8, 96, 16), "New Prefab"))
@@ -577,8 +591,10 @@ namespace LocationLoader
                     baseY += 48;
                 }
 
+                availableHeight = position.height - baseY - 4;
+
                 {
-                    scrollPosition = GUI.BeginScrollView(new Rect(2, baseY + 8, 532, 512), scrollPosition, new Rect(0, 0, 512, 20 + ((objScene.Count + 1) * 60)), false, true);
+                    scrollPosition = GUI.BeginScrollView(new Rect(2, baseY + 8, 532, availableHeight), scrollPosition, new Rect(0, 0, 512, 20 + ((objScene.Count + 1) * 60)), false, true);
 
                     for (int i = 0; i < objScene.Count; ++i)
                     {
