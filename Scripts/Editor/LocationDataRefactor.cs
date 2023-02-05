@@ -1,6 +1,7 @@
 using DaggerfallWorkshop.Game.Utility.ModSupport;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,12 +11,38 @@ using UnityEngine;
 
 namespace LocationLoader
 {
+    [Serializable]
+    public class LocationObjectMetaData
+    {
+        public string Type;
+    }
+
+    [Serializable]
+    public class LocationObjectIcebergMetaData : LocationObjectMetaData
+    {
+        public LocationObjectIcebergMetaData()
+        {
+            Type = "iceberg";
+        }
+
+        public int Target;
+    }
+
+    [Serializable]
+    public class LocationObjectExtraDataMeta
+    {
+        public LocationObjectMetaData Meta;
+    }
+
     internal class LocationDataRefactor : EditorWindow
     {
         string workingMod;
         string prefabFileFilter = "";
         string prefabObjectFilter = "";
         string targetPattern = ""; // Used as an extra argument for commands
+
+        string areaX = "512";
+        string areaY = "512";
 
         string factor1 = "1.0";
 
@@ -108,24 +135,6 @@ namespace LocationLoader
             baseY += 32;
 
             // Prefab Object operations
-            GUI.Label(new Rect(baseX + 4, baseY + 4, 92, 16), "Object Filter: ");
-            baseX += 100;
-
-            availableWidth = position.width - baseX - 4;
-            prefabObjectFilter = GUI.TextField(new Rect(baseX + 4, baseY + 4, availableWidth - 4, 16), prefabObjectFilter);
-
-            baseX = 0;
-            baseY += 20;
-
-            GUI.Label(new Rect(baseX + 4, baseY + 4, 96, 16), "Target Pattern: ");
-            baseX += 100;
-
-            availableWidth = position.width - baseX - 4;
-            targetPattern = GUI.TextField(new Rect(baseX + 4, baseY + 4, availableWidth - 4, 16), targetPattern);
-
-            baseX = 0;
-            baseY += 20;
-
             string input;
             int digitSize;
 
@@ -134,8 +143,47 @@ namespace LocationLoader
                 RemoveInvalidObjects();
             }
 
+            baseX += 116;
+
+            if (GUI.Button(new Rect(baseX + 4, baseY + 4, 112, 32), "Log prefabs"))
+            {
+                LogUnityPrefabs();
+            }
+
+            baseX = 0;
             baseY += 36;
 
+            if (GUI.Button(new Rect(baseX + 4, baseY + 4, 112, 32), "Set Area"))
+            {
+                SetArea();
+            }
+
+            baseX += 116;
+
+            GUI.Label(new Rect(baseX + 30, baseY + 4, 38, 16), "X");
+            input = GUI.TextField(new Rect(baseX + 4, baseY + 20, 64, 16), areaX);
+            digitSize = input.SkipWhile(c => !char.IsDigit(c)).TakeWhile(c => char.IsDigit(c)).Count();
+            areaX = input.Substring(0, digitSize);
+
+            baseX += 68;
+
+            GUI.Label(new Rect(baseX + 30, baseY + 4, 38, 16), "Y");
+            input = GUI.TextField(new Rect(baseX + 4, baseY + 20, 64, 16), areaY);
+            digitSize = input.SkipWhile(c => !char.IsDigit(c)).TakeWhile(c => char.IsDigit(c)).Count();
+            areaY = input.Substring(0, digitSize);
+
+            baseX = 0;
+            baseY += 36;
+
+            GUI.Label(new Rect(baseX + 4, baseY + 4, 92, 16), "Object Filter: ");
+            baseX += 100;
+
+            availableWidth = position.width - baseX - 4;
+            prefabObjectFilter = GUI.TextField(new Rect(baseX + 4, baseY + 4, availableWidth - 4, 16), prefabObjectFilter);
+
+            baseX = 0;
+            baseY += 20;
+            
             using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(prefabObjectFilter)))
             {
                 if (GUI.Button(new Rect(baseX + 4, baseY + 4, 112, 32), "Remove objects"))
@@ -195,6 +243,15 @@ namespace LocationLoader
                 baseX = 0;
                 baseY += 36;
 
+                GUI.Label(new Rect(baseX + 4, baseY + 4, 96, 16), "Target Pattern: ");
+                baseX += 100;
+
+                availableWidth = position.width - baseX - 4;
+                targetPattern = GUI.TextField(new Rect(baseX + 4, baseY + 4, availableWidth - 4, 16), targetPattern);
+
+                baseX = 0;
+                baseY += 20;
+
                 using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(targetPattern)))
                 {
                     using (new EditorGUI.DisabledScope(!float.TryParse(factor1, out float _)))
@@ -223,9 +280,7 @@ namespace LocationLoader
             if (string.IsNullOrEmpty(filePattern))
                 return null;
 
-            var regexPattern = Regex.Escape(filePattern).Replace("\\?", ".").Replace("\\*", ".*");
-
-            return new Regex(regexPattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);
+            return new Regex(filePattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);
         }
 
         IEnumerable<(string, LocationPrefab)> GetFilteredPrefabs()
@@ -243,7 +298,8 @@ namespace LocationLoader
                 && file.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
             ).Where(file => filterPattern == null || filterPattern.IsMatch(Path.GetFileNameWithoutExtension(file)))
             .Select(file => Path.Combine(prefabDirectory, Path.GetFileName(file)))
-            .Select(prefabPath => (prefabPath, LocationHelper.LoadLocationPrefab(prefabPath)));
+            .Select(prefabPath => (prefabPath, LocationHelper.LoadLocationPrefab(prefabPath)))
+            .Where(pair => pair.Item2 != null);
         }
 
         void RemoveInvalidObjects()
@@ -301,6 +357,67 @@ namespace LocationLoader
             }
 
             EditorUtility.DisplayDialog("Operation done", $"{removedCount} objects removed in {prefabCount} prefabs.", "Ok");
+        }
+
+        void LogUnityPrefabs()
+        {
+            string modDirectory = LocationModManager.GetDevModDirectory(workingMod);
+            string logPath = Path.Combine(modDirectory, "lldr_log.txt");
+
+            SortedSet<string> allPrefabs = new SortedSet<string>();
+
+            using (var log = new StreamWriter(logPath, false))
+            {
+                foreach (var (prefabPath, prefab) in GetFilteredPrefabs())
+                {
+                    SortedSet<string> currPrefabs = new SortedSet<string>();
+                    foreach(LocationObject obj in prefab.obj.Where(obj => obj.type == 4))
+                    {
+                        currPrefabs.Add(Path.GetFileNameWithoutExtension(obj.name));
+                        allPrefabs.Add(Path.GetFileNameWithoutExtension(obj.name));
+                    }
+
+                    if (currPrefabs.Count == 0)
+                        continue;
+
+                    log.WriteLine($"{Path.GetFileNameWithoutExtension(prefabPath)}:");
+                    foreach(string item in currPrefabs)
+                    {
+                        log.WriteLine($"\t{item}");
+                    }
+                }
+
+                log.WriteLine("Used prefabs:");
+                foreach(string prefab in allPrefabs)
+                {
+                    log.WriteLine($"\t{prefab}");
+                }
+            }
+        }
+
+        void SetArea()
+        {
+            int prefabCount = 0;
+
+            int width = int.Parse(areaX);
+            int height = int.Parse(areaY);
+
+            foreach (var (prefabPath, prefab) in GetFilteredPrefabs())
+            {
+                if(prefab.width == width && prefab.height == height)
+                {
+                    continue;
+                }
+
+                prefab.width = width;
+                prefab.height = height;
+
+                prefabCount++;
+
+                LocationHelper.SaveLocationPrefab(prefab, prefabPath);
+            }
+
+            EditorUtility.DisplayDialog("Operation done", $"{prefabCount} prefabs updated.", "Ok");
         }
 
         void RemoveObject()
@@ -420,7 +537,7 @@ namespace LocationLoader
 
             try
             {
-                var objToIcerbergPattern = MakeFilePattern(prefabObjectFilter);
+                var objToIcebergPattern = MakeFilePattern(prefabObjectFilter);
                 foreach (var (prefabPath, prefab) in GetFilteredPrefabs())
                 {
                     if (prefab == null)
@@ -429,7 +546,7 @@ namespace LocationLoader
                         continue;
                     }
                                         
-                    var targettedObjects = prefab.obj.Where(obj => objToIcerbergPattern.IsMatch(obj.name)).ToList();
+                    var targettedObjects = prefab.obj.Where(obj => objToIcebergPattern.IsMatch(obj.name)).ToList();
 
                     if (targettedObjects.Count() == 0)
                     {
@@ -440,7 +557,7 @@ namespace LocationLoader
 
                     foreach (var targettedObject in targettedObjects)
                     {
-                        Match match = objToIcerbergPattern.Match(targettedObject.name);
+                        Match match = objToIcebergPattern.Match(targettedObject.name);
 
                         List<string> captureValues = new List<string>();
                         foreach (Group captureGroup in match.Groups)
@@ -457,6 +574,9 @@ namespace LocationLoader
                         icebergObj.pos = targettedObject.pos;
                         icebergObj.rot = targettedObject.rot;
                         icebergObj.scale = new Vector3(-targettedObject.scale.x * scaleFactor, -targettedObject.scale.y * scaleFactor, -targettedObject.scale.z * scaleFactor);
+
+                        icebergObj.extraData = $"{{ \"meta\": {{ \"type\": \"iceberg\", \"target\": {targettedObject.objectID} }} }}";
+                                               
 
                         prefab.obj.Add(icebergObj);
 
