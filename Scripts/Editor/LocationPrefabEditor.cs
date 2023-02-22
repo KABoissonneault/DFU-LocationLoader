@@ -883,7 +883,15 @@ namespace LocationLoader
 
             currentPrefabName = Path.GetFileName(path);
 
-            maxAreaLength = Math.Min(Math.Max(Math.Max(128, locationPrefab.width), locationPrefab.height), 9999);
+            if(locationPrefab.width > 128 || locationPrefab.height > 128)
+            {
+                maxAreaLength = Math.Max(locationPrefab.width, locationPrefab.height) * 2;
+            }
+            else
+            {
+                maxAreaLength = 128;
+            }
+            
         }
 
         bool TryGetObjectSet(string setName, string objId, int objType, out string[] objectSet)
