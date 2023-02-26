@@ -1341,6 +1341,39 @@ namespace LocationLoader
             return list.ToArray();
         }
 
+        public static bool ParseBool(string Value, string Context)
+        {
+            if (string.IsNullOrEmpty(Value))
+                return false;
+
+            if (string.Equals(Value, "true", StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (string.Equals(Value, "false", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            throw new InvalidDataException($"Error parsing ({Context}): invalid boolean value '{Value}'");
+        }
+
+        public static int[] ParseIntArrayArg(string Arg, string Context)
+        {
+            if (string.IsNullOrEmpty(Arg))
+                return Array.Empty<int>();
+
+            // Strip brackets
+            if (Arg[0] == '[' || Arg[0] == '{')
+            {
+                // Check for end bracket
+                if (Arg[0] == '[' && Arg[Arg.Length - 1] != ']'
+                    || Arg[0] == '{' && Arg[Arg.Length - 1] != '}')
+                    throw new InvalidDataException($"Error parsing ({Context}): array argument has mismatched brackets");
+
+                Arg = Arg.Substring(1, Arg.Length - 2);
+            }
+
+            string[] Frames = Arg.Split(',', ';');
+            return Frames.Select(int.Parse).ToArray();
+        }
+
         public static IEnumerable<LocationInstance> LoadLocationInstanceCsv(TextReader csvStream, string contextString)
         {
             string header = csvStream.ReadLine();

@@ -32,6 +32,7 @@ namespace LocationLoader
             Debug.Log("Begin mod init: Location Loader");
 
             LocationConsole.RegisterCommands();
+            LocationRMBVariant.RegisterCommands();
             resourceManager = GetComponent<LocationResourceManager>();
 
             Debug.Log("Finished mod init: Location Loader");

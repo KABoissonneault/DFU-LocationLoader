@@ -103,8 +103,15 @@ namespace LocationLoader
                     string value = Arg.Replace("--mod=", "");
                     if (value.StartsWith("\""))
                     {
-                        quotedString = modNameBuilder = new StringBuilder(value.Substring(1));
-                        parsingQuotedArg = true;
+                        if (value.EndsWith("\""))
+                        {
+                            modName = value.Substring(1, value.Length - 2);
+                        }
+                        else
+                        {
+                            quotedString = modNameBuilder = new StringBuilder(value.Substring(1));
+                            parsingQuotedArg = true;
+                        }
                     }
                     else
                     {
