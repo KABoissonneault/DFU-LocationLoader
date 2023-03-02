@@ -109,6 +109,8 @@ namespace LocationLoader
 
     public class LocationData : MonoBehaviour
     {
+        public static System.EventHandler OnLocationEnabled;
+
         [SerializeField]
         public LocationInstance Location;
 
@@ -118,6 +120,8 @@ namespace LocationLoader
         public float HeightOffset { get; set; }
 
         public float OverlapAverageHeight { get; set; }
+
+        public bool HasSpawnedDynamicObjects = false;
 
         public int Type
         {
@@ -162,6 +166,14 @@ namespace LocationLoader
         public int TerrainHeight
         {
             get { return HalfHeight * 2; }
+        }
+
+        void OnEnable()
+        {
+            if(OnLocationEnabled != null)
+            {
+                OnLocationEnabled(this, null);
+            }
         }
 
         public IEnumerable<WorldArea> GetOverlappingWorldAreas()

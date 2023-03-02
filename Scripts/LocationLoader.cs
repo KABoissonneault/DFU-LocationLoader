@@ -43,6 +43,7 @@ namespace LocationLoader
             DaggerfallTerrain.OnPromoteTerrainData += OnTerrainPromoted;
             StreamingWorld.OnInitWorld += StreamingWorld_OnInitWorld;
             StreamingWorld.OnUpdateTerrainsEnd += StreamingWorld_OnUpdateTerrainsEnd;
+            LocationData.OnLocationEnabled += LocationData_OnLocationEnabled;
         }
 
         private void OnDisable()
@@ -50,6 +51,7 @@ namespace LocationLoader
             DaggerfallTerrain.OnPromoteTerrainData -= OnTerrainPromoted;
             StreamingWorld.OnInitWorld -= StreamingWorld_OnInitWorld;
             StreamingWorld.OnUpdateTerrainsEnd -= StreamingWorld_OnUpdateTerrainsEnd;
+            LocationData.OnLocationEnabled -= LocationData_OnLocationEnabled;
         }
 
         private void StreamingWorld_OnInitWorld()
@@ -65,6 +67,18 @@ namespace LocationLoader
             }
         }
 
+        private void LocationData_OnLocationEnabled(object sender, EventArgs _)
+        {
+            if(!sceneLoading)
+            {
+                LocationData instance = sender as LocationData;
+                if(instance != null && !instance.HasSpawnedDynamicObjects)
+                {
+                    InstantiateInstanceDynamicObjects(instance);
+                }
+            }
+        }
+
         System.Collections.IEnumerator InstantiateAllDynamicObjectsNextFrame()
         {
             yield return new WaitForEndOfFrame();
@@ -72,11 +86,12 @@ namespace LocationLoader
             var instances = FindObjectsOfType<LocationData>();
             foreach (var instance in instances)
             {
-                // Ignores embedded prefabs
-                if (instance.Location == null)
+                // Ignore embedded prefabs
+                // Or instances which already have dynamic objects spawned
+                if (instance.Location == null || instance.HasSpawnedDynamicObjects)
                     continue;
 
-                InstantiateInstanceDynamicObjects(instance.gameObject, instance.Location, instance.Prefab);
+                InstantiateInstanceDynamicObjects(instance);
             }
 
             sceneLoading = false;
@@ -110,8 +125,12 @@ namespace LocationLoader
             return false;
         }
         
-        void InstantiateInstanceDynamicObjects(GameObject instance, LocationInstance loc, LocationPrefab locationPrefab)
+        void InstantiateInstanceDynamicObjects(LocationData locationData)
         {
+            GameObject instance = locationData.gameObject;
+            LocationInstance loc = locationData.Location;
+            LocationPrefab locationPrefab = locationData.Prefab;
+
             var saveInterface = LocationModLoader.modObject.GetComponent<LocationSaveDataInterface>();
 
             foreach (LocationObject obj in locationPrefab.obj)
@@ -216,6 +235,8 @@ namespace LocationLoader
                     }
                 }
             }
+
+            locationData.HasSpawnedDynamicObjects = true;
         }
 
         Vector3 GetLocationPosition(LocationData locationData, DaggerfallTerrain daggerTerrain)
@@ -281,7 +302,7 @@ namespace LocationLoader
 
             if (!sceneLoading)
             {
-                InstantiateInstanceDynamicObjects(instance, loc, locationPrefab);
+                InstantiateInstanceDynamicObjects(data);
             }
         }
 
