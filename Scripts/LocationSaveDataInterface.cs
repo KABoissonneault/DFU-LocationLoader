@@ -586,17 +586,24 @@ namespace LocationLoader
                 TryDeserializeLoot(loot);
             }
 
-            foreach (EnemyData_v1 enemy in enemies)
+            // Copy collection
+            var enemySerializers = activeEnemySerializers.Values.ToArray();
+            foreach(LocationEnemySerializer activeSerializer in enemySerializers)
             {
-                if (activeEnemySerializers.TryGetValue(enemy.loadID, out LocationEnemySerializer serializer))
+                if(clearedEnemies.Contains(activeSerializer.LoadID))
                 {
-                    if (clearedEnemies.Contains(enemy.loadID))
+                    Destroy(activeSerializer.gameObject);
+                }
+                else
+                {
+                    EnemyData_v1 enemyData = enemies.FirstOrDefault(e => e.loadID == activeSerializer.LoadID);
+                    if(enemyData != null)
                     {
-                        Destroy(serializer.gameObject);
+                        activeSerializer.RestoreSaveData(enemyData);
                     }
                     else
                     {
-                        serializer.RestoreSaveData(enemy);
+                        Debug.LogWarning($"Location loader: Enemy data not found for loadId '{activeSerializer.LoadID}'");
                     }
                 }
             }
