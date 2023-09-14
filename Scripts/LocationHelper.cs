@@ -2575,7 +2575,7 @@ namespace LocationLoader
 
         public static bool IsOutOfBounds(LocationInstance loc, LocationPrefab prefab)
         {
-            if (loc.type == 1 || loc.type == 2)
+            if (loc.type == 1 || loc.type == 2 || loc.type == 3)
                 return false;
 
             float rot = Mathf.Deg2Rad * loc.rot.eulerAngles.y;
@@ -2653,8 +2653,8 @@ namespace LocationLoader
             int halfHeight = (height + 1) / 2;
 
             List<TerrainSection> overlappingCoordinates = new List<TerrainSection>();
-            // Type 0 and type 2 instances only fit within their own map pixel, but type 1 can go out of bounds
-            if (loc.type == 1)
+            // Type 0 and type 2 instances only fit within their own map pixel, but type 1 and 3 can go out of bounds
+            if (loc.type == 1 || loc.type == 3)
             {
                 int xOffsetMin = (int)Math.Floor((loc.terrainX - halfWidth) / (float)LocationLoader.TERRAIN_SIZE);
                 int yOffsetMin = (int)Math.Floor((loc.terrainY - halfHeight) / (float)LocationLoader.TERRAIN_SIZE);

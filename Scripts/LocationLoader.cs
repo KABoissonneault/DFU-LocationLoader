@@ -9,6 +9,7 @@ using DaggerfallWorkshop.Game.Entity;
 using static DaggerfallWorkshop.Utility.ContentReader;
 using DaggerfallWorkshop.Utility.AssetInjection;
 using DaggerfallConnect;
+using DaggerfallWorkshop.Game.Utility.ModSupport;
 
 namespace LocationLoader
 {
@@ -25,7 +26,9 @@ namespace LocationLoader
         public const float TERRAINPIXELSIZE = 819.2f;
         public const float TERRAIN_SIZE_MULTI = TERRAINPIXELSIZE / TERRAIN_SIZE;
 
-        bool sceneLoading = false; 
+        bool sceneLoading = false;
+
+        bool basicRoadsEnabled = false;
 
         void Start()
         {
@@ -34,6 +37,10 @@ namespace LocationLoader
             LocationConsole.RegisterCommands();
             LocationRMBVariant.RegisterCommands();
             resourceManager = GetComponent<LocationResourceManager>();
+
+            Mod basicRoadsMod = ModManager.Instance.GetMod("BasicRoads");
+            if (basicRoadsMod != null)
+                basicRoadsEnabled = basicRoadsMod.Enabled;
 
             Debug.Log("Finished mod init: Location Loader");
         }
@@ -102,13 +109,18 @@ namespace LocationLoader
         public bool TryGetTerrain(int worldX, int worldY, out DaggerfallTerrain terrain)
         {
             var worldCoord = new Vector2Int(worldX, worldY);
+            return TryGetTerrain(worldCoord, out terrain);
+        }
+
+        public bool TryGetTerrain(Vector2Int worldCoord, out DaggerfallTerrain terrain)
+        {
             if (loadedTerrain.TryGetValue(worldCoord, out WeakReference<DaggerfallTerrain> terrainReference))
             {
-                if(terrainReference.TryGetTarget(out terrain))
+                if (terrainReference.TryGetTarget(out terrain))
                 {
                     // Terrain has been pooled and placed somewhere else
                     // Happens with Distant Terrain
-                    if(terrain.MapPixelX != worldX || terrain.MapPixelY != worldY)
+                    if (terrain.MapPixelX != worldCoord.x || terrain.MapPixelY != worldCoord.y)
                     {
                         loadedTerrain.Remove(worldCoord);
                         return false;
@@ -243,7 +255,7 @@ namespace LocationLoader
         {
             var loc = locationData.Location;
 
-            if (loc.type == 2)
+            if (loc.type == 2 || loc.type == 3)
             {
                 return new Vector3(loc.terrainX * TERRAIN_SIZE_MULTI, DaggerfallUnity.Instance.TerrainSampler.OceanElevation * daggerTerrain.TerrainScale, loc.terrainY * TERRAIN_SIZE_MULTI);
             }
@@ -389,6 +401,10 @@ namespace LocationLoader
                         loc.terrainY = coastTileCoord.y;
                     }
                 }
+                else if(basicRoadsEnabled && loc.type == 3)
+                {
+                    FindRiverCrossingCenter(loc, locationPrefab);
+                }
 
                 if(loc.type == 0 || loc.type == 2)
                 {
@@ -506,6 +522,27 @@ namespace LocationLoader
                         {
                             pendingLoc.Location.terrainX = coastCoord.x;
                             pendingLoc.Location.terrainY = coastCoord.y;
+
+                            pendingLoc.gameObject.transform.localPosition = GetLocationPosition(pendingLoc, pendingLocTerrain);
+
+                            // Instance is not pending anymore
+                            ClearPendingInstance();
+                            continue;
+                        }
+                    }
+                    // Type 3 location, river crossing
+                    else if(basicRoadsEnabled && pendingLoc.Location.type == 3)
+                    {
+                        if(FindRiverCrossingCenter(pendingLoc.Location, pendingLoc.Prefab))
+                        {
+                            // River crossing might have changed the world location of the instance
+                            if (!TryGetTerrain(pendingLoc.WorldX, pendingLoc.WorldY, out pendingLocTerrain))
+                            {
+                                // Terrain the location was on has expired
+                                ClearPendingInstance();
+                                continue;
+                            }
+
                             pendingLoc.gameObject.transform.localPosition = GetLocationPosition(pendingLoc, pendingLocTerrain);
 
                             // Instance is not pending anymore
@@ -874,6 +911,386 @@ namespace LocationLoader
             }
 
             return true;
+        }
+
+        bool FindRiverCrossingCenter(LocationInstance loc, LocationPrefab prefab)
+        {
+            int HALF_TERRAIN = TERRAIN_SIZE / 2;
+            int HALF_ROAD = ROAD_WIDTH / 2;
+
+            Vector2Int? crossingStartWorldCoord = null;
+            int crossingStartOffset = 0;
+            int crossingLength = 0;
+
+            byte crossingDirection = 0;
+
+            List<Vector2Int> pendingTerrain = new List<Vector2Int>();
+            foreach(var terrainSection in LocationHelper.GetOverlappingTerrainSections(loc, prefab))
+            {
+                if(!TryGetTerrain(terrainSection.WorldCoord, out DaggerfallTerrain terrain))
+                {
+                    pendingTerrain.Add(terrainSection.WorldCoord);
+                    continue;
+                }
+
+                bool error = false;
+                byte pathsDataPoint = 0;
+                Vector2Int coords = new Vector2Int(terrainSection.WorldCoord.x, terrainSection.WorldCoord.y);
+                ModManager.Instance.SendModMessage("BasicRoads", "getPathsPoint", coords, (string message, object data) =>
+                {
+                    if (message == "getPathsPoint")
+                    {
+                        pathsDataPoint = (byte)data;
+                    }
+                    else if (message == "error")
+                    {
+                        error = true;
+                    }
+                });
+
+                if(error)
+                {
+                    Debug.Log($"Error with 'getPathsPoint' on coords [{terrainSection.WorldCoord.x}, {terrainSection.WorldCoord.y}]");
+                    continue;
+                }
+
+                if(pathsDataPoint == 0)
+                {
+                    // No crossing here
+                    continue;
+                }
+
+                byte roadDirection = crossingDirection != 0 ? crossingDirection : pathsDataPoint;
+                
+                if(IsRoadHorizontal(roadDirection))
+                {
+                    void EndHorizontal()
+                    {
+                        loc.worldX = crossingStartWorldCoord.Value.x;
+                        loc.worldY = crossingStartWorldCoord.Value.y;
+                        int crossingMiddleOffset = crossingStartOffset + crossingLength / 2;
+                        while (crossingMiddleOffset > TERRAIN_SIZE)
+                        {
+                            ++loc.worldX;
+                            crossingMiddleOffset -= TERRAIN_SIZE;
+                        }
+                        loc.terrainX = crossingMiddleOffset;
+                        loc.terrainY = TERRAIN_SIZE / 2;
+                        loc.rot = Quaternion.Euler(0.0f, 90.0f, 0.0f);
+                    }
+                    void CheckHorizontal(int offset)
+                    {
+                        // Check if it has water on both sides
+                        if (terrain.MapData.tilemapSamples[offset, HALF_TERRAIN - HALF_ROAD] == 0
+                            && terrain.MapData.tilemapSamples[offset, HALF_TERRAIN + HALF_ROAD] == 0)
+                        {
+                            if (!crossingStartWorldCoord.HasValue)
+                            {
+                                crossingStartWorldCoord = terrainSection.WorldCoord;
+                                crossingStartOffset = offset;
+                                crossingLength = 1;
+                            }
+                            else
+                            {
+                                ++crossingLength;
+                            }
+                        }
+                        else if (crossingStartWorldCoord.HasValue)
+                        {
+                            EndHorizontal();
+                        }
+                    }
+
+                    if ((pathsDataPoint & Road_W) == Road_W)
+                    {                        
+                        for(int i = 0; i < HALF_TERRAIN; ++i)
+                        {
+                            CheckHorizontal(offset: i);
+                        }
+                    }
+                    else if(crossingStartWorldCoord.HasValue)
+                    {
+                        EndHorizontal();
+                        break;
+                    }
+
+                    if ((pathsDataPoint & Road_E) == Road_E)
+                    {
+                        for (int i = HALF_TERRAIN; i < TERRAIN_SIZE; ++i)
+                        {
+                            CheckHorizontal(offset: i);
+                        }
+                    }
+                    else if (crossingStartWorldCoord.HasValue)
+                    {
+                        EndHorizontal();
+                        break;
+                    }
+                }
+                else if (IsRoadVertical(roadDirection))
+                {
+                    void EndVertical()
+                    {
+                        loc.worldX = crossingStartWorldCoord.Value.x;
+                        loc.worldY = crossingStartWorldCoord.Value.y;
+                        int crossingMiddleOffset = crossingStartOffset + crossingLength / 2;
+                        while (crossingMiddleOffset > TERRAIN_SIZE)
+                        {
+                            --loc.worldY;
+                            crossingMiddleOffset -= TERRAIN_SIZE;
+                        }
+                        loc.terrainX = TERRAIN_SIZE / 2;
+                        loc.terrainY = crossingMiddleOffset;
+                        loc.rot = Quaternion.identity;
+                    }
+                    void CheckVertical(int offset)
+                    {
+                        // Check if it has water on both sides
+                        if (terrain.MapData.tilemapSamples[HALF_TERRAIN - HALF_ROAD, offset] == 0
+                            && terrain.MapData.tilemapSamples[HALF_TERRAIN + HALF_ROAD, offset] == 0)
+                        {
+                            if (!crossingStartWorldCoord.HasValue)
+                            {
+                                crossingStartWorldCoord = terrainSection.WorldCoord;
+                                crossingStartOffset = offset;
+                                crossingLength = 1;
+                            }
+                            else
+                            {
+                                ++crossingLength;
+                            }
+                        }
+                        else if (crossingStartWorldCoord.HasValue)
+                        {
+                            EndVertical();
+                        }
+                    }
+
+                    if ((pathsDataPoint & Road_S) == Road_S)
+                    {
+                        for (int i = 0; i < HALF_TERRAIN; ++i)
+                        {
+                            CheckVertical(offset: i);
+                        }
+                    }
+                    else if (crossingStartWorldCoord.HasValue)
+                    {
+                        EndVertical();
+                        break;
+                    }
+
+                    if ((pathsDataPoint & Road_N) == Road_N)
+                    {
+                        for (int i = HALF_TERRAIN; i < TERRAIN_SIZE; ++i)
+                        {
+                            CheckVertical(offset: i);
+                        }
+                    }
+                    else if (crossingStartWorldCoord.HasValue)
+                    {
+                        EndVertical();
+                        break;
+                    }
+                }
+                else if(IsRoadRightSlant(roadDirection))
+                {
+                    void EndRightSlant()
+                    {
+                        loc.worldX = crossingStartWorldCoord.Value.x;
+                        loc.worldY = crossingStartWorldCoord.Value.y;
+                        int crossingMiddleOffset = crossingStartOffset + crossingLength / 2;
+                        while (crossingMiddleOffset > TERRAIN_SIZE)
+                        {
+                            ++loc.worldX;
+                            --loc.worldY;
+                            crossingMiddleOffset -= TERRAIN_SIZE;
+                        }
+                        loc.terrainX = crossingMiddleOffset;
+                        loc.terrainY = crossingMiddleOffset;
+                        loc.rot = Quaternion.Euler(0.0f, 45.0f, 0.0f);
+                    }
+                    void CheckRightSlant(int offset)
+                    {
+                        bool inBounds = offset > HALF_ROAD && offset < TERRAIN_SIZE - HALF_ROAD - 1;
+                        if(!inBounds)
+                        {
+                            if(crossingStartWorldCoord.HasValue)
+                            {
+                                ++crossingLength;
+                            }
+                            return;
+                        }
+
+                        // Check if it has water on both sides
+                        if (terrain.MapData.tilemapSamples[offset - HALF_ROAD, offset] == 0
+                            && terrain.MapData.tilemapSamples[offset + HALF_ROAD, offset] == 0)
+                        {
+                            if (!crossingStartWorldCoord.HasValue)
+                            {
+                                crossingStartWorldCoord = terrainSection.WorldCoord;
+                                crossingStartOffset = offset;
+                                crossingLength = 1;
+                            }
+                            else
+                            {
+                                ++crossingLength;
+                            }
+                        }
+                        else if (crossingStartWorldCoord.HasValue)
+                        {
+                            EndRightSlant();
+                        }
+                    }
+
+                    if ((pathsDataPoint & Road_SW) == Road_SW)
+                    {
+                        for (int i = 0; i < HALF_TERRAIN; ++i)
+                        {
+                            CheckRightSlant(offset: i);
+                        }
+                    }
+                    else if (crossingStartWorldCoord.HasValue)
+                    {
+                        EndRightSlant();
+                        break;
+                    }
+
+                    if ((pathsDataPoint & Road_NE) == Road_NE)
+                    {
+                        for (int i = HALF_TERRAIN; i < TERRAIN_SIZE; ++i)
+                        {
+                            CheckRightSlant(offset: i);
+                        }
+                    }
+                    else if (crossingStartWorldCoord.HasValue)
+                    {
+                        EndRightSlant();
+                        break;
+                    }
+                }
+                else if(IsRoadLeftSlant(roadDirection))
+                {
+                    void EndLeftSlant()
+                    {
+                        loc.worldX = crossingStartWorldCoord.Value.x;
+                        loc.worldY = crossingStartWorldCoord.Value.y;
+                        int crossingMiddleOffset = crossingStartOffset + crossingLength / 2;
+                        while (crossingMiddleOffset > TERRAIN_SIZE)
+                        {
+                            ++loc.worldX;
+                            ++loc.worldY;
+                            crossingMiddleOffset -= TERRAIN_SIZE;
+                        }
+                        loc.terrainX = crossingMiddleOffset;
+                        loc.terrainY = TERRAIN_SIZE - crossingMiddleOffset;
+                        loc.rot = Quaternion.Euler(0.0f, -45.0f, 0.0f);
+                    }
+                    void CheckLeftSlant(int offset)
+                    {
+                        bool inBounds = offset > HALF_ROAD && offset < TERRAIN_SIZE - HALF_ROAD - 1;
+                        if (!inBounds)
+                        {
+                            if (crossingStartWorldCoord.HasValue)
+                            {
+                                ++crossingLength;
+                            }
+                            return;
+                        }
+
+                        // Check if it has water on both sides
+                        if (terrain.MapData.tilemapSamples[offset - HALF_ROAD, TERRAIN_SIZE - offset] == 0
+                            && terrain.MapData.tilemapSamples[offset + HALF_ROAD, TERRAIN_SIZE - offset] == 0)
+                        {
+                            if (!crossingStartWorldCoord.HasValue)
+                            {
+                                crossingStartWorldCoord = terrainSection.WorldCoord;
+                                crossingStartOffset = offset;
+                                crossingLength = 1;
+                            }
+                            else
+                            {
+                                ++crossingLength;
+                            }
+                        }
+                        else if (crossingStartWorldCoord.HasValue)
+                        {
+                            EndLeftSlant();
+                        }
+                    }
+
+                    if ((pathsDataPoint & Road_NW) == Road_NW)
+                    {
+                        for (int i = 0; i < HALF_TERRAIN; ++i)
+                        {
+                            CheckLeftSlant(offset: i);
+                        }
+                    }
+                    else if (crossingStartWorldCoord.HasValue)
+                    {
+                        EndLeftSlant();
+                        break;
+                    }
+
+                    if ((pathsDataPoint & Road_SE) == Road_SE)
+                    {
+                        for (int i = HALF_TERRAIN; i < TERRAIN_SIZE; ++i)
+                        {
+                            CheckLeftSlant(offset: i);
+                        }
+                    }
+                    else if (crossingStartWorldCoord.HasValue)
+                    {
+                        EndLeftSlant();
+                        break;
+                    }
+                }
+
+                if (crossingDirection == 0)
+                {
+                    crossingDirection = pathsDataPoint;
+                }
+            }
+
+            if(pendingTerrain.Count != 0)
+            {
+                instancePendingTerrains[loc.locationID] = pendingTerrain;
+                return false;
+            }
+
+            return true;
+        }
+
+        const byte Road_N = 128;//0b_1000_0000;
+        const byte Road_NE = 64; //0b_0100_0000;
+        const byte Road_E = 32; //0b_0010_0000;
+        const byte Road_SE = 16; //0b_0001_0000;
+        const byte Road_S = 8;  //0b_0000_1000;
+        const byte Road_SW = 4;  //0b_0000_0100;
+        const byte Road_W = 2;  //0b_0000_0010;
+        const byte Road_NW = 1;  //0b_0000_0001;
+
+        static bool IsRoadHorizontal(byte pathsDataPoint)
+        {
+            byte horizontalFlag = Road_W | Road_E;
+            return (pathsDataPoint & horizontalFlag) == horizontalFlag;
+        }
+
+        static bool IsRoadVertical(byte pathsDataPoint)
+        {
+            byte verticalFlag = Road_N | Road_S;
+            return (pathsDataPoint & verticalFlag) == verticalFlag;
+        }
+
+        static bool IsRoadRightSlant(byte pathsDataPoint)
+        {
+            byte rightSlantFlag = Road_SW | Road_NE;
+            return (pathsDataPoint & rightSlantFlag) == rightSlantFlag;
+        }
+
+        static bool IsRoadLeftSlant(byte pathsDataPoint)
+        {
+            byte leftSlantFlag = Road_NW | Road_SE;
+            return (pathsDataPoint & leftSlantFlag) == leftSlantFlag;
         }
     }
 }
