@@ -347,6 +347,7 @@ namespace LocationLoader
             }
 
             bool terrainOccupied = false;
+            float averageHeight = 0f; // Declare averageHeight here
 
             // Spawn the terrain's instances            
             foreach (LocationInstance loc in resourceManager.GetTerrainInstances(daggerTerrain))
@@ -413,59 +414,35 @@ namespace LocationLoader
                         Debug.LogWarning($"Location instance already present at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");
                         continue;
                     }
-                }
 
-                //Smooth the terrain
-                int count = 0;
-                float tmpAverageHeight = 0;
+                    int count = 0;
+                    float tmpAverageHeight = 0;
 
-                // Treating odd dimensions as ceiled-to-even
-                int halfWidth = (locationPrefab.width + 1) / 2;
-                int halfHeight = (locationPrefab.height + 1) / 2;
+                    int halfWidth = (locationPrefab.width + 1) / 2;
+                    int halfHeight = (locationPrefab.height + 1) / 2;
 
-                // Type 1 instances can overlap beyond terrain boundaries
-                // Estimate height using only the part in the current terrain tile for now
-                int minX = Math.Max(loc.terrainX - halfWidth, 0);
-                int minY = Math.Max(loc.terrainY - halfHeight, 0);
-                int maxX = Math.Min(loc.terrainX + halfWidth, 128);
-                int maxY = Math.Min(loc.terrainY + halfHeight, 128);
-                for (int y = minY; y <= maxY; y++)
-                {
-                    for (int x = minX; x <= maxX; x++)
+                    int minX = Math.Max(loc.terrainX - halfWidth, 0);
+                    int minY = Math.Max(loc.terrainY - halfHeight, 0);
+                    int maxX = Math.Min(loc.terrainX + halfWidth, 128);
+                    int maxY = Math.Min(loc.terrainY + halfHeight, 128);
+                    for (int y = minY; y <= maxY; y++)
                     {
-                        tmpAverageHeight += daggerTerrain.MapData.heightmapSamples[y, x];
-                        count++;
+                        for (int x = minX; x <= maxX; x++)
+                        {
+                            tmpAverageHeight += daggerTerrain.MapData.heightmapSamples[y, x];
+                            count++;
+                        }
                     }
-                }
 
-                var averageHeight = tmpAverageHeight /= count;
-
-                if (loc.type == 0 || loc.type == 2)
-                {
+                    averageHeight = tmpAverageHeight /= count;
                     daggerTerrain.MapData.locationRect = new Rect(minX, minY, maxX - minX, maxY - minY);
                     terrainOccupied = true;
 
-                    var locationRect = new Rect(minX, minY, maxX - minX, maxY - minY);
+                    float transitionWidth = 10.0f;
+                    BlendTerrain(daggerTerrain, daggerTerrain.MapData.locationRect, averageHeight, transitionWidth);
 
-                    for (int y = 1; y < 127; y++)
-                    {
-                        for (int x = 1; x < 127; x++)
-                        {
-                            // Don't flatten heightmap samples touching water tiles
-                            if (daggerTerrain.MapData.tilemapSamples[x, y] == 0
-                                || daggerTerrain.MapData.tilemapSamples[x + 1, y] == 0
-                                || daggerTerrain.MapData.tilemapSamples[x, y + 1] == 0
-                                || daggerTerrain.MapData.tilemapSamples[x + 1, y + 1] == 0)
-                            {
-                                continue;
-                            }
-
-                            daggerTerrain.MapData.heightmapSamples[y, x] = Mathf.Lerp(daggerTerrain.MapData.heightmapSamples[y, x], averageHeight, 1 / (GetDistanceFromRect(daggerTerrain.MapData.locationRect, new Vector2(x, y)) + 1));
-                        }
-                    }
+                    terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples);
                 }
-
-                terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples);
 
                 InstantiateTopLocationPrefab(loc.prefab, averageHeight, locationPrefab, loc, daggerTerrain);
             }
@@ -478,16 +455,12 @@ namespace LocationLoader
                     LocationData pendingLoc = pendingLocations[i];
 
                     if(pendingLoc == null)
-                    {
                         // We got no info left on this instance
                         continue;
-                    }
 
-                    if(!instancePendingTerrains.TryGetValue(pendingLoc.Location.locationID, out List<Vector2Int> pendingTerrains))
-                    {
                         // Invalid locations?
+                    if (!instancePendingTerrains.TryGetValue(pendingLoc.Location.locationID, out List<Vector2Int> pendingTerrains))
                         continue;
-                    }
 
                     // Removes the instance from all "pending terrains"
                     void ClearPendingInstance()
@@ -573,6 +546,27 @@ namespace LocationLoader
                 pendingIncompleteLocations.Remove(worldLocation);
             }
         }
+
+        void BlendTerrain(DaggerfallTerrain daggerTerrain, Rect locationRect, float averageHeight, float transitionWidth)
+        {
+            for (int y = 0; y < TERRAIN_SIZE; y++)
+            {
+                for (int x = 0; x < TERRAIN_SIZE; x++)
+                {
+                    Vector2 point = new Vector2(x, y);
+                    float distance = GetDistanceFromRect(locationRect, point);
+                    float originalHeight = daggerTerrain.MapData.heightmapSamples[y, x];
+
+                    if (distance < transitionWidth)
+                    {
+                        float factor = distance / transitionWidth;
+                        float blendedHeight = Mathf.Lerp(averageHeight, originalHeight, Mathf.SmoothStep(0.0f, 1.0f, factor));
+                        daggerTerrain.MapData.heightmapSamples[y, x] = blendedHeight;
+                    }
+                }
+            }
+        }
+
 
         bool PruneInstance(LocationInstance loc, LocationPrefab prefab)
         {
