@@ -407,7 +407,7 @@ namespace LocationLoader
                     FindRiverCrossingCenter(loc, locationPrefab);
                 }
 
-                if(loc.type == 0 || loc.type == 2)
+                if(loc.type == 0)
                 {
                     if(terrainOccupied)
                     {
