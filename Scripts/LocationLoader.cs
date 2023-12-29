@@ -367,7 +367,7 @@ namespace LocationLoader
                 if (locationPrefab == null)
                     continue;
 
-                if(DaggerfallUnity.Instance.WorldTime.Now.SeasonValue == DaggerfallDateTime.Seasons.Winter
+                if (DaggerfallUnity.Instance.WorldTime.Now.SeasonValue == DaggerfallDateTime.Seasons.Winter
                     && !IsInSnowFreeClimate(daggerTerrain)
                     && !string.IsNullOrEmpty(locationPrefab.winterPrefab))
                 {
@@ -384,7 +384,7 @@ namespace LocationLoader
                     continue;
                 }
 
-                if(PruneInstance(loc, locationPrefab))
+                if (PruneInstance(loc, locationPrefab))
                 {
                     continue;
                 }
@@ -402,47 +402,50 @@ namespace LocationLoader
                         loc.terrainY = coastTileCoord.y;
                     }
                 }
-                else if(basicRoadsEnabled && loc.type == 3)
+                else if (basicRoadsEnabled && loc.type == 3)
                 {
                     FindRiverCrossingCenter(loc, locationPrefab);
                 }
 
-                if(loc.type == 0)
+                if (loc.type == 0)
                 {
-                    if(terrainOccupied)
+                    if (terrainOccupied)
                     {
                         Debug.LogWarning($"Location instance already present at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");
                         continue;
                     }
+                }
 
-                    int count = 0;
-                    float tmpAverageHeight = 0;
+                int count = 0;
+                float tmpAverageHeight = 0;
 
-                    int halfWidth = (locationPrefab.width + 1) / 2;
-                    int halfHeight = (locationPrefab.height + 1) / 2;
+                int halfWidth = (locationPrefab.width + 1) / 2;
+                int halfHeight = (locationPrefab.height + 1) / 2;
 
-                    int minX = Math.Max(loc.terrainX - halfWidth, 0);
-                    int minY = Math.Max(loc.terrainY - halfHeight, 0);
-                    int maxX = Math.Min(loc.terrainX + halfWidth, 128);
-                    int maxY = Math.Min(loc.terrainY + halfHeight, 128);
-                    for (int y = minY; y <= maxY; y++)
+                int minX = Math.Max(loc.terrainX - halfWidth, 0);
+                int minY = Math.Max(loc.terrainY - halfHeight, 0);
+                int maxX = Math.Min(loc.terrainX + halfWidth, 128);
+                int maxY = Math.Min(loc.terrainY + halfHeight, 128);
+                for (int y = minY; y <= maxY; y++)
+                {
+                    for (int x = minX; x <= maxX; x++)
                     {
-                        for (int x = minX; x <= maxX; x++)
-                        {
-                            tmpAverageHeight += daggerTerrain.MapData.heightmapSamples[y, x];
-                            count++;
-                        }
+                        tmpAverageHeight += daggerTerrain.MapData.heightmapSamples[y, x];
+                        count++;
                     }
+                }
 
-                    averageHeight = tmpAverageHeight /= count;
+                averageHeight = tmpAverageHeight /= count;
+
+                if (loc.type == 0)
+                {
                     daggerTerrain.MapData.locationRect = new Rect(minX, minY, maxX - minX, maxY - minY);
                     terrainOccupied = true;
 
                     float transitionWidth = 10.0f;
                     BlendTerrain(daggerTerrain, daggerTerrain.MapData.locationRect, averageHeight, transitionWidth);
-
-                    terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples);
-                }
+                    terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples); // Reset terrain data after heightmap samples change
+                }                
 
                 InstantiateTopLocationPrefab(loc.prefab, averageHeight, locationPrefab, loc, daggerTerrain);
             }
