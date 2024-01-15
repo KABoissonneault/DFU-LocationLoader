@@ -552,9 +552,9 @@ namespace LocationLoader
 
         void BlendTerrain(DaggerfallTerrain daggerTerrain, Rect locationRect, float averageHeight, float transitionWidth)
         {
-            for (int y = 0; y < TERRAIN_SIZE; y++)
+            for (int y = 1; y < TERRAIN_SIZE - 1; y++)
             {
-                for (int x = 0; x < TERRAIN_SIZE; x++)
+                for (int x = 1; x < TERRAIN_SIZE - 1; x++)
                 {
                     Vector2 point = new Vector2(x, y);
                     float distance = GetDistanceFromRect(locationRect, point);
