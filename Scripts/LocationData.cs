@@ -141,6 +141,7 @@ namespace LocationLoader
 
         public float OverlapAverageHeight { get; set; }
 
+        public bool IsEmbeddedLocation = false;
         public bool HasSpawnedDynamicObjects = false;
                 
 

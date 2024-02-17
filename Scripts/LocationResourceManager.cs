@@ -481,6 +481,7 @@ namespace LocationLoader
                     subPrefab.transform.localRotation = obj.rot;
                     subPrefab.transform.localScale = obj.scale;
                     LocationData data = subPrefab.AddComponent<LocationData>();
+                    data.IsEmbeddedLocation = true;
                     data.Prefab = objPrefabInfo;
                 }
                 else if (obj.type == 4)

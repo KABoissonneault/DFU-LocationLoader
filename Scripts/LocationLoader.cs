@@ -80,7 +80,7 @@ namespace LocationLoader
             {
                 LocationData instance = sender as LocationData;
                 // Ignore embedded instances (where location instance is null)
-                if(instance != null && instance.Location != null && !instance.HasSpawnedDynamicObjects)
+                if(instance != null && !instance.IsEmbeddedLocation && !instance.HasSpawnedDynamicObjects)
                 {
                     InstantiateInstanceDynamicObjects(instance);
                 }
@@ -96,7 +96,7 @@ namespace LocationLoader
             {
                 // Ignore embedded prefabs
                 // Or instances which already have dynamic objects spawned
-                if (instance.Location == null || instance.HasSpawnedDynamicObjects)
+                if (instance.IsEmbeddedLocation || instance.HasSpawnedDynamicObjects)
                     continue;
 
                 InstantiateInstanceDynamicObjects(instance);
@@ -143,6 +143,12 @@ namespace LocationLoader
             if(locationData == null)
             {
                 Debug.LogError($"[LL] Failed to spawn dynamic objects: location data was null");
+                return;
+            }
+
+            if(locationData.IsEmbeddedLocation)
+            {
+                Debug.LogError($"[LL] Failed to spawn dynamic objects: location was embedded");
                 return;
             }
 
@@ -551,9 +557,9 @@ namespace LocationLoader
                         // We got no info left on this instance
                         continue;
 
-                    if(pendingLoc.Location == null)
+                    if(pendingLoc.IsEmbeddedLocation)
                     {
-                        Debug.LogError($"[LL] Non-top location in pending incomplete locations at ({worldLocation.x}, {worldLocation.y})");
+                        Debug.LogError($"[LL] Embedded location in pending incomplete locations at ({worldLocation.x}, {worldLocation.y})");
                         continue;
                     }
 
