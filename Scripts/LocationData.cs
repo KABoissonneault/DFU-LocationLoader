@@ -28,6 +28,26 @@ namespace LocationLoader
         public int width = 8;
         public List<LocationObject> obj = new List<LocationObject>();
         public string winterPrefab = "";
+
+        public int HalfWidth
+        {
+            get { return (width + 1) / 2; }
+        }
+
+        public int TerrainWidth
+        {
+            get { return HalfWidth * 2; }
+        }
+
+        public int HalfHeight
+        {
+            get { return (height + 1) / 2; }
+        }
+
+        public int TerrainHeight
+        {
+            get { return HalfHeight * 2; }
+        }
     }
     /// <summary>
     /// Holds data for locationInstances
@@ -122,51 +142,7 @@ namespace LocationLoader
         public float OverlapAverageHeight { get; set; }
 
         public bool HasSpawnedDynamicObjects = false;
-
-        public int Type
-        {
-            get { return Location.type; }
-        }
-
-        public int WorldX
-        {
-            get { return Location.worldX; }
-        }
-
-        public int WorldY
-        {
-            get { return Location.worldY; }
-        }
-
-        public int TerrainX
-        {
-            get { return Location.terrainX; }
-        }
-
-        public int TerrainY
-        {
-            get { return Location.terrainY; }
-        }
-
-        public int HalfWidth
-        {
-            get { return (Prefab.width + 1) / 2; }
-        }
-
-        public int TerrainWidth
-        {
-            get { return HalfWidth * 2; }
-        }
-
-        public int HalfHeight
-        {
-            get { return (Prefab.height + 1) / 2; }
-        }
-
-        public int TerrainHeight
-        {
-            get { return HalfHeight * 2; }
-        }
+                
 
         void OnEnable()
         {
@@ -178,26 +154,31 @@ namespace LocationLoader
 
         public IEnumerable<WorldArea> GetOverlappingWorldAreas()
         {
-            if (Type == 1)
+            if(Location == null || Prefab == null)
             {
-                int xOffsetMin = (int)Math.Floor((TerrainX - HalfWidth) / (float)LocationLoader.TERRAIN_SIZE);
-                int yOffsetMin = (int)Math.Floor((TerrainY - HalfHeight) / (float)LocationLoader.TERRAIN_SIZE);
-                int xOffsetMax = (TerrainX + HalfWidth) / LocationLoader.TERRAIN_SIZE;
-                int yOffsetMax = (TerrainY + HalfHeight) / LocationLoader.TERRAIN_SIZE;
+                yield break;
+            }
+
+            if (Location.type == 1)
+            {
+                int xOffsetMin = (int)Math.Floor((Location.terrainX - Prefab.HalfWidth) / (float)LocationLoader.TERRAIN_SIZE);
+                int yOffsetMin = (int)Math.Floor((Location.terrainY - Prefab.HalfHeight) / (float)LocationLoader.TERRAIN_SIZE);
+                int xOffsetMax = (Location.terrainX + Prefab.HalfWidth) / LocationLoader.TERRAIN_SIZE;
+                int yOffsetMax = (Location.terrainY + Prefab.HalfHeight) / LocationLoader.TERRAIN_SIZE;
 
                 // Find all overlapping coordinates and their overlap rectangle
                 for (int xOffset = xOffsetMin; xOffset <= xOffsetMax; ++xOffset)
                 {
                     for (int yOffset = yOffsetMin; yOffset <= yOffsetMax; ++yOffset)
                     {
-                        int xMin = Math.Max(TerrainX - HalfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 0);
-                        int xMax = Math.Min(TerrainX + HalfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 128);
-                        int yMin = Math.Max(TerrainY - HalfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 0);
-                        int yMax = Math.Min(TerrainY + HalfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 128);
+                        int xMin = Math.Max(Location.terrainX - Prefab.HalfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 0);
+                        int xMax = Math.Min(Location.terrainX + Prefab.HalfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 128);
+                        int yMin = Math.Max(Location.terrainY - Prefab.HalfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 0);
+                        int yMax = Math.Min(Location.terrainY + Prefab.HalfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 128);
 
                         yield return new WorldArea()
                         {
-                            WorldCoord = new Vector2Int(WorldX + xOffset, WorldY + yOffset),
+                            WorldCoord = new Vector2Int(Location.worldX + xOffset, Location.worldY + yOffset),
                             Area = new RectInt(xMin, yMin, xMax - xMin, yMax - yMin)
                         };
                     }
@@ -207,8 +188,8 @@ namespace LocationLoader
             {
                 yield return new WorldArea()
                 {
-                    WorldCoord = new Vector2Int(WorldX, WorldY),
-                    Area = new RectInt(TerrainX - HalfWidth, TerrainY - HalfHeight, TerrainWidth, TerrainHeight)
+                    WorldCoord = new Vector2Int(Location.worldX, Location.worldY),
+                    Area = new RectInt(Location.terrainX - Prefab.HalfWidth, Location.terrainY - Prefab.HalfHeight, Prefab.TerrainWidth, Prefab.TerrainHeight)
                 };
             }
         }

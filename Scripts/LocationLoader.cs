@@ -79,7 +79,8 @@ namespace LocationLoader
             if(!sceneLoading)
             {
                 LocationData instance = sender as LocationData;
-                if(instance != null && !instance.HasSpawnedDynamicObjects)
+                // Ignore embedded instances (where location instance is null)
+                if(instance != null && instance.Location != null && !instance.HasSpawnedDynamicObjects)
                 {
                     InstantiateInstanceDynamicObjects(instance);
                 }
@@ -139,14 +140,60 @@ namespace LocationLoader
         
         void InstantiateInstanceDynamicObjects(LocationData locationData)
         {
-            GameObject instance = locationData.gameObject;
-            LocationInstance loc = locationData.Location;
+            if(locationData == null)
+            {
+                Debug.LogError($"[LL] Failed to spawn dynamic objects: location data was null");
+                return;
+            }
+
             LocationPrefab locationPrefab = locationData.Prefab;
+            if (locationPrefab == null)
+            {
+                Debug.LogError($"[LL] Failed to spawn dynamic objects: prefab was null");
+                return;
+            }
+
+            LocationInstance loc = locationData.Location;
+            if (loc == null || string.IsNullOrEmpty(loc.prefab))
+            {
+                Debug.LogError($"[LL] Failed to spawn dynamic objects: instance was null or invalid");
+                return;
+            }
+
+            GameObject instance = locationData.gameObject;
+            if(instance == null)
+            {
+                Debug.LogError($"[LL] Failed to spawn dynamic objects at ({loc.worldX}, {loc.worldY}): GameObject was null");
+                return;
+            }
+                        
+            if(LocationModLoader.modObject == null)
+            {
+                Debug.LogError($"[LL] Failed to spawn dynamic objects at ({loc.worldX}, {loc.worldY}): mod object was null");
+                return;
+            }
 
             var saveInterface = LocationModLoader.modObject.GetComponent<LocationSaveDataInterface>();
+            if (saveInterface == null)
+            {
+                Debug.LogError($"[LL] Failed to spawn dynamic objects at ({loc.worldX}, {loc.worldY}): save interface was null");
+                return;
+            }
 
             foreach (LocationObject obj in locationPrefab.obj)
             {
+                if (obj == null)
+                {
+                    Debug.LogError($"[LL] Failed to spawn dynamic object at ({loc.worldX}, {loc.worldY}) on prefab '{loc.prefab}': obj was null");
+                    continue;
+                }
+
+                if(string.IsNullOrEmpty(obj.name))
+                {
+                    Debug.LogError($"[LL] Failed to spawn dynamic object at ({loc.worldX}, {loc.worldY}) on prefab '{loc.prefab}': obj had null name");
+                    continue;
+                }
+
                 GameObject go = null;
 
                 if (obj.type == 1)
@@ -164,9 +211,9 @@ namespace LocationLoader
                 {
                     string[] arg = obj.name.Split('.');
 
-                    if (arg.Length != 2)
+                    if (arg == null || arg.Length != 2)
                     {
-                        Debug.LogError($"Invalid type 2 obj name '{obj.name}' in prefab '{loc.prefab}'");
+                        Debug.LogError($"[LL] Invalid type 2 obj name '{obj.name}' in prefab '{loc.prefab}'");
                         continue;
                     }
 
@@ -175,12 +222,18 @@ namespace LocationLoader
                         switch (arg[1])
                         {
                             case "16":
-                                var extraData = (EnemyMarkerExtraData)SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), obj.extraData);
+                                object result = SaveLoadManager.Deserialize(typeof(EnemyMarkerExtraData), obj.extraData);
+                                if(result == null)
+                                {
+                                    Debug.LogError($"[LL] Could not spawn enemy in prefab '{loc.prefab}': invalid extra data");
+                                    continue;
+                                }
 
+                                var extraData = (EnemyMarkerExtraData)result;
                                 if (!Enum.IsDefined(typeof(MobileTypes), extraData.EnemyId) && DaggerfallEntity.GetCustomCareerTemplate(extraData.EnemyId) == null)
                                 {
-                                    Debug.LogError($"Could not spawn enemy, unknown mobile type '{extraData.EnemyId}'");
-                                    break;
+                                    Debug.LogError($"[LL] Could not spawn enemy in prefab '{loc.prefab}', unknown mobile type '{extraData.EnemyId}'");
+                                    continue;
                                 }
 
                                 ulong v = (uint)obj.objectID;
@@ -194,7 +247,20 @@ namespace LocationLoader
                                 }
 
                                 MobileTypes mobileType = (MobileTypes)extraData.EnemyId;
+
+                                if(TextManager.Instance == null)
+                                {
+                                    Debug.LogError("[LL] Why is the text manager null");
+                                    continue;
+                                }
+
                                 go = GameObjectHelper.CreateEnemy(TextManager.Instance.GetLocalizedEnemyName((int)mobileType), mobileType, obj.pos, MobileGender.Unspecified, instance.transform);
+                                if(go == null)
+                                {
+                                    Debug.LogError($"[LL] Could not spawn enemy in prefab '{loc.prefab}': GameObject.CreateEnemy returned null");
+                                    continue;
+                                }
+
                                 SerializableEnemy serializable = go.GetComponent<SerializableEnemy>();
                                 if (serializable != null)
                                 {
@@ -202,7 +268,19 @@ namespace LocationLoader
                                 }
 
                                 DaggerfallEntityBehaviour behaviour = go.GetComponent<DaggerfallEntityBehaviour>();
+                                if(behaviour == null)
+                                {
+                                    Debug.LogError($"[LL] Failed to spawn enemy at ({loc.worldX}, {loc.worldY}) on prefab '{loc.prefab}': behaviour was null");
+                                    continue;
+                                }
+
                                 EnemyEntity entity = (EnemyEntity)behaviour.Entity;
+                                if (entity == null)
+                                {
+                                    Debug.LogError($"[LL] Failed to spawn enemy at ({loc.worldX}, {loc.worldY}) on prefab '{loc.prefab}': entity was null");
+                                    continue;
+                                }
+
                                 if (entity.MobileEnemy.Gender == MobileGender.Male)
                                 {
                                     entity.Gender = Genders.Male;
@@ -227,9 +305,21 @@ namespace LocationLoader
 
                             case "19":
                                 {
+                                    if(DaggerfallLootDataTables.randomTreasureIconIndices == null)
+                                    {
+                                        Debug.LogError($"[LL] Why is randomTreasureIconIndices null");
+                                        continue;
+                                    }
+
                                     int iconIndex = UnityEngine.Random.Range(0, DaggerfallLootDataTables.randomTreasureIconIndices.Length);
                                     int iconRecord = DaggerfallLootDataTables.randomTreasureIconIndices[iconIndex];
                                     go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, 216, iconRecord, instance.transform);
+                                    if (go == null)
+                                    {
+                                        Debug.LogError($"[LL] Could not spawn treasure in prefab '{loc.prefab}': LocationHelper.CreateLootContainer returned null");
+                                        continue;
+                                    }
+
                                     go.transform.localPosition = obj.pos;
                                     break;
                                 }
@@ -461,6 +551,12 @@ namespace LocationLoader
                         // We got no info left on this instance
                         continue;
 
+                    if(pendingLoc.Location == null)
+                    {
+                        Debug.LogError($"[LL] Non-top location in pending incomplete locations at ({worldLocation.x}, {worldLocation.y})");
+                        continue;
+                    }
+
                         // Invalid locations?
                     if (!instancePendingTerrains.TryGetValue(pendingLoc.Location.locationID, out List<Vector2Int> pendingTerrains))
                         continue;
@@ -484,7 +580,7 @@ namespace LocationLoader
                         instancePendingTerrains.Remove(pendingLoc.Location.locationID);
                     }
 
-                    if(!TryGetTerrain(pendingLoc.WorldX, pendingLoc.WorldY, out DaggerfallTerrain pendingLocTerrain))
+                    if(!TryGetTerrain(pendingLoc.Location.worldX, pendingLoc.Location.worldY, out DaggerfallTerrain pendingLocTerrain))
                     {
                         // Terrain the location was on has expired
                         ClearPendingInstance();
@@ -512,7 +608,7 @@ namespace LocationLoader
                         if(FindRiverCrossingCenter(pendingLoc.Location, pendingLoc.Prefab))
                         {
                             // River crossing might have changed the world location of the instance
-                            if (!TryGetTerrain(pendingLoc.WorldX, pendingLoc.WorldY, out pendingLocTerrain))
+                            if (!TryGetTerrain(pendingLoc.Location.worldX, pendingLoc.Location.worldY, out pendingLocTerrain))
                             {
                                 // Terrain the location was on has expired
                                 ClearPendingInstance();
