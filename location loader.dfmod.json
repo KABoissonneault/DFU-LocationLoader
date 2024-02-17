@@ -1,9 +1,9 @@
 {
     "ModTitle": "Location Loader",
-    "ModVersion": "0.2.6",
+    "ModVersion": "0.2.10",
     "ModAuthor": "kaboissonneault",
     "ContactInfo": "@kaboissonneault",
-    "DFUnity_Version": "0.14.5",
+    "DFUnity_Version": "1.0",
     "ModDescription": "Utility mod allowing mods to add new locations and prefabs to the world",
     "GUID": "fc5c0fa6-e80d-4cb1-89fa-c10be8e35bf3",
     "Files": [
