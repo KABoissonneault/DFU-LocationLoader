@@ -1377,7 +1377,7 @@ namespace LocationLoader
         public static IEnumerable<LocationInstance> LoadLocationInstanceCsv(TextReader csvStream, string contextString)
         {
             string header = csvStream.ReadLine();
-            string[] fields = header.Split(';', ',');
+            string[] fields = header.Split(';', ',').Select(field => field.Trim('\"')).ToArray();
 
             bool GetIndex(string fieldName, out int index)
             {

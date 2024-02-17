@@ -1349,7 +1349,7 @@ namespace LocationLoader
 
                             string header = stream.ReadLine();
 
-                            string[] fields = header.Split(';', ',');
+                            string[] fields = header.Split(';', ',').Select(field => field.Trim('\"')).ToArray();
                             int IdIndex = -1;
                             int NameIndex = -1;
                             for (int Index = 0; Index < fields.Length; ++Index)
