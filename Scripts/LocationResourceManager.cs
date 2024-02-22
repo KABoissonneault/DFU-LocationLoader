@@ -494,7 +494,7 @@ namespace LocationLoader
                     }
                     subPrefab.transform.localPosition = obj.pos;
                     subPrefab.transform.localRotation = obj.rot;
-                    subPrefab.transform.localScale = obj.scale;
+                    subPrefab.transform.localScale = Vector3.Scale(subPrefab.transform.localScale, obj.scale);
                 }
             }
 
