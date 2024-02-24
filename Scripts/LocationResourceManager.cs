@@ -444,8 +444,7 @@ namespace LocationLoader
                 // Only instantiate the types for now
                 if (obj.type == 0)
                 {
-                    GameObject go = LocationHelper.LoadStaticObject(
-                        obj.type,
+                    GameObject go = LocationHelper.LoadModelObject(
                         obj.name,
                         templateTransform,
                         obj.pos,

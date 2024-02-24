@@ -69,6 +69,8 @@ namespace LocationLoader
         float locationCameraSize = 10.0f;
         float locationCameraDistance = 10.0f;
         GameObject placedObject;
+        ClimateSeason visualizerSeason = ClimateSeason.Summer;
+        ClimateNatureSets visualizerNatureSet = ClimateNatureSets.TemperateWoodland;
 
         string extraData = "";
         List<int> dataIDs = new List<int>();
@@ -369,7 +371,7 @@ namespace LocationLoader
                     CreateGUIStyles();
                 }
 
-                GUI.Box(new Rect(4, baseY + 8, 656, 56), "", lightGrayBG);
+                GUI.Box(new Rect(4, baseY + 8, 490, 96), "", lightGrayBG);
                                 
                 GUI.Label(new Rect(16, baseY + 16, 64, 16), "Area X:");
                 int previousWidth = locationPrefab.width;
@@ -379,16 +381,7 @@ namespace LocationLoader
                     SceneView.RepaintAll(); // area reference gizmo
                     GUI.changed = false;
                 }
-
-                GUI.Label(new Rect(16, baseY + 40, 64, 16), "Area Y:");
-                int previousHeight = locationPrefab.height;
-                locationPrefab.height = EditorGUI.IntSlider(new Rect(90, baseY + 40, 400, 16), previousHeight, 1, maxAreaLength);
-                if (GUI.changed)
-                {
-                    SceneView.RepaintAll(); // area reference gizmo
-                    GUI.changed = false;
-                }
-
+                
                 GUI.Label(new Rect(498, baseY + 16, 80, 16), "Max Length:");
                 string maxAreaLengthText = GUI.TextField(new Rect(586, baseY + 16, 64, 16), maxAreaLength.ToString(), 4);
                 if(GUI.changed)
@@ -408,7 +401,18 @@ namespace LocationLoader
                     GUI.changed = false;
                 }
 
-                GUILayout.BeginArea(new Rect(498, baseY + 40, 80, 16));
+                baseY += 24;
+
+                GUI.Label(new Rect(16, baseY + 16, 64, 16), "Area Y:");
+                int previousHeight = locationPrefab.height;
+                locationPrefab.height = EditorGUI.IntSlider(new Rect(90, baseY + 16, 400, 16), previousHeight, 1, maxAreaLength);
+                if (GUI.changed)
+                {
+                    SceneView.RepaintAll(); // area reference gizmo
+                    GUI.changed = false;
+                }
+
+                GUILayout.BeginArea(new Rect(498, baseY + 16, 80, 16));
                 bReferenceGrid = EditorGUILayout.ToggleLeft("Ref. Grid", bReferenceGrid);
                 if(GUI.changed)
                 {
@@ -418,12 +422,33 @@ namespace LocationLoader
                 }
                 GUILayout.EndArea();
 
-                baseY += 72;
+                baseY += 24;
 
-                // Extra prefab properties
-                GUI.Label(new Rect(8, baseY + 8, 256, 16), "Winter variant");
-                locationPrefab.winterPrefab = GUI.TextField(new Rect(8, baseY + 32, 256, 16), locationPrefab.winterPrefab);
-                if (EditorGUI.DropdownButton(new Rect(272, baseY + 32, 16, 16), new GUIContent(), FocusType.Passive))
+                GUI.Label(new Rect(16, baseY + 16, 256, 16), "Winter variant");
+                locationPrefab.winterPrefab = GUI.TextField(new Rect(108, baseY + 16, 256, 16), locationPrefab.winterPrefab);
+
+                string activeClimateSet = visualizerNatureSet.ToString();
+                if (EditorGUI.DropdownButton(new Rect(498, baseY + 16, 160, 16), new GUIContent(activeClimateSet), FocusType.Passive))
+                {
+                    void OnItemClicked(object natureSet)
+                    {
+                        visualizerNatureSet = (ClimateNatureSets)Enum.Parse(typeof(ClimateNatureSets), (string)natureSet);
+                        UpdatePreview();
+                    }
+
+                    GenericMenu menu = new GenericMenu();
+
+                    foreach(string name in Enum.GetNames(typeof(ClimateNatureSets)))
+                    {
+                        menu.AddItem(new GUIContent(name), name.Equals(activeClimateSet), OnItemClicked, name);
+                    }
+
+                    menu.DropDown(new Rect(456, baseY + 20, 160, 16));
+                }
+
+                baseY += 24;
+
+                if (EditorGUI.DropdownButton(new Rect(348, baseY + 8, 16, 16), new GUIContent(), FocusType.Passive))
                 {
                     void OnItemClicked(object prefab)
                     {
@@ -449,6 +474,25 @@ namespace LocationLoader
                     }
 
                     menu.DropDown(new Rect(280, baseY + 40, 160, 16));
+                }
+
+                string activeSeason = visualizerSeason.ToString();
+                if (EditorGUI.DropdownButton(new Rect(498, baseY + 16, 160, 16), new GUIContent(activeSeason), FocusType.Passive))
+                {
+                    void OnItemClicked(object season)
+                    {
+                        visualizerSeason = (ClimateSeason)Enum.Parse(typeof(ClimateSeason), (string)season);
+                        UpdatePreview();
+                    }
+
+                    GenericMenu menu = new GenericMenu();
+
+                    foreach (string name in Enum.GetNames(typeof(ClimateSeason)))
+                    {
+                        menu.AddItem(new GUIContent(name), name.Equals(activeSeason), OnItemClicked, name);
+                    }
+
+                    menu.DropDown(new Rect(456, baseY + 20, 160, 16));
                 }
 
                 baseY += 56;
@@ -1224,11 +1268,18 @@ namespace LocationLoader
             }
             else
             {
-                var newObject = LocationHelper.LoadStaticObject(locationObject.type, locationObject.name, objectParent,
+                GameObject newObject = null;
+                if (locationObject.type == 0)
+                {
+                    newObject = LocationHelper.LoadModelObject(locationObject.name, objectParent,
                                      locationObject.pos,
                                      locationObject.rot,
-                                     locationObject.scale, combiner
-                );
+                                     locationObject.scale, combiner);
+                }
+                else if(locationObject.type == 1)
+                {
+                    newObject = LocationHelper.LoadFlatObject(locationObject.name, objectParent, locationObject.pos, locationObject.scale, visualizerNatureSet, visualizerSeason);
+                }
 
                 if (newObject != null)
                 {

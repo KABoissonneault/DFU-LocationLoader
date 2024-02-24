@@ -15,6 +15,7 @@ using System.Globalization;
 using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallConnect.Arena2;
 using System.Text;
+using DaggerfallConnect;
 
 namespace LocationLoader
 {
@@ -2026,6 +2027,47 @@ namespace LocationLoader
             }
         }
 
+        public static GameObject LoadFlatObject(string name, Transform parent, Vector3 pos, Vector3 scale, ClimateNatureSets climateNature, ClimateSeason climateSeason)
+        {
+            string[] arg = name.Split('.');
+
+            int archive = int.Parse(arg[0]);
+
+            
+            // Add natures using correct climate set archive
+            if (archive >= (int)DFLocation.ClimateTextureSet.Nature_RainForest && archive <= (int)DFLocation.ClimateTextureSet.Nature_Mountains_Snow)
+            {
+                archive = ClimateSwaps.GetNatureArchive(climateNature, climateSeason);
+            }
+
+            int record = int.Parse(arg[1]);
+
+            GameObject go = MeshReplacement.ImportCustomFlatGameobject(archive, record, pos, parent);
+
+            if (go == null)
+            {
+                go = GameObjectHelper.CreateDaggerfallBillboardGameObject(archive, record, parent);
+
+                if (go != null)
+                {
+                    go.transform.localPosition = pos;
+
+                    if (arg[0] == "210")
+                        AddLight(int.Parse(arg[1]), go.transform);
+
+                    if (arg[0] == "201")
+                        AddAnimalAudioSource(int.Parse(arg[1]), go);
+                }
+            }
+
+            if (go != null)
+            {
+                go.transform.localScale = new Vector3(go.transform.localScale.x * scale.x, go.transform.localScale.y * scale.y, go.transform.localScale.z * scale.z);
+            }
+
+            return go;
+        }
+
         /// <summary>
         /// Load a Game Object
         /// </summary>
@@ -2036,70 +2078,37 @@ namespace LocationLoader
         /// <param name="rot"></param>
         /// <param name="scale"></param>
         /// <returns></returns>
-        public static GameObject LoadStaticObject(int type, string name, Transform parent, Vector3 pos, Quaternion rot, Vector3 scale, ModelCombiner modelCombiner = null)
+        public static GameObject LoadModelObject(string name, Transform parent, Vector3 pos, Quaternion rot, Vector3 scale, ModelCombiner modelCombiner = null)
         {
-            GameObject go = null;
-            //Model
-            if (type == 0)
+            if (rot.x == 0 && rot.y == 0 && rot.z == 0 && rot.w == 0)
             {
-                if (rot.x == 0 && rot.y == 0 && rot.z == 0 && rot.w == 0)
-                {
-                    Debug.LogWarning($"Object {name} inside prefab has invalid rotation: {rot}");
-                    rot = Quaternion.identity;
-                }
-
-                Matrix4x4 mat = Matrix4x4.TRS(pos, rot, scale);
-
-                uint modelId = uint.Parse(name);
-
-                go = MeshReplacement.ImportCustomGameobject(modelId, parent, mat);
-
-                if (go == null) //if no mesh replacment exist
-                {
-                    if (modelCombiner != null
-                        && !PlayerActivate.HasCustomActivation(modelId)
-                        && DaggerfallUnity.Instance.MeshReader.GetModelData(modelId, out ModelData modelData))
-                    {
-                        modelCombiner.Add(ref modelData, mat);
-                    }
-                    else
-                    {
-                        go = GameObjectHelper.CreateDaggerfallMeshGameObject(modelId, parent);
-                        if (go != null)
-                        {
-                            go.transform.localPosition = pos;
-                            go.transform.localRotation = rot;
-                            go.transform.localScale = scale;
-                        }
-                    }
-                }
+                Debug.LogWarning($"Object {name} inside prefab has invalid rotation: {rot}");
+                rot = Quaternion.identity;
             }
-            //Flat
-            else if (type == 1)
+
+            Matrix4x4 mat = Matrix4x4.TRS(pos, rot, scale);
+
+            uint modelId = uint.Parse(name);
+
+            GameObject go = MeshReplacement.ImportCustomGameobject(modelId, parent, mat);
+
+            if (go == null) //if no mesh replacment exist
             {
-                string[] arg = name.Split('.');
-
-                go = MeshReplacement.ImportCustomFlatGameobject(int.Parse(arg[0]), int.Parse(arg[1]), pos, parent);
-
-                if (go == null)
+                if (modelCombiner != null
+                    && !PlayerActivate.HasCustomActivation(modelId)
+                    && DaggerfallUnity.Instance.MeshReader.GetModelData(modelId, out ModelData modelData))
                 {
-                    go = GameObjectHelper.CreateDaggerfallBillboardGameObject(int.Parse(arg[0]), int.Parse(arg[1]), parent);
-
+                    modelCombiner.Add(ref modelData, mat);
+                }
+                else
+                {
+                    go = GameObjectHelper.CreateDaggerfallMeshGameObject(modelId, parent);
                     if (go != null)
                     {
                         go.transform.localPosition = pos;
-
-                        if (arg[0] == "210")
-                            AddLight(int.Parse(arg[1]), go.transform);
-
-                        if (arg[0] == "201")
-                            AddAnimalAudioSource(int.Parse(arg[1]), go);
+                        go.transform.localRotation = rot;
+                        go.transform.localScale = scale;
                     }
-                }
-
-                if (go != null)
-                {
-                    go.transform.localScale = new Vector3(go.transform.localScale.x * scale.x, go.transform.localScale.y * scale.y, go.transform.localScale.z * scale.z);
                 }
             }
 

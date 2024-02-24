@@ -186,6 +186,8 @@ namespace LocationLoader
                 return;
             }
 
+            var season = DaggerfallUnity.Instance.WorldTime.Now.SeasonValue == DaggerfallDateTime.Seasons.Winter ? ClimateSeason.Winter : ClimateSeason.Summer;
+
             foreach (LocationObject obj in locationPrefab.obj)
             {
                 if (obj == null)
@@ -204,13 +206,13 @@ namespace LocationLoader
 
                 if (obj.type == 1)
                 {
-                    go = LocationHelper.LoadStaticObject(
-                        obj.type,
+                    go = LocationHelper.LoadFlatObject(
                         obj.name,
                         instance.transform,
                         obj.pos,
-                        obj.rot,
-                        obj.scale
+                        obj.scale,
+                        ClimateNatureSets.RainForest,
+                        season
                         );
                 }
                 else if (obj.type == 2)
