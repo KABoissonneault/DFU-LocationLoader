@@ -515,8 +515,7 @@ namespace LocationLoader
                 int count = 0;
                 float tmpAverageHeight = 0;
 
-                int halfWidth = (locationPrefab.width + 1) / 2;
-                int halfHeight = (locationPrefab.height + 1) / 2;
+                var (halfWidth, halfHeight) = LocationHelper.GetHalfDimensions(loc, locationPrefab);
 
                 int minX = Math.Max(loc.terrainX - halfWidth, 0);
                 int minY = Math.Max(loc.terrainY - halfHeight, 0);

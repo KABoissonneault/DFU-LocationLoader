@@ -2440,12 +2440,6 @@ namespace LocationLoader
         /// <param name="locationPrefab"></param>
         /// <param name="pathsDataPoint">Bytefield representing which cardinal directions have roads on the terrain</param>
         /// <returns></returns>
-        public static bool OverlapsRoad(LocationInstance loc, LocationPrefab locationPrefab, byte pathsDataPoint)
-        {
-            RectInt locationRect = new RectInt(loc.terrainX, loc.terrainY, locationPrefab.width, locationPrefab.height);
-            return OverlapsRoad(locationRect, pathsDataPoint);
-        }
-
         public static bool OverlapsRoad(RectInt locationRect, byte pathsDataPoint)
         {
             Vector2Int locationTopLeft = new Vector2Int(locationRect.xMin, locationRect.yMax);
@@ -2578,31 +2572,7 @@ namespace LocationLoader
             if (loc.type == 1 || loc.type == 2 || loc.type == 3)
                 return false;
 
-            float rot = Mathf.Deg2Rad * loc.rot.eulerAngles.y;
-            float cosRot = Mathf.Cos(rot);
-            float sinRot = Mathf.Sin(rot);
-            cosRot = Mathf.Abs(cosRot);
-            sinRot = Mathf.Abs(sinRot);
-
-            // These functions tend to return 1E-8 values for the usual 90 degree rotations 
-            // Mathf.Approximately and float.Epsilon won't do for these, so let's do this by hand
-            if (cosRot < 0.01f)
-                cosRot = 0.0f;
-
-            if (sinRot < 0.01f)
-                sinRot = 0.0f;
-
-            if (Mathf.Abs(cosRot - 1.0f) < 0.01f)
-                cosRot = 1.0f;
-
-            if (Mathf.Abs(sinRot - 1.0f) < 0.01f)
-                sinRot = 1.0f;
-
-            int width = Mathf.CeilToInt(cosRot * loc.scale * prefab.width + sinRot * loc.scale * prefab.height);
-            int height = Mathf.CeilToInt(sinRot * loc.scale * prefab.width + cosRot * loc.scale * prefab.height);
-
-            int halfWidth = (width+1) / 2;
-            int halfHeight = (height+1) / 2;
+            var (halfWidth, halfHeight) = GetHalfDimensions(loc, prefab);
 
             return loc.terrainX + halfWidth > 128
                 || loc.terrainX - halfWidth < 0
@@ -2626,31 +2596,7 @@ namespace LocationLoader
         {
             overflow = false;
 
-            float rot = Mathf.Deg2Rad * loc.rot.eulerAngles.y;
-            float cosRot = Mathf.Cos(rot);
-            float sinRot = Mathf.Sin(rot);
-            cosRot = Mathf.Abs(cosRot);
-            sinRot = Mathf.Abs(sinRot);
-
-            // These functions tend to return 1E-8 values for the usual 90 degree rotations 
-            // Mathf.Approximately and float.Epsilon won't do for these, so let's do this by hand
-            if (cosRot < 0.01f)
-                cosRot = 0.0f;
-
-            if (sinRot < 0.01f)
-                sinRot = 0.0f;
-
-            if (Mathf.Abs(cosRot - 1.0f) < 0.01f)
-                cosRot = 1.0f;
-
-            if (Mathf.Abs(sinRot - 1.0f) < 0.01f)
-                sinRot = 1.0f;
-
-            int width = Mathf.CeilToInt(cosRot * loc.scale * locationPrefab.width + sinRot * loc.scale * locationPrefab.height);
-            int height = Mathf.CeilToInt(sinRot * loc.scale * locationPrefab.width + cosRot * loc.scale * locationPrefab.height);
-
-            int halfWidth = (width + 1) / 2;
-            int halfHeight = (height + 1) / 2;
+            var (halfWidth, halfHeight) = GetHalfDimensions(loc, locationPrefab);
 
             List<TerrainSection> overlappingCoordinates = new List<TerrainSection>();
             // Type 0 and type 2 instances only fit within their own map pixel, but type 1 and 3 can go out of bounds
@@ -2721,6 +2667,51 @@ namespace LocationLoader
         public static List<TerrainSection> GetOverlappingTerrainSections(LocationInstance loc, LocationPrefab locationPrefab)
         {
             return GetOverlappingTerrainSections(loc, locationPrefab, out bool _);
+        }
+
+        // Returns location dimensions in terrain tiles. Takes into account instance scale and rotation
+        public static (int, int) GetDimensions(LocationInstance loc, LocationPrefab prefab)
+        {
+            float rot = Mathf.Deg2Rad * loc.rot.eulerAngles.y;
+            float cosRot = Mathf.Cos(rot);
+            float sinRot = Mathf.Sin(rot);
+            cosRot = Mathf.Abs(cosRot);
+            sinRot = Mathf.Abs(sinRot);
+
+            // These functions tend to return 1E-8 values for the usual 90 degree rotations 
+            // Mathf.Approximately and float.Epsilon won't do for these, so let's do this by hand
+            if (cosRot < 0.01f)
+                cosRot = 0.0f;
+
+            if (sinRot < 0.01f)
+                sinRot = 0.0f;
+
+            if (Mathf.Abs(cosRot - 1.0f) < 0.01f)
+                cosRot = 1.0f;
+
+            if (Mathf.Abs(sinRot - 1.0f) < 0.01f)
+                sinRot = 1.0f;
+
+            int width = Mathf.CeilToInt(cosRot * loc.scale * prefab.width + sinRot * loc.scale * prefab.height);
+            int height = Mathf.CeilToInt(sinRot * loc.scale * prefab.width + cosRot * loc.scale * prefab.height);
+
+            return (width, height);
+        }
+
+        // Returns half of the location height in terrain tiles. This takes prefab height and instance scale into account
+        // Prefab dimensions are specified in terrain tiles
+        // Instances are located with their center between four tiles
+        // It does not make sense for a location to have odd numbers on either dimension,
+        // we round up to the next number
+        // If a prefab has a width of 5, then we consider its half-width to be 3 on both sides
+        // If the location has a scale of 0.8, then its effective width is 4, and the half-width will be 2
+        public static (int, int) GetHalfDimensions(LocationInstance loc, LocationPrefab prefab)
+        {
+            var (width, height) = GetDimensions(loc, prefab);
+
+            int halfWidth = (width + 1) / 2;
+            int halfHeight = (height + 1) / 2;
+            return (halfWidth, halfHeight);
         }
     }
 }
