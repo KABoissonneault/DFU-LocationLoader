@@ -408,7 +408,8 @@ namespace LocationLoader
 
             SetActiveRecursively(instance);
 
-            if (!sceneLoading)
+            // The "LocationData.OnEnabled" callback might or might not spawn dynamic objects before this point
+            if (!sceneLoading && !data.HasSpawnedDynamicObjects)
             {
                 InstantiateInstanceDynamicObjects(data);
             }
