@@ -451,14 +451,14 @@ namespace LocationLoader
             {
                 string context = $"location=\"{loc.name}\"";
 
-                if (daggerTerrain.MapData.hasLocation)
-                {
-                    if (loc.type == 0)
-                    {
-                        Debug.LogWarning($"Location already present at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");
-                        continue;
-                    }
-                }
+                //if (daggerTerrain.MapData.hasLocation)
+                //{
+                //    if (loc.type == 0)
+                //    {
+                //        Debug.LogWarning($"Location already present at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");
+                //        continue;
+                //    }
+                //}
 
                 LocationPrefab locationPrefab = resourceManager.GetPrefabInfo(loc.prefab);
                 if (locationPrefab == null)
@@ -481,10 +481,10 @@ namespace LocationLoader
                     continue;
                 }
 
-                if (PruneInstance(loc, locationPrefab))
-                {
-                    continue;
-                }
+                //if (PruneInstance(loc, locationPrefab)) // carademono: Removing location check as type 0 placement now avoids overlaps and places multiples multiples per map pixel
+                //{
+                //    continue;
+                //}
 
                 if (loc.type == 2)
                 {
@@ -504,14 +504,14 @@ namespace LocationLoader
                     FindRiverCrossingCenter(loc, locationPrefab);
                 }
 
-                if (loc.type == 0)
-                {
-                    if (terrainOccupied)
-                    {
-                        Debug.LogWarning($"Location instance already present at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");
-                        continue;
-                    }
-                }
+                //if (loc.type == 0) // carademono: Removing terrainOccupied check as type 0 placement now avoids overlaps and places multiples multiples per map pixel
+                //{
+                //    if (terrainOccupied)
+                //    {
+                //        Debug.LogWarning($"Location instance already present at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");
+                //        continue;
+                //    }
+                //}
 
                 int count = 0;
                 float tmpAverageHeight = 0;
