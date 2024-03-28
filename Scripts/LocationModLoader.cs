@@ -44,7 +44,7 @@ namespace LocationLoader
                         callback(message, null);
                     }
 
-                    callback(message, extraData.LocationsRects);
+                    callback(message, new List<Rect>(extraData.LocationsRects));
 
                     break;
             }
