@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using DaggerfallWorkshop;
 using UnityEngine;
 using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Game.Utility.ModSupport;   //required for modding features
@@ -19,10 +21,33 @@ namespace LocationLoader
             modObject.AddComponent<LocationLoader>();
             mod.SaveDataInterface = modObject.AddComponent<LocationSaveDataInterface>();
             modObject.AddComponent<LocationResourceManager>();
+            mod.MessageReceiver = MessageReceiver;
             mod.IsReady = true;
+
+            // It's okay if other mods override us, they better provide a compatibility patch though
+            DaggerfallUnity.Instance.TerrainNature = new LocationTerrainNature();
 
             const int ladderModelId = 41409;
             PlayerActivate.RegisterCustomActivation(mod, ladderModelId, OnLadderActivated);
+        }
+
+        private static void MessageReceiver(string message, object data, DFModMessageCallback callback)
+        {
+            var ll = modObject.GetComponent<LocationLoader>();
+            switch (message)
+            {
+                case "getTerrainInstanceRects":
+                    var mapPixelCoord = (Vector2Int)data;
+                    if (!ll.TryGetTerrainExtraData(mapPixelCoord, out LocationLoader.LLTerrainData extraData))
+                    {
+                        Debug.LogError($"[LL] Call to 'getTerrainInstanceRects' failed: terrain at ({mapPixelCoord.x}, {mapPixelCoord.y}) is not loaded");
+                        callback(message, null);
+                    }
+
+                    callback(message, extraData.LocationsRects);
+
+                    break;
+            }
         }
 
         static void OnLadderActivated(RaycastHit hit)

@@ -3,6 +3,7 @@ using UnityEngine;
 using DaggerfallWorkshop.Game;
 using DaggerfallWorkshop.Utility;
 using System;
+using System.Runtime.CompilerServices;
 using DaggerfallWorkshop;
 using DaggerfallWorkshop.Game.Serialization;
 using DaggerfallWorkshop.Game.Entity;
@@ -14,15 +15,23 @@ using DaggerfallWorkshop.Game.Utility.ModSupport;
 namespace LocationLoader
 {
     public class LocationLoader : MonoBehaviour
-    {           
+    {
         Dictionary<Vector2Int, WeakReference<DaggerfallTerrain>> loadedTerrain = new Dictionary<Vector2Int, WeakReference<DaggerfallTerrain>>();
         Dictionary<Vector2Int, List<LocationData>> pendingIncompleteLocations = new Dictionary<Vector2Int, List<LocationData>>();
         Dictionary<ulong, List<Vector2Int>> instancePendingTerrains = new Dictionary<ulong, List<Vector2Int>>();
 
+        public class LLTerrainData
+        {
+            public List<Rect> LocationsRects { get; set; } = new List<Rect>();
+        }
+
+        private ConditionalWeakTable<DaggerfallTerrain, LLTerrainData> terrainExtraData =
+            new ConditionalWeakTable<DaggerfallTerrain, LLTerrainData>();
+
         LocationResourceManager resourceManager;
 
         public const int TERRAIN_SIZE = 128;
-        public const int ROAD_WIDTH = 4; // Actually 2, but let's leave a bit of a gap   
+        public const int ROAD_WIDTH = 4; // Actually 2, but let's leave a bit of a gap
         public const float TERRAINPIXELSIZE = 819.2f;
         public const float TERRAIN_SIZE_MULTI = TERRAINPIXELSIZE / TERRAIN_SIZE;
 
@@ -137,7 +146,18 @@ namespace LocationLoader
             terrain = null;
             return false;
         }
-        
+
+        public bool TryGetTerrainExtraData(Vector2Int worldCoord, out LLTerrainData extraData)
+        {
+            if(TryGetTerrain(worldCoord, out DaggerfallTerrain terrain))
+            {
+                return terrainExtraData.TryGetValue(terrain, out extraData);
+            }
+
+            extraData = null;
+            return false;
+        }
+
         void InstantiateInstanceDynamicObjects(LocationData locationData)
         {
             if(locationData == null)
@@ -172,7 +192,7 @@ namespace LocationLoader
                 Debug.LogError($"[LL] Failed to spawn dynamic objects at ({loc.worldX}, {loc.worldY}): GameObject was null");
                 return;
             }
-                        
+
             if(LocationModLoader.modObject == null)
             {
                 Debug.LogError($"[LL] Failed to spawn dynamic objects at ({loc.worldX}, {loc.worldY}): mod object was null");
@@ -246,7 +266,7 @@ namespace LocationLoader
                                 ulong loadId = (loc.locationID << 16) | v;
 
                                 // Enemy is dead, don't spawn anything
-                                
+
                                 if (saveInterface.IsEnemyDead(loadId))
                                 {
                                     break;
@@ -372,7 +392,7 @@ namespace LocationLoader
             }
         }
 
-        void InstantiateTopLocationPrefab(string prefabName, float overlapAverageHeight, LocationPrefab locationPrefab, LocationInstance loc, DaggerfallTerrain daggerTerrain)
+        LocationData InstantiateTopLocationPrefab(string prefabName, float overlapAverageHeight, LocationPrefab locationPrefab, LocationInstance loc, DaggerfallTerrain daggerTerrain)
         {
             GameObject instance = resourceManager.InstantiateLocationPrefab(prefabName, locationPrefab, daggerTerrain.transform);
 
@@ -390,7 +410,7 @@ namespace LocationLoader
             instance.transform.localPosition = terrainOffset;
             instance.transform.localRotation = loc.rot;
             instance.transform.localScale = new Vector3(loc.scale, loc.scale, loc.scale);
-            
+
             // Now that we have the LocationData, add it to "pending instances" if needed
             if(instancePendingTerrains.TryGetValue(loc.locationID, out List<Vector2Int> pendingTerrains))
             {
@@ -413,6 +433,8 @@ namespace LocationLoader
             {
                 InstantiateInstanceDynamicObjects(data);
             }
+
+            return data;
         }
 
         bool IsInSnowFreeClimate(DaggerfallTerrain daggerTerrain)
@@ -420,12 +442,14 @@ namespace LocationLoader
             int climateIndex = DaggerfallUnity.Instance.ContentReader.MapFileReader.GetClimateIndex(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
             return WeatherManager.IsSnowFreeClimate(climateIndex);
         }
-        
+
         void OnTerrainPromoted(DaggerfallTerrain daggerTerrain, TerrainData terrainData)
         {
             Vector2Int worldLocation = new Vector2Int(daggerTerrain.MapPixelX, daggerTerrain.MapPixelY);
             loadedTerrain[worldLocation] = new WeakReference<DaggerfallTerrain>(daggerTerrain);
-            
+
+            List<LocationData> terrainLocations = new List<LocationData>();
+
             // Terrain can be reused in terrain mods (ex: Distant Terrain)
             // Delete existing locations left on reused terrain
             foreach(var existingLoot in daggerTerrain.GetComponentsInChildren<LocationLootSerializer>())
@@ -443,22 +467,10 @@ namespace LocationLoader
                 Destroy(existingLocation.gameObject);
             }
 
-            bool terrainOccupied = false;
-            float averageHeight = 0f; // Declare averageHeight here
-
-            // Spawn the terrain's instances            
+            // Spawn the terrain's instances
             foreach (LocationInstance loc in resourceManager.GetTerrainInstances(daggerTerrain))
             {
                 string context = $"location=\"{loc.name}\"";
-
-                if (daggerTerrain.MapData.hasLocation)
-                {
-                    if (loc.type == 0)
-                    {
-                        Debug.LogWarning($"Location already present at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");
-                        continue;
-                    }
-                }
 
                 LocationPrefab locationPrefab = resourceManager.GetPrefabInfo(loc.prefab);
                 if (locationPrefab == null)
@@ -504,17 +516,8 @@ namespace LocationLoader
                     FindRiverCrossingCenter(loc, locationPrefab);
                 }
 
-                if (loc.type == 0)
-                {
-                    if (terrainOccupied)
-                    {
-                        Debug.LogWarning($"Location instance already present at ({daggerTerrain.MapPixelX}, {daggerTerrain.MapPixelY}) ({context})");
-                        continue;
-                    }
-                }
-
                 int count = 0;
-                float tmpAverageHeight = 0;
+                float averageHeight = 0;
 
                 var (halfWidth, halfHeight) = LocationHelper.GetHalfDimensions(loc, locationPrefab);
 
@@ -526,24 +529,25 @@ namespace LocationLoader
                 {
                     for (int x = minX; x <= maxX; x++)
                     {
-                        tmpAverageHeight += daggerTerrain.MapData.heightmapSamples[y, x];
+                        averageHeight += daggerTerrain.MapData.heightmapSamples[y, x];
                         count++;
                     }
                 }
 
-                averageHeight = tmpAverageHeight /= count;
+                averageHeight /= count;
 
                 if (loc.type == 0)
                 {
-                    daggerTerrain.MapData.locationRect = new Rect(minX, minY, maxX - minX, maxY - minY);
-                    terrainOccupied = true;
-
                     float transitionWidth = 10.0f;
                     BlendTerrain(daggerTerrain, daggerTerrain.MapData.locationRect, averageHeight, transitionWidth);
                     terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples); // Reset terrain data after heightmap samples change
-                }                
+                }
 
-                InstantiateTopLocationPrefab(loc.prefab, averageHeight, locationPrefab, loc, daggerTerrain);
+                var instantiatedLocation = InstantiateTopLocationPrefab(loc.prefab, averageHeight, locationPrefab, loc, daggerTerrain);
+                if (instantiatedLocation != null)
+                {
+                    terrainLocations.Add(instantiatedLocation);
+                }
             }
 
             // Check for pending instances waiting on this terrain
@@ -649,6 +653,16 @@ namespace LocationLoader
                 }
 
                 pendingIncompleteLocations.Remove(worldLocation);
+            }
+
+            LLTerrainData extraData = terrainExtraData.GetOrCreateValue(daggerTerrain);
+            extraData.LocationsRects.Clear();
+            foreach (var location in terrainLocations)
+            {
+                extraData.LocationsRects.Add(new Rect(location.Location.terrainX - location.Prefab.HalfWidth
+                    , location.Location.terrainY - location.Prefab.HalfHeight
+                    , location.Prefab.TerrainWidth
+                    , location.Prefab.TerrainHeight));
             }
         }
 
@@ -791,7 +805,7 @@ namespace LocationLoader
                     if (!anyValid)
                         break;
                 }
-                                
+
                 // Look the edges of adjacent terrain
                 if (GetNorthNeighbor(daggerTerrain, out DaggerfallTerrain northNeighbor))
                 {
@@ -1060,7 +1074,7 @@ namespace LocationLoader
                 }
 
                 byte roadDirection = crossingDirection != 0 ? crossingDirection : pathsDataPoint;
-                
+
                 if(IsRoadHorizontal(roadDirection))
                 {
                     void EndHorizontal()
@@ -1101,7 +1115,7 @@ namespace LocationLoader
                     }
 
                     if ((pathsDataPoint & Road_W) == Road_W)
-                    {                        
+                    {
                         for(int i = 0; i < HALF_TERRAIN; ++i)
                         {
                             CheckHorizontal(offset: i);

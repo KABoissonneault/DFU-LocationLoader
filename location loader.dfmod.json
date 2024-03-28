@@ -19,6 +19,7 @@
         "Assets/Game/Mods/LocationLoader/location loader.dfmod.json",
         "Assets/Game/Mods/LocationLoader/Scripts/LocationObjectExtraData.cs",
         "Assets/Game/Mods/LocationLoader/Scripts/LocationResourceManager.cs",
-        "Assets/Game/Mods/LocationLoader/Scripts/LocationRMBVariant.cs"
+        "Assets/Game/Mods/LocationLoader/Scripts/LocationRMBVariant.cs",
+        "Assets/Game/Mods/LocationLoader/Scripts/LocationTerrainNature.cs"
     ]
 }
