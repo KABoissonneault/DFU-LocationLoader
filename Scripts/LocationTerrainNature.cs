@@ -17,7 +17,7 @@ namespace LocationLoader
             if (ll.TryGetTerrainExtraData(new Vector2Int(dfTerrain.MapPixelX, dfTerrain.MapPixelY),
                     out LocationLoader.LLTerrainData terrainExtraData))
             {
-                llLocationRects = terrainExtraData.LocationsRects;
+                llLocationRects = terrainExtraData.LocationInstanceRects;
             }
 
             // Location Rect is expanded slightly to give extra clearance around locations

@@ -36,15 +36,15 @@ namespace LocationLoader
             var ll = modObject.GetComponent<LocationLoader>();
             switch (message)
             {
-                case "getTerrainInstanceRects":
+                case "getTerrainLocationInstanceRects":
                     var mapPixelCoord = (Vector2Int)data;
                     if (!ll.TryGetTerrainExtraData(mapPixelCoord, out LocationLoader.LLTerrainData extraData))
                     {
-                        Debug.LogError($"[LL] Call to 'getTerrainInstanceRects' failed: terrain at ({mapPixelCoord.x}, {mapPixelCoord.y}) is not loaded");
+                        Debug.LogError($"[LL] Call to 'getTerrainLocationInstanceRects' failed: terrain at ({mapPixelCoord.x}, {mapPixelCoord.y}) is not loaded");
                         callback(message, null);
                     }
 
-                    callback(message, new List<Rect>(extraData.LocationsRects));
+                    callback(message, new List<Rect>(extraData.LocationInstanceRects));
 
                     break;
             }

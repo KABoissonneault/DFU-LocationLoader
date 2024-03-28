@@ -22,7 +22,7 @@ namespace LocationLoader
 
         public class LLTerrainData
         {
-            public List<Rect> LocationsRects { get; set; } = new List<Rect>();
+            public List<Rect> LocationInstanceRects { get; set; } = new List<Rect>();
         }
 
         private ConditionalWeakTable<DaggerfallTerrain, LLTerrainData> terrainExtraData =
@@ -656,13 +656,16 @@ namespace LocationLoader
             }
 
             LLTerrainData extraData = terrainExtraData.GetOrCreateValue(daggerTerrain);
-            extraData.LocationsRects.Clear();
+            extraData.LocationInstanceRects.Clear();
             foreach (var location in terrainLocations)
             {
-                extraData.LocationsRects.Add(new Rect(location.Location.terrainX - location.Prefab.HalfWidth
-                    , location.Location.terrainY - location.Prefab.HalfHeight
-                    , location.Prefab.TerrainWidth
-                    , location.Prefab.TerrainHeight));
+                if (location.Location.type == 0)
+                {
+                    extraData.LocationInstanceRects.Add(new Rect(location.Location.terrainX - location.Prefab.HalfWidth
+                        , location.Location.terrainY - location.Prefab.HalfHeight
+                        , location.Prefab.TerrainWidth
+                        , location.Prefab.TerrainHeight));
+                }
             }
         }
 
