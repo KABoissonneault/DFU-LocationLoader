@@ -536,13 +536,6 @@ namespace LocationLoader
 
                 averageHeight /= count;
 
-                if (loc.type == 0)
-                {
-                    float transitionWidth = 10.0f;
-                    BlendTerrain(daggerTerrain, daggerTerrain.MapData.locationRect, averageHeight, transitionWidth);
-                    terrainData.SetHeights(0, 0, daggerTerrain.MapData.heightmapSamples); // Reset terrain data after heightmap samples change
-                }
-
                 var instantiatedLocation = InstantiateTopLocationPrefab(loc.prefab, averageHeight, locationPrefab, loc, daggerTerrain);
                 if (instantiatedLocation != null)
                 {
@@ -655,6 +648,12 @@ namespace LocationLoader
                 pendingIncompleteLocations.Remove(worldLocation);
             }
 
+            if (BlendTerrain(daggerTerrain, terrainLocations))
+            {
+                terrainData.SetHeights(0, 0,
+                    daggerTerrain.MapData.heightmapSamples); // Reset terrain data after heightmap samples change
+            }
+
             LLTerrainData extraData = terrainExtraData.GetOrCreateValue(daggerTerrain);
             extraData.LocationInstanceRects.Clear();
             foreach (var location in terrainLocations)
@@ -669,26 +668,103 @@ namespace LocationLoader
             }
         }
 
-        void BlendTerrain(DaggerfallTerrain daggerTerrain, Rect locationRect, float averageHeight, float transitionWidth)
+        struct LocationRectData
         {
+            public Rect rect;
+            public float averageHeight;
+        }
+
+        bool BlendTerrain(DaggerfallTerrain daggerTerrain, List<LocationData> terrainLocations)
+        {
+            float transitionWidth = 10.0f;
+
+            List<LocationRectData> locationRects = new List<LocationRectData>();
+
+            foreach (LocationData loc in terrainLocations)
+            {
+                if (loc.Location.type == 0)
+                {
+                    LocationRectData locationRectData = new LocationRectData();
+                    locationRectData.rect = new Rect(
+                        loc.Location.terrainX - loc.Prefab.HalfWidth,
+                        loc.Location.terrainY - loc.Prefab.HalfHeight,
+                        loc.Prefab.TerrainWidth,
+                        loc.Prefab.TerrainHeight
+                    );
+                    locationRectData.averageHeight = loc.OverlapAverageHeight;
+                    locationRects.Add(locationRectData);
+                }
+            }
+
+            // Ignore if we have no type 0 instances
+            if (locationRects.Count == 0)
+                return false;
+
+            var locationRect = daggerTerrain.MapData.locationRect;
+            bool hasDFLocation = locationRect.x > 0 && locationRect.y > 0;
+            if (hasDFLocation)
+            {
+                LocationRectData locationRectData = new LocationRectData();
+                locationRectData.rect = locationRect;
+
+                float averageHeight = 0.0f;
+                int count = 0;
+                int minX = Mathf.FloorToInt(locationRect.xMin);
+                int minY = Mathf.FloorToInt(locationRect.yMin);
+                int maxX = Mathf.CeilToInt(locationRect.xMax);
+                int maxY = Mathf.CeilToInt(locationRect.yMax);
+                for (int y = minY; y <= maxY; y++)
+                {
+                    for (int x = minX; x <= maxX; x++)
+                    {
+                        averageHeight += daggerTerrain.MapData.heightmapSamples[y, x];
+                        count++;
+                    }
+                }
+
+                averageHeight /= count;
+
+                locationRectData.averageHeight = averageHeight;
+
+                locationRects.Add(locationRectData);
+            }
+
             for (int y = 1; y < TERRAIN_SIZE - 1; y++)
             {
                 for (int x = 1; x < TERRAIN_SIZE - 1; x++)
                 {
                     Vector2 point = new Vector2(x, y);
-                    float distance = GetDistanceFromRect(locationRect, point);
-                    float originalHeight = daggerTerrain.MapData.heightmapSamples[y, x];
 
-                    if (distance < transitionWidth)
+                    float averageHeight = 0.0f;
+                    float currentDistance = 128.0f;
+                    foreach (LocationRectData rect in locationRects)
                     {
-                        float factor = distance / transitionWidth;
+                        float distance = GetDistanceFromRect(rect.rect, point);
+                        if (distance == 0.0f)
+                        {
+                            currentDistance = 0.0f;
+                            averageHeight = rect.averageHeight;
+                            break;
+                        }
+                        else if (distance < currentDistance)
+                        {
+                            currentDistance = distance;
+                            averageHeight = rect.averageHeight;
+                        }
+                    }
+
+                    if (currentDistance < transitionWidth)
+                    {
+                        float factor = currentDistance / transitionWidth;
+                        float originalHeight = daggerTerrain.MapData.heightmapSamples[y, x];
                         float blendedHeight = Mathf.Lerp(averageHeight, originalHeight, Mathf.SmoothStep(0.0f, 1.0f, factor));
                         daggerTerrain.MapData.heightmapSamples[y, x] = blendedHeight;
                     }
                 }
             }
-        }
 
+            return true;
+        }
 
         bool PruneInstance(LocationInstance loc, LocationPrefab prefab)
         {
@@ -732,6 +808,9 @@ namespace LocationLoader
                 squared_dist += (point.y - rect.yMax) * (point.y - rect.yMax);
             else if (point.y < rect.yMin)
                 squared_dist += (rect.yMin - point.y) * (rect.yMin - point.y);
+
+            if (squared_dist == 0.0f)
+                return 0.0f;
 
             return Mathf.Sqrt(squared_dist);
         }
