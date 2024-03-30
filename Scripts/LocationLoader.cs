@@ -388,7 +388,11 @@ namespace LocationLoader
             go.SetActive(true);
             foreach(Transform child in go.transform)
             {
-                SetActiveRecursively(child.gameObject);
+                if (child.TryGetComponent(out LocationData _))
+                {
+                    child.gameObject.SetActive(true);
+                    SetActiveRecursively(child.gameObject);
+                }
             }
         }
 
