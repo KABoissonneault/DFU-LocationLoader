@@ -418,10 +418,11 @@ namespace LocationLoader
                     var billboard = go.GetComponent<Billboard>();
                     if (billboard)
                     {
-                        var position = go.transform.position;
-                        float tempY = position.y;
+                        float tempY = go.transform.position.y;
                         billboard.AlignToBase();
-                        go.transform.position = new Vector3(position.x, tempY + ((position.y - tempY) * go.transform.localScale.y), position.z);
+                        var objectTransform = go.transform;
+                        var position = objectTransform.position;
+                        objectTransform.position = new Vector3(position.x, tempY + ((position.y - tempY) * objectTransform.localScale.y), position.z);
                     }
                 }
             }
