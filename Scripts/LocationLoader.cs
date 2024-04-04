@@ -22,7 +22,8 @@ namespace LocationLoader
 
         public class LLTerrainData
         {
-            public List<Rect> LocationInstanceRects { get; set; } = new List<Rect>();
+            public List<Rect> LocationInstanceRects = new List<Rect>();
+            public List<LocationData> LocationInstances = new List<LocationData>();
         }
 
         private ConditionalWeakTable<DaggerfallTerrain, LLTerrainData> terrainExtraData =
@@ -36,8 +37,11 @@ namespace LocationLoader
         public const float TERRAIN_SIZE_MULTI = TERRAINPIXELSIZE / TERRAIN_SIZE;
 
         bool sceneLoading = false;
+        private ulong lastLocationId = 0;
 
         bool basicRoadsEnabled = false;
+
+        public static int LootExpirationDays => 7;
 
         void Start()
         {
@@ -68,6 +72,72 @@ namespace LocationLoader
             StreamingWorld.OnInitWorld -= StreamingWorld_OnInitWorld;
             StreamingWorld.OnUpdateTerrainsEnd -= StreamingWorld_OnUpdateTerrainsEnd;
             LocationData.OnLocationEnabled -= LocationData_OnLocationEnabled;
+        }
+
+        void Update()
+        {
+            var game = GameManager.Instance;
+            if (!game.StateManager.GameInProgress)
+                return;
+
+            CheckCurrentLocation();
+        }
+
+        void CheckCurrentLocation()
+        {
+            var game = GameManager.Instance;
+
+            if (game.IsPlayerInside)
+                return;
+
+            // When near an instance, activate it
+            var playerGps = game.PlayerGPS;
+            var mapPixel = playerGps.CurrentMapPixel;
+            if (!TryGetTerrainExtraData(new Vector2Int(mapPixel.X, mapPixel.Y), out LLTerrainData terrainData))
+                return;
+
+            if (terrainData.LocationInstances.Count == 0)
+                return;
+
+            // World coords are 256 values per terrain tile, or 32768 per map pixel (256*128)
+            var playerTerrainX = (playerGps.WorldX % 32768) / 256;
+            var playerTerrainY = (playerGps.WorldZ % 32768) / 256;
+
+            const int extraRect = 1; // Add one terrain tile around each instance
+            foreach (var instance in terrainData.LocationInstances)
+            {
+                var loc = instance.Location;
+                var prefab = instance.Prefab;
+
+                var instanceMinX = loc.terrainX - prefab.HalfWidth - extraRect;
+                var instanceMinY = loc.terrainY - prefab.HalfHeight - extraRect;
+                var instanceMaxX = loc.terrainX + prefab.HalfWidth + extraRect;
+                var instanceMaxY = loc.terrainY + prefab.HalfHeight + extraRect;
+
+                if (playerTerrainX >= instanceMinX
+                    && playerTerrainX <= instanceMaxX
+                    && playerTerrainY >= instanceMinY
+                    && playerTerrainY <= instanceMaxY)
+                {
+                    if (loc.locationID != lastLocationId)
+                    {
+                        // Activate location
+
+                        foreach (var lootSerializer in instance.LocationLoots)
+                        {
+                            if (!lootSerializer.Activated)
+                            {
+                                LocationHelper.GenerateLoot(lootSerializer.loot);
+                                lootSerializer.Activated = true;
+                            }
+                        }
+
+                        lastLocationId = loc.locationID;
+                    }
+
+                    return;
+                }
+            }
         }
 
         private void StreamingWorld_OnInitWorld()
@@ -160,7 +230,7 @@ namespace LocationLoader
 
         void InstantiateInstanceDynamicObjects(LocationData locationData)
         {
-            if(locationData == null)
+            if(!locationData)
             {
                 Debug.LogError($"[LL] Failed to spawn dynamic objects: location data was null");
                 return;
@@ -187,20 +257,20 @@ namespace LocationLoader
             }
 
             GameObject instance = locationData.gameObject;
-            if(instance == null)
+            if(!instance)
             {
                 Debug.LogError($"[LL] Failed to spawn dynamic objects at ({loc.worldX}, {loc.worldY}): GameObject was null");
                 return;
             }
 
-            if(LocationModLoader.modObject == null)
+            if(!LocationModLoader.modObject)
             {
                 Debug.LogError($"[LL] Failed to spawn dynamic objects at ({loc.worldX}, {loc.worldY}): mod object was null");
                 return;
             }
 
             var saveInterface = LocationModLoader.modObject.GetComponent<LocationSaveDataInterface>();
-            if (saveInterface == null)
+            if (!saveInterface)
             {
                 Debug.LogError($"[LL] Failed to spawn dynamic objects at ({loc.worldX}, {loc.worldY}): save interface was null");
                 return;
@@ -263,7 +333,7 @@ namespace LocationLoader
                                 }
 
                                 ulong v = (uint)obj.objectID;
-                                ulong loadId = (loc.locationID << 16) | v;
+                                ulong loadId = LocationSaveDataInterface.ToObjectLoadId(loc.locationID, obj.objectID);
 
                                 // Enemy is dead, don't spawn anything
 
@@ -274,27 +344,21 @@ namespace LocationLoader
 
                                 MobileTypes mobileType = (MobileTypes)extraData.EnemyId;
 
-                                if(TextManager.Instance == null)
-                                {
-                                    Debug.LogError("[LL] Why is the text manager null");
-                                    continue;
-                                }
-
                                 go = GameObjectHelper.CreateEnemy(TextManager.Instance.GetLocalizedEnemyName((int)mobileType), mobileType, obj.pos, MobileGender.Unspecified, instance.transform);
-                                if(go == null)
+                                if(!go)
                                 {
                                     Debug.LogError($"[LL] Could not spawn enemy in prefab '{loc.prefab}': GameObject.CreateEnemy returned null");
                                     continue;
                                 }
 
                                 SerializableEnemy serializable = go.GetComponent<SerializableEnemy>();
-                                if (serializable != null)
+                                if (serializable)
                                 {
                                     Destroy(serializable);
                                 }
 
                                 DaggerfallEntityBehaviour behaviour = go.GetComponent<DaggerfallEntityBehaviour>();
-                                if(behaviour == null)
+                                if(!behaviour)
                                 {
                                     Debug.LogError($"[LL] Failed to spawn enemy at ({loc.worldX}, {loc.worldY}) on prefab '{loc.prefab}': behaviour was null");
                                     continue;
@@ -322,44 +386,49 @@ namespace LocationLoader
                                 }
 
                                 DaggerfallEnemy enemy = go.GetComponent<DaggerfallEnemy>();
-                                if (enemy != null)
+                                if (!enemy)
                                 {
-                                    enemy.LoadID = loadId;
-                                    go.AddComponent<LocationEnemySerializer>();
+                                    Debug.LogError($"[LL] Failed to spawn enemy at ({loc.worldX}, {loc.worldY}) on prefab '{loc.prefab}': no enemy component");
+                                    continue;
                                 }
+
+                                enemy.LoadID = loadId;
+                                var serializer = go.AddComponent<LocationEnemySerializer>();
+
+                                locationData.AddEnemy(serializer);
+
                                 break;
 
                             case "19":
                                 {
-                                    if(DaggerfallLootDataTables.randomTreasureIconIndices == null)
-                                    {
-                                        Debug.LogError($"[LL] Why is randomTreasureIconIndices null");
-                                        continue;
-                                    }
-
                                     int iconIndex = UnityEngine.Random.Range(0, DaggerfallLootDataTables.randomTreasureIconIndices.Length);
                                     int iconRecord = DaggerfallLootDataTables.randomTreasureIconIndices[iconIndex];
                                     go = LocationHelper.CreateLootContainer(loc.locationID, obj.objectID, 216, iconRecord, instance.transform);
-                                    if (go == null)
+                                    if (!go)
                                     {
                                         Debug.LogError($"[LL] Could not spawn treasure in prefab '{loc.prefab}': LocationHelper.CreateLootContainer returned null");
                                         continue;
                                     }
 
                                     go.transform.localPosition = obj.pos;
+
+                                    locationData.AddLoot(go.GetComponent<LocationLootSerializer>());
+
                                     break;
                                 }
                         }
                     }
                 }
 
-                if (go != null)
+                if (go)
                 {
-                    if (go.GetComponent<DaggerfallBillboard>())
+                    var billboard = go.GetComponent<Billboard>();
+                    if (billboard)
                     {
-                        float tempY = go.transform.position.y;
-                        go.GetComponent<DaggerfallBillboard>().AlignToBase();
-                        go.transform.position = new Vector3(go.transform.position.x, tempY + ((go.transform.position.y - tempY) * go.transform.localScale.y), go.transform.position.z);
+                        var position = go.transform.position;
+                        float tempY = position.y;
+                        billboard.AlignToBase();
+                        go.transform.position = new Vector3(position.x, tempY + ((position.y - tempY) * go.transform.localScale.y), position.z);
                     }
                 }
             }
@@ -668,6 +737,8 @@ namespace LocationLoader
                         , location.Location.terrainY - location.Prefab.HalfHeight
                         , location.Prefab.TerrainWidth
                         , location.Prefab.TerrainHeight));
+
+                    extraData.LocationInstances.Add(location);
                 }
             }
         }

@@ -111,12 +111,7 @@ namespace LocationLoader
                 GUI.Label(new Rect(312, 64, 96, 16), "Location ID: ");
                 GUI.TextField(new Rect(388, 64, 96, 16), "#" + locationInstance[listSelector].locationID.ToString("00000000"));
 
-                if (GUI.Button(new Rect(506, 64, 128, 16), "Generate New ID"))
-                {
-                    locationInstance[listSelector].UpdateLocationID();
-                }
-
-                    GUI.Label(new Rect(312, 96, 64, 16), "Name: ");
+                GUI.Label(new Rect(312, 96, 64, 16), "Name: ");
                 locationInstance[listSelector].name = GUI.TextField(new Rect(372, 96, 128, 16), locationInstance[listSelector].name);
 
                 if (GUI.changed)
@@ -175,7 +170,6 @@ namespace LocationLoader
                 var loc = new LocationInstance();
                 loc.name = "New Location";
                 locationInstance.Add(loc);
-                loc.UpdateLocationID();
                 locationInstaneNames.Add("New Location");
             }
 

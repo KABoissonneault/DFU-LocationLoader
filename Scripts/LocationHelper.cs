@@ -26,7 +26,7 @@ namespace LocationLoader
         const float animalSoundMaxDistance = 768 * MeshReader.GlobalScale; //Used for the objects with sound
 
         //List of objects
-                
+
         public struct ObjectSet
         {
             public string Name;
@@ -688,7 +688,7 @@ namespace LocationLoader
             new ObjectSet { Name = "Half Wall - House F", Ids = new string[] { "6800", "6801", "6802", "6803", "6804" } },
             new ObjectSet { Name = "Half Wall - Inn    ", Ids = new string[] { "6500", "6501", "6502", "6503", "6504" } },
             new ObjectSet { Name = "Half Wall - Mages G", Ids = new string[] { "6200", "6201", "6202", "6203", "6204" } },
-            new ObjectSet { Name = "Half Wall - Temple ", Ids = new string[] { "6600", "6601", "6602", "6603", "6604" } },            
+            new ObjectSet { Name = "Half Wall - Temple ", Ids = new string[] { "6600", "6601", "6602", "6603", "6604" } },
             new ObjectSet { Name = "Stairwell", Ids = new string[] { "5002",  "5003", "5004", "5005", "5006", "5007", "31023", "5102", "5202", "5302", "5402", "5502", "5602", "5702", "5802", "5103", "5203", "5303", "5403", "5503", "5603", "5703", "5803", "5104", "5204", "5304", "5404", "5504", "5604", "5704", "5804", "5105", "5205", "5305", "5405", "5505", "5605", "5705", "5805", "5106", "5206", "5306", "5406", "5506", "5606", "5706", "5806", "5107", "5207", "5307", "5407", "5507", "5607", "5707", "5807", "31123", "31223", "31323", "31423", "31523", "31623", "31723", "31823" } },
             new ObjectSet { Name = "Stairwell - Circular", Ids = new string[] { "5000", "5100", "5200", "5300", "5400", "5500", "5600", "5700", "5800", "31022", "44026" } },
             new ObjectSet { Name = "Stairwell - Curved", Ids = new string[] { "5001", "5101", "5201", "5301", "5401", "5501", "5601", "5701", "5801" } },
@@ -1268,7 +1268,6 @@ namespace LocationLoader
                 try
                 {
                     tmpInst.name = node["name"].InnerXml;
-                    tmpInst.locationID = ulong.Parse(node["locationID"].InnerXml);
                     tmpInst.type = int.Parse(node["type"].InnerXml);
                     tmpInst.prefab = node["prefab"].InnerXml;
                     tmpInst.worldX = int.Parse(node["worldX"].InnerXml);
@@ -1423,7 +1422,6 @@ namespace LocationLoader
             if (!GetIndex("worldY", out int worldYIndex)) yield break;
             if (!GetIndex("terrainX", out int terrainXIndex)) yield break;
             if (!GetIndex("terrainY", out int terrainYIndex)) yield break;
-            if (!GetIndex("locationID", out int locationIDIndex)) yield break;
             int? rotWIndex = GetIndexOpt("rotW");
             int? rotXIndex = GetIndexOpt("rotX");
             int? rotYIndex = GetIndexOpt("rotY");
@@ -1455,7 +1453,6 @@ namespace LocationLoader
                     tmpInst.worldY = int.Parse(tokens[worldYIndex]);
                     tmpInst.terrainX = int.Parse(tokens[terrainXIndex]);
                     tmpInst.terrainY = int.Parse(tokens[terrainYIndex]);
-                    tmpInst.locationID = ulong.Parse(tokens[locationIDIndex]);
 
                     if (rotWIndex.HasValue && !string.IsNullOrEmpty(tokens[rotWIndex.Value])) tmpInst.rot.w = float.Parse(tokens[rotWIndex.Value], cultureInfo);
                     if (rotXIndex.HasValue && !string.IsNullOrEmpty(tokens[rotXIndex.Value])) tmpInst.rot.x = float.Parse(tokens[rotXIndex.Value], cultureInfo);
@@ -1525,7 +1522,6 @@ namespace LocationLoader
             if (!GetIndex("worldY", out int worldYIndex)) return null;
             if (!GetIndex("terrainX", out int terrainXIndex)) return null;
             if (!GetIndex("terrainY", out int terrainYIndex)) return null;
-            if (!GetIndex("locationID", out int locationIDIndex)) return null;
             int? rotWIndex = GetIndexOpt("rotW");
             int? rotXIndex = GetIndexOpt("rotX");
             int? rotYIndex = GetIndexOpt("rotY");
@@ -1552,7 +1548,6 @@ namespace LocationLoader
                 tmpInst.worldY = int.Parse(tokens[worldYIndex]);
                 tmpInst.terrainX = int.Parse(tokens[terrainXIndex]);
                 tmpInst.terrainY = int.Parse(tokens[terrainYIndex]);
-                tmpInst.locationID = ulong.Parse(tokens[locationIDIndex]);
 
                 if (rotWIndex.HasValue && !string.IsNullOrEmpty(tokens[rotWIndex.Value])) tmpInst.rot.w = float.Parse(tokens[rotWIndex.Value], cultureInfo);
                 if (rotXIndex.HasValue && !string.IsNullOrEmpty(tokens[rotXIndex.Value])) tmpInst.rot.x = float.Parse(tokens[rotXIndex.Value], cultureInfo);
@@ -1590,7 +1585,6 @@ namespace LocationLoader
             {
                 writer.WriteLine("\t<locationInstance>");
                 writer.WriteLine("\t\t<name>" + inst.name + "</name>");
-                writer.WriteLine("\t\t<locationID>" + inst.locationID + "</locationID>");
                 writer.WriteLine("\t\t<type>" + inst.type + "</type>");
                 writer.WriteLine("\t\t<prefab>" + inst.prefab + "</prefab>");
                 writer.WriteLine("\t\t<worldX>" + inst.worldX + "</worldX>");
@@ -1663,10 +1657,6 @@ namespace LocationLoader
 
                     case "terrainY":
                         result.Append(instance.terrainY);
-                        break;
-
-                    case "locationID":
-                        result.Append(instance.locationID);
                         break;
 
                     case "rotW":
@@ -2377,28 +2367,26 @@ namespace LocationLoader
         /// </summary>
         /// <param name="billboardPosition"></param>
         /// <param name="parent"></param>
-        /// <param name="locationID"></param>
+        /// <param name="locationID">48-bits id</param>
         /// <param name="objID"></param>
         /// <param name="textureArchive"></param>
         /// <param name="textureRecord"></param>
         public static GameObject CreateLootContainer(ulong locationID, int objID, int textureArchive, int textureRecord, Transform parent)
         {
-            GameObject go = GameObject.Instantiate(DaggerfallUnity.Instance.Option_LootContainerPrefab.gameObject);
+            GameObject go = UnityEngine.Object.Instantiate(DaggerfallUnity.Instance.Option_LootContainerPrefab.gameObject);
 
             // We use our own serializer, get rid of the DFU one
             SerializableLootContainer serializableLootContainer = go.GetComponent<SerializableLootContainer>();
-            if (serializableLootContainer != null)
+            if (serializableLootContainer)
             {
-                GameObject.Destroy(serializableLootContainer);
+                UnityEngine.Object.Destroy(serializableLootContainer);
             }
 
-            
             // Setup DaggerfallLoot component to make lootable
             DaggerfallLoot loot = go.GetComponent<DaggerfallLoot>();
             if (loot)
             {
-                ulong v = (uint)objID;
-                loot.LoadID = (locationID << 16) | v;
+                loot.LoadID = LocationSaveDataInterface.ToObjectLoadId(locationID, objID);
                 loot.WorldContext = WorldContext.Exterior;
                 loot.ContainerType = LootContainerTypes.RandomTreasure;
                 loot.TextureArchive = textureArchive;
@@ -2407,21 +2395,25 @@ namespace LocationLoader
                 LocationLootSerializer serializer = go.AddComponent<LocationLootSerializer>();
                 if (!serializer.TryLoadSavedData())
                 {
-                    // We had no existing save, generate new loot
-                    if (!LootTables.GenerateLoot(loot, 2))
-                        DaggerfallUnity.LogMessage(string.Format("DaggerfallInterior: Location type {0} is out of range or unknown.", 0, true));
-
-                    var billboard = go.GetComponent<DaggerfallBillboard>();
-                    if (billboard != null)
-                        go.GetComponent<DaggerfallBillboard>().SetMaterial(textureArchive, textureRecord);
-
-                    loot.stockedDate = DaggerfallLoot.CreateStockedDate(DaggerfallUnity.Instance.WorldTime.Now);
+                    // We had no existing save, but do not generate loot. Wait for instance activation
+                    var billboard = go.GetComponent<Billboard>();
+                    if (billboard)
+                        billboard.SetMaterial(textureArchive, textureRecord);
                 }
             }
-            
+
             go.transform.parent = parent;
 
             return go;
+        }
+
+        public static void GenerateLoot(DaggerfallLoot loot)
+        {
+            // Generate loot for Human Stronghold
+            if (!LootTables.GenerateLoot(loot, 2))
+                Debug.LogError($"[LL] Failed to generate loot for object '{loot.LoadID}'");
+
+            loot.stockedDate = DaggerfallLoot.CreateStockedDate(DaggerfallUnity.Instance.WorldTime.Now);
         }
 
         const byte Road_N = 128;//0b_1000_0000;
@@ -2678,7 +2670,7 @@ namespace LocationLoader
             cosRot = Mathf.Abs(cosRot);
             sinRot = Mathf.Abs(sinRot);
 
-            // These functions tend to return 1E-8 values for the usual 90 degree rotations 
+            // These functions tend to return 1E-8 values for the usual 90 degree rotations
             // Mathf.Approximately and float.Epsilon won't do for these, so let's do this by hand
             if (cosRot < 0.01f)
                 cosRot = 0.0f;

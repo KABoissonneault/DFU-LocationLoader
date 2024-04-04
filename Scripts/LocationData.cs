@@ -29,33 +29,37 @@ namespace LocationLoader
         public List<LocationObject> obj = new List<LocationObject>();
         public string winterPrefab = "";
 
-        public int HalfWidth
-        {
-            get { return (width + 1) / 2; }
-        }
-
-        public int TerrainWidth
-        {
-            get { return HalfWidth * 2; }
-        }
-
-        public int HalfHeight
-        {
-            get { return (height + 1) / 2; }
-        }
-
-        public int TerrainHeight
-        {
-            get { return HalfHeight * 2; }
-        }
+        public int HalfWidth => (width + 1) / 2;
+        public int TerrainWidth => HalfWidth * 2;
+        public int HalfHeight => (height + 1) / 2;
+        public int TerrainHeight => HalfHeight * 2;
     }
+
     /// <summary>
     /// Holds data for locationInstances
     /// </summary>
     [System.Serializable]
     public class LocationInstance
     {
-        public ulong locationID;
+        public static ulong CoordToLocationId(int worldX, int worldY, int terrainX, int terrainY)
+        {
+            return (((ulong)worldX & 0xFFFF) << 32
+                    | ((ulong)terrainX & 0xFF) << 24
+                    | ((ulong)worldY & 0xFFFF) << 8)
+                   | ((ulong)terrainY & 0xFF);
+        }
+
+        public static void CoordFromLocationId(ulong locationId, out int worldX, out int worldY, out int terrainX,
+            out int terrainY)
+        {
+            worldX = (int)(locationId >> 32) & 0xFFFF;
+            worldY = (int)(locationId >> 8) & 0xFFFF;
+            terrainX = (int)(locationId >> 24) & 0xFF;
+            terrainY = (int)locationId & 0xFF;
+        }
+
+        // 48-bits id for a unique location
+        public ulong locationID => CoordToLocationId(worldX, worldY, terrainX, terrainY);
         public string name = "";
         public int type;
         public string prefab = "";
@@ -68,13 +72,6 @@ namespace LocationLoader
         public float scale = 1f;
         public string extraData;
 
-        public void UpdateLocationID()
-        {            
-            uint first = (uint)UnityEngine.Random.Range(int.MinValue, int.MaxValue);
-            uint second = (uint)UnityEngine.Random.Range(int.MinValue, int.MaxValue);
-            locationID = ((ulong)first) << 32 | second;                      
-        }
-
         public bool TryGetExtraDataAsInt64(string key, out long value)
         {
             fsResult parseResult = fsJsonParser.Parse(extraData, out fsData data);
@@ -84,14 +81,14 @@ namespace LocationLoader
                 return false;
             }
 
-            if(!data.AsDictionary.TryGetValue(key, out fsData valueData) || !valueData.IsInt64)
+            if (!data.AsDictionary.TryGetValue(key, out fsData valueData) || !valueData.IsInt64)
             {
                 value = 0;
                 return false;
             }
 
             value = valueData.AsInt64;
-            return true;            
+            return true;
         }
 
         public void SetExtraDataField(string key, long value)
@@ -131,11 +128,9 @@ namespace LocationLoader
     {
         public static System.EventHandler OnLocationEnabled;
 
-        [SerializeField]
-        public LocationInstance Location;
+        [SerializeField] public LocationInstance Location;
 
-        [SerializeField]
-        public LocationPrefab Prefab;
+        [SerializeField] public LocationPrefab Prefab;
 
         public float HeightOffset { get; set; }
 
@@ -143,27 +138,66 @@ namespace LocationLoader
 
         public bool IsEmbeddedLocation = false;
         public bool HasSpawnedDynamicObjects = false;
-                
+
+        private readonly List<LocationLootSerializer> locationLoots = new List<LocationLootSerializer>();
+        private readonly List<LocationEnemySerializer> locationEnemies = new List<LocationEnemySerializer>();
+
+        public IEnumerable<LocationLootSerializer> LocationLoots
+        {
+            get
+            {
+                foreach (var loot in locationLoots)
+                {
+                    if (loot)
+                        yield return loot;
+                }
+            }
+        }
+
+        public IEnumerable<LocationEnemySerializer> LocationEnemies
+        {
+            get
+            {
+                foreach (var enemy in locationEnemies)
+                {
+                    if (enemy)
+                        yield return enemy;
+                }
+            }
+        }
+
 
         void OnEnable()
         {
-            if(OnLocationEnabled != null)
+            if (OnLocationEnabled != null)
             {
                 OnLocationEnabled(this, null);
             }
         }
 
+        public void AddLoot(LocationLootSerializer serializer)
+        {
+            locationLoots.Add(serializer);
+        }
+
+        public void AddEnemy(LocationEnemySerializer serializer)
+        {
+            locationEnemies.Add(serializer);
+        }
+
         public IEnumerable<WorldArea> GetOverlappingWorldAreas()
         {
-            if(Location == null || Prefab == null)
+            if (Location == null || Prefab == null)
             {
                 yield break;
             }
 
             if (Location.type == 1)
             {
-                int xOffsetMin = (int)Math.Floor((Location.terrainX - Prefab.HalfWidth) / (float)LocationLoader.TERRAIN_SIZE);
-                int yOffsetMin = (int)Math.Floor((Location.terrainY - Prefab.HalfHeight) / (float)LocationLoader.TERRAIN_SIZE);
+                int xOffsetMin =
+                    (int)Math.Floor((Location.terrainX - Prefab.HalfWidth) / (float)LocationLoader.TERRAIN_SIZE);
+                int yOffsetMin =
+                    (int)Math.Floor((Location.terrainY - Prefab.HalfHeight) / (float)LocationLoader.TERRAIN_SIZE);
                 int xOffsetMax = (Location.terrainX + Prefab.HalfWidth) / LocationLoader.TERRAIN_SIZE;
                 int yOffsetMax = (Location.terrainY + Prefab.HalfHeight) / LocationLoader.TERRAIN_SIZE;
 
@@ -172,10 +206,14 @@ namespace LocationLoader
                 {
                     for (int yOffset = yOffsetMin; yOffset <= yOffsetMax; ++yOffset)
                     {
-                        int xMin = Math.Max(Location.terrainX - Prefab.HalfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 0);
-                        int xMax = Math.Min(Location.terrainX + Prefab.HalfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 128);
-                        int yMin = Math.Max(Location.terrainY - Prefab.HalfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 0);
-                        int yMax = Math.Min(Location.terrainY + Prefab.HalfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 128);
+                        int xMin = Math.Max(
+                            Location.terrainX - Prefab.HalfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 0);
+                        int xMax = Math.Min(
+                            Location.terrainX + Prefab.HalfWidth - xOffset * LocationLoader.TERRAIN_SIZE, 128);
+                        int yMin = Math.Max(
+                            Location.terrainY - Prefab.HalfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 0);
+                        int yMax = Math.Min(
+                            Location.terrainY + Prefab.HalfHeight - yOffset * LocationLoader.TERRAIN_SIZE, 128);
 
                         yield return new WorldArea()
                         {
@@ -190,7 +228,8 @@ namespace LocationLoader
                 yield return new WorldArea()
                 {
                     WorldCoord = new Vector2Int(Location.worldX, Location.worldY),
-                    Area = new RectInt(Location.terrainX - Prefab.HalfWidth, Location.terrainY - Prefab.HalfHeight, Prefab.TerrainWidth, Prefab.TerrainHeight)
+                    Area = new RectInt(Location.terrainX - Prefab.HalfWidth, Location.terrainY - Prefab.HalfHeight,
+                        Prefab.TerrainWidth, Prefab.TerrainHeight)
                 };
             }
         }
@@ -214,7 +253,7 @@ namespace LocationLoader
                     continue;
 
                 // Refine to closest marker
-                
+
                 Vector3 markerPos = transform.position + transform.rotation * obj.pos;
                 float distance = Vector3.Distance(sourcePos, markerPos);
                 if (distance < minDistance || !foundOne)
