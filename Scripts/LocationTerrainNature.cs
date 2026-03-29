@@ -71,7 +71,7 @@ namespace LocationLoader
             Vector2 tilePos = Vector2.zero;
             int tDim = MapsFile.WorldMapTileDim;
             int hDim = DaggerfallUnity.Instance.TerrainSampler.HeightmapDimension;
-            float scale = terrainData.heightmapScale.x * (float)hDim / (float)tDim;
+            float scale = terrainData.heightmapScale.x * (float)(hDim - 1) / (float)tDim;
             float maxTerrainHeight = DaggerfallUnity.Instance.TerrainSampler.MaxTerrainHeight;
             float beachLine = DaggerfallUnity.Instance.TerrainSampler.BeachElevation;
 
